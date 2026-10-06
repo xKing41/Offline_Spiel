@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#07051a">
+  <meta name="description" content="Neon Rush – schneller Arcade-Spaß für die Pause. Läuft komplett offline.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Neon Rush">
+  <title>Neon Rush</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- HUD während des Spiels -->
+  <div id="hud" class="hidden">
+    <div class="hud-left">
+      <div id="score">0</div>
+      <div id="combo"></div>
+    </div>
+    <div class="hud-right">
+      <div id="gems">◆ 0</div>
+      <button id="pauseBtn" class="icon-btn" aria-label="Pause">❚❚</button>
+    </div>
+  </div>
+
+  <!-- Hauptmenü -->
+  <section id="menu" class="screen">
+    <h1 class="logo">NEON<span>RUSH</span></h1>
+    <p class="tagline">Ausweichen. Sammeln. Schneller werden.</p>
+    <div class="stats">
+      <div><small>Rekord</small><b id="menuBest">0</b></div>
+      <div><small>Kristalle</small><b id="menuCoins">◆ 0</b></div>
+    </div>
+    <button class="btn primary" id="playBtn">SPIELEN</button>
+    <div class="row">
+      <button class="btn" id="shopBtn">Skins</button>
+      <button class="btn" id="helpBtn">Anleitung</button>
+    </div>
+    <div class="row">
+      <button class="icon-btn" id="soundBtn" aria-label="Ton an/aus">🔊</button>
+      <button class="icon-btn" id="vibBtn" aria-label="Vibration an/aus">📳</button>
+    </div>
+    <button class="btn small hidden" id="installBtn">📲 Als App installieren</button>
+    <p class="hint" id="installHint"></p>
+  </section>
+
+  <!-- Pause -->
+  <section id="pause" class="screen hidden">
+    <h2>Pause</h2>
+    <button class="btn primary" id="resumeBtn">WEITER</button>
+    <button class="btn" id="restartBtn">Neustart</button>
+    <button class="btn" id="pauseMenuBtn">Menü</button>
+  </section>
+
+  <!-- Game Over -->
+  <section id="over" class="screen hidden">
+    <h2>Crash!</h2>
+    <div id="newBest" class="badge hidden">★ NEUER REKORD ★</div>
+    <div class="final"><small>Punkte</small><b id="overScore">0</b></div>
+    <div class="stats">
+      <div><small>Rekord</small><b id="overBest">0</b></div>
+      <div><small>Gesammelt</small><b id="overGems">◆ 0</b></div>
+    </div>
+    <button class="btn primary" id="againBtn">NOCHMAL</button>
+    <button class="btn gold hidden" id="reviveBtn">Weiterspielen (◆ 30)</button>
+    <button class="btn" id="overMenuBtn">Menü</button>
+  </section>
+
+  <!-- Skins -->
+  <section id="shop" class="screen hidden">
+    <h2>Skins</h2>
+    <p class="tagline">Deine Kristalle: <b id="shopCoins">◆ 0</b></p>
+    <div id="skinGrid"></div>
+    <button class="btn" id="shopBackBtn">Zurück</button>
+  </section>
+
+  <!-- Anleitung -->
+  <section id="help" class="screen hidden">
+    <h2>So geht's</h2>
+    <ul class="help">
+      <li><b>Steuern:</b> Finger irgendwo auf den Bildschirm legen und nach links/rechts ziehen.</li>
+      <li><b class="y">◆ Kristalle</b> sammeln – eine Serie erhöht deinen Combo-Multiplikator bis <b>x5</b>. Lässt du einen durch, ist die Combo weg.</li>
+      <li><b>Knapp vorbei</b> an Hindernissen gibt Bonuspunkte.</li>
+      <li><b class="g">Schild</b> fängt einen Treffer ab, <b class="b">Zeitlupe</b> bremst alles, <b class="m">Magnet</b> zieht Kristalle an.</li>
+      <li>Kristalle sind deine Währung: neue <b>Skins</b> kaufen oder nach einem Crash <b>weiterspielen</b>.</li>
+      <li>Verlässt du die App, pausiert das Spiel automatisch. Internet brauchst du keins.</li>
+    </ul>
+    <button class="btn" id="helpBackBtn">Zurück</button>
+  </section>
+
+  <script src="game.js"></script>
+</body>
+</html>
