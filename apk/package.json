@@ -1,0 +1,12 @@
+{
+  "name": "neonrush-apk",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Android-Hülle (Capacitor) für Neon Rush – wird von .github/workflows/build-apk.yml benutzt",
+  "dependencies": {
+    "@capacitor/android": "8.5.2",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/cli": "8.5.2",
+    "@capacitor/core": "8.5.2"
+  }
+}

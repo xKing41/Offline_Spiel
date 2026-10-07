@@ -13,7 +13,24 @@ Schneller Neon-Arcade-Dodger fürs Handy – perfekt für die Pause.
 - Das Spiel wird mit der Zeit immer schneller und bringt neue Hindernisse (bewegliche Blöcke, Rotoren, Zickzack-Wände).
 - Verlässt du die App (Anruf, Chef kommt 😉), pausiert das Spiel automatisch.
 
-## Aufs Handy bringen
+## 📲 APK herunterladen (Android)
+
+**Direkter Link:** https://github.com/xKing41/Offline_Spiel/releases/latest/download/NeonRush.apk
+
+1. Link auf dem Handy öffnen – die APK wird heruntergeladen.
+2. Antippen und installieren. Beim ersten Mal fragt Android, ob der Browser
+   „unbekannte Apps installieren“ darf – einmal erlauben.
+3. Fertig. Neon Rush läuft komplett offline.
+
+Die APK wird bei jeder Code-Änderung automatisch in der Cloud gebaut
+(GitHub Actions → „APK bauen“, Dauer ca. 3–5 Minuten). Der Link zeigt immer
+auf die neueste Version. Alle Builds haben denselben Signaturschlüssel
+(`apk/neonrush-ci.jks`) – eine neue APK installiert sich als Update über die
+alte, Rekord und Kristalle bleiben erhalten.
+
+Alternativ liegt die APK auch unter **Actions → letzter Lauf „APK bauen“ → Artifacts**.
+
+## Als Web-App (auch iPhone)
 
 1. Auf GitHub im Repo: **Settings → Pages → Source: „GitHub Actions“** auswählen.
 2. Den Code auf `main` mergen – die Action `Deploy auf GitHub Pages` veröffentlicht das Spiel automatisch.
@@ -41,3 +58,5 @@ Reines HTML5-Canvas + JavaScript, keine Abhängigkeiten, kein Build-Schritt.
 | `game.js` | Spiel-Engine, Sound (Web Audio, synthetisch), Speicherstand (localStorage) |
 | `sw.js` | Service Worker für den Offline-Betrieb |
 | `manifest.webmanifest` | App-Infos für die Installation |
+| `apk/` | Android-Hülle (Capacitor): Icons, Vollbild, Signaturschlüssel |
+| `.github/workflows/build-apk.yml` | Baut die APK in der Cloud und aktualisiert den Download-Link |

@@ -841,8 +841,24 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
   window.addEventListener('blur', pauseGame);
 
+  // ================= Android-App (APK) =================
+  // In der APK liegen alle Dateien ohnehin im Paket – dort kein Service Worker,
+  // sonst würde nach einem Update kurz noch die alte Version aus dem Cache laufen.
+  const cap = window.Capacitor;
+  const isNative = !!(cap && cap.isNativePlatform && cap.isNativePlatform());
+  if (isNative && cap.Plugins && cap.Plugins.App) {
+    // Zurück-Taste: im Spiel pausieren, sonst eine Ebene zurück, im Menü beenden
+    cap.Plugins.App.addListener('backButton', () => {
+      if (state === 'play') pauseGame();
+      else if (state === 'paused') resumeGame();
+      else if (state === 'menu' && $('menu').classList.contains('hidden')) { refreshMenu(); show('menu'); }
+      else if (state === 'menu') cap.Plugins.App.exitApp();
+      else if (state === 'over') goMenu();
+    });
+  }
+
   // ================= Offline / Installation =================
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  if (!isNative && 'serviceWorker' in navigator && location.protocol.startsWith('http')) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   }
   let installPrompt = null;
