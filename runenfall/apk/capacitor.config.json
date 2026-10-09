@@ -1,0 +1,8 @@
+{
+  "appId": "de.runenfall.game",
+  "appName": "Runenfall",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#0a0716"
+  }
+}

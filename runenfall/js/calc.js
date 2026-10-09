@@ -138,7 +138,7 @@ export function computeSkill(inst, gsets) {
     let lo = 0, hi = 0;
     if (def.dmg && def.dmg[t]) { lo = def.dmg[t][0] * lvlMult; hi = def.dmg[t][1] * lvlMult; }
     if (def.dps && def.dps[t]) { lo = hi = def.dps[t] * lvlMult; }
-    const add = flatSum(sets, 'add_' + t) * (def.eff || 1) * (isDot ? 0.6 : 1);
+    const add = isDot ? 0 : flatSum(sets, 'add_' + t) * (def.eff || 1);
     if (add) { lo += add * 0.8; hi += add * 1.2; }
     if (hi > 0) base[t] = [lo, hi];
   }

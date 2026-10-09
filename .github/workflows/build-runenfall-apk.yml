@@ -1,0 +1,114 @@
+name: APK bauen (Runenfall)
+
+# Baut die Runenfall-APK in der Cloud und legt sie unter einem festen Link ab:
+#   https://github.com/<besitzer>/<repo>/releases/download/runenfall/Runenfall.apk
+# Das Handy braucht nur einen Browser: Link öffnen, APK installieren, fertig.
+# Zusätzlich liegt die APK wie gewohnt unter Actions -> Lauf -> Artifacts.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master, 'ccr-**', 'claude/**']
+    paths: ['runenfall/**', '.github/workflows/build-runenfall-apk.yml']
+
+# Kommt ein neuer Push, während noch gebaut wird: alten Lauf abbrechen.
+concurrency:
+  group: apk-runenfall-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # nötig, um die APK als Release (fester Download-Link) abzulegen
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v4
+
+      - name: Java einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Android-Projekt erzeugen
+        working-directory: runenfall/apk
+        run: |
+          set -e
+          npm ci --no-audit --no-fund
+
+          # Das Spiel selbst (dieselben Dateien wie die Web-Version)
+          mkdir -p www/icons
+          cp ../index.html ../style.css ../manifest.webmanifest www/
+          cp ../icons/* www/icons/
+          cp -r ../js www/js
+
+          npx cap add android
+
+          # Eigene Icons, Startbildschirm, Farben und Vollbild-Activity
+          cp -r res/. android/app/src/main/res/
+          cp MainActivity.java android/app/src/main/java/de/runenfall/game/MainActivity.java
+
+          # Hochformat und Vibration
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          sed -i 's|android:name=".MainActivity"|android:name=".MainActivity"\n            android:screenOrientation="portrait"|' "$MANIFEST"
+          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.VIBRATE" />|' "$MANIFEST"
+
+          # Versionsnummer steigt mit jedem Build -> neue APK installiert sich als Update
+          sed -i -E "s/versionCode [0-9]+/versionCode ${{ github.run_number }}/; s/versionName \"[^\"]+\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
+
+          grep -n "screenOrientation\|VIBRATE" "$MANIFEST"
+          grep -n "versionCode\|versionName" android/app/build.gradle
+
+      # Fester Signaturschlüssel für alle Builds: Ohne ihn ließe sich eine neue
+      # APK nicht über die alte installieren (Rekord und Kristalle wären weg).
+      - name: APK bauen
+        working-directory: runenfall/apk/android
+        run: |
+          set -e
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file="$GITHUB_WORKSPACE/apk/neonrush-ci.jks" \
+            -Pandroid.injected.signing.store.type=pkcs12 \
+            -Pandroid.injected.signing.store.password=neonrush \
+            -Pandroid.injected.signing.key.alias=neonrush \
+            -Pandroid.injected.signing.key.password=neonrush
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          find app/build/outputs/apk/release -name "*.apk" -print
+          cp "$(find app/build/outputs/apk/release -name '*.apk' | head -1)" "$GITHUB_WORKSPACE/out/Runenfall.apk"
+
+      - name: Signatur prüfen
+        run: |
+          SIGNER="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
+          "$SIGNER" verify --print-certs out/Runenfall.apk | grep -i "SHA-256"
+          ls -la out/Runenfall.apk
+
+      - name: APK als Artifact bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Runenfall-APK
+          path: out/Runenfall.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      # Fester Download-Link: Release "apk" wird bei jedem Build ersetzt.
+      - name: Download-Link aktualisieren
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh release delete runenfall --cleanup-tag --yes || true
+          gh release create runenfall out/Runenfall.apk \
+            --target "$GITHUB_SHA" \
+            --title "Runenfall – aktuelle APK (Build ${{ github.run_number }})" \
+            --notes "Zum Installieren auf dem Handy diesen Link öffnen: https://github.com/${{ github.repository }}/releases/download/runenfall/Runenfall.apk – Stand: ${GITHUB_SHA::7} (${{ github.ref_name }})" \
+            --latest=false
+          echo "### 📲 APK-Download: https://github.com/${{ github.repository }}/releases/download/runenfall/Runenfall.apk" >> "$GITHUB_STEP_SUMMARY"

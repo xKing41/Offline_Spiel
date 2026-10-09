@@ -1,4 +1,13 @@
-# NEON RUSH 🎮
+# Offline-Spiele 🎮
+
+| Spiel | APK | Beschreibung |
+|---|---|---|
+| **Runenfall** | [Runenfall.apk](https://github.com/xKing41/Offline_Spiel/releases/download/runenfall/Runenfall.apk) | Roguelite mit riesiger Sternenkarte, Glyphen-Builds und Meta-Fortschritt – siehe [`runenfall/`](runenfall/README.md) |
+| **Neon Rush** | [NeonRush.apk](https://github.com/xKing41/Offline_Spiel/releases/download/apk/NeonRush.apk) | Schneller Arcade-Dodger für zwischendurch |
+
+---
+
+# NEON RUSH
 
 Schneller Neon-Arcade-Dodger fürs Handy – perfekt für die Pause.
 **Läuft komplett offline**, sobald die App einmal geöffnet wurde.
@@ -15,7 +24,7 @@ Schneller Neon-Arcade-Dodger fürs Handy – perfekt für die Pause.
 
 ## 📲 APK herunterladen (Android)
 
-**Direkter Link:** https://github.com/xKing41/Offline_Spiel/releases/latest/download/NeonRush.apk
+**Direkter Link:** https://github.com/xKing41/Offline_Spiel/releases/download/apk/NeonRush.apk
 
 1. Link auf dem Handy öffnen – die APK wird heruntergeladen.
 2. Antippen und installieren. Beim ersten Mal fragt Android, ob der Browser

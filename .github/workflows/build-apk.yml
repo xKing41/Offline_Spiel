@@ -9,6 +9,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main, master, 'ccr-**', 'claude/**']
+    paths-ignore: ['runenfall/**', '.github/workflows/build-runenfall-apk.yml']
 
 # Kommt ein neuer Push, während noch gebaut wird: alten Lauf abbrechen.
 concurrency:

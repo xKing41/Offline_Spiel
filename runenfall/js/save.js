@@ -99,7 +99,8 @@ export function achievementPoints() {
   return p;
 }
 /** Verfügbare Sternpunkte gesamt (jede Klasse kann alle Punkte verteilen). */
-export const totalPoints = () => accountLevel().level - 1 + achievementPoints();
+export const START_POINTS = 3;
+export const totalPoints = () => accountLevel().level - 1 + START_POINTS + achievementPoints();
 export const spentPoints = (cls) => save.alloc[cls].length - 1;
 
 export const altarLvl = (id) => save.altar[id] || 0;

@@ -16,16 +16,16 @@ export const CLASSES = {
 // ---------- Gegner ----------
 // hp/dmg sind Grundwerte für Akt 1; die Skalierung passiert in combat.js
 export const ENEMIES = {
-  shade: { name: 'Schatten', hp: 16, dmg: 7, speed: 72, r: 12, xp: 1, color: '#7b5cff', shape: 'circle' },
-  runner: { name: 'Irrläufer', hp: 9, dmg: 6, speed: 125, r: 10, xp: 1, color: '#ff5c8a', shape: 'tri' },
-  brute: { name: 'Koloss', hp: 80, dmg: 15, speed: 46, r: 21, xp: 4, color: '#c9783a', shape: 'square' },
-  seer: { name: 'Seher', hp: 20, dmg: 8, speed: 58, r: 12, xp: 2, color: '#5fd4ff', shape: 'diamond', ranged: { cd: 2.6, speed: 190, elem: 'cold' }, keep: 190 },
-  bomber: { name: 'Glutbrut', hp: 13, dmg: 20, speed: 92, r: 11, xp: 1, color: '#ff8a2a', shape: 'circle', explode: { r: 55, elem: 'fire' } },
-  splitter: { name: 'Teiler', hp: 34, dmg: 9, speed: 60, r: 15, xp: 2, color: '#9cff5e', shape: 'hex', split: 'mite' },
-  mite: { name: 'Splitterling', hp: 7, dmg: 5, speed: 112, r: 8, xp: 0.5, color: '#bfff8a', shape: 'tri' },
-  charger: { name: 'Stürmer', hp: 38, dmg: 13, speed: 64, r: 14, xp: 2, color: '#ff4d4d', shape: 'tri', charge: { cd: 3.2, speed: 400 } },
-  wraith: { name: 'Leerengeist', hp: 26, dmg: 10, speed: 84, r: 13, xp: 2, color: '#c58bff', shape: 'diamond', ranged: { cd: 3.2, speed: 160, elem: 'chaos', burst: 3 }, keep: 150 },
-  golem: { name: 'Kristallgolem', hp: 150, dmg: 22, speed: 40, r: 25, xp: 6, color: '#62d6ff', shape: 'hex', res: { cold: 50, phys: 20 } },
+  shade: { name: 'Schatten', hp: 10, dmg: 7, speed: 72, r: 12, xp: 1, color: '#7b5cff', shape: 'circle' },
+  runner: { name: 'Irrläufer', hp: 5, dmg: 6, speed: 125, r: 10, xp: 1, color: '#ff5c8a', shape: 'tri' },
+  brute: { name: 'Koloss', hp: 48, dmg: 15, speed: 46, r: 21, xp: 4, color: '#c9783a', shape: 'square' },
+  seer: { name: 'Seher', hp: 12, dmg: 8, speed: 58, r: 12, xp: 2, color: '#5fd4ff', shape: 'diamond', ranged: { cd: 2.6, speed: 190, elem: 'cold' }, keep: 190 },
+  bomber: { name: 'Glutbrut', hp: 8, dmg: 20, speed: 92, r: 11, xp: 1, color: '#ff8a2a', shape: 'circle', explode: { r: 55, elem: 'fire' } },
+  splitter: { name: 'Teiler', hp: 20, dmg: 9, speed: 60, r: 15, xp: 2, color: '#9cff5e', shape: 'hex', split: 'mite' },
+  mite: { name: 'Splitterling', hp: 4, dmg: 5, speed: 112, r: 8, xp: 0.5, color: '#bfff8a', shape: 'tri' },
+  charger: { name: 'Stürmer', hp: 23, dmg: 13, speed: 64, r: 14, xp: 2, color: '#ff4d4d', shape: 'tri', charge: { cd: 3.2, speed: 400 } },
+  wraith: { name: 'Leerengeist', hp: 16, dmg: 10, speed: 84, r: 13, xp: 2, color: '#c58bff', shape: 'diamond', ranged: { cd: 3.2, speed: 160, elem: 'chaos', burst: 3 }, keep: 150 },
+  golem: { name: 'Kristallgolem', hp: 90, dmg: 22, speed: 40, r: 25, xp: 6, color: '#62d6ff', shape: 'hex', res: { cold: 50, phys: 20 } },
 };
 
 export const ACTS = [

@@ -250,7 +250,7 @@ export class Combat {
 
   heal(amount) {
     const p = this.player;
-    if (amount <= 0 || this.P.ci) return;
+    if (amount <= 0 || this.P.ci || p.hp <= 0 || (this.over && !this.result.win)) return;
     p.hp = Math.min(this.P.maxLife, p.hp + amount);
   }
 
@@ -400,7 +400,7 @@ export class Combat {
     if (c.kind !== 'boss') {
       if (this.t < c.duration) {
         const prog = this.t / c.duration;
-        const rate = (1.4 + 3.4 * prog) * c.density;
+        const rate = (0.8 + 2.6 * prog) * c.density;
         this.spawnAcc += rate * dt;
         while (this.spawnAcc >= 1) {
           this.spawnAcc -= 1;
