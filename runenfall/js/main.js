@@ -2,7 +2,7 @@
 import { app } from './app.js';
 import { $, on, screen, hideScreen, modal, closeModal, modalOpen, toast } from './ui.js';
 import { fmt } from './util.js';
-import { save, persist, checkAchievements } from './save.js';
+import { save, persist, checkAchievements, altarLvl } from './save.js';
 import { Combat } from './combat.js';
 import { TreeView } from './treeview.js';
 import { BOSSES } from './data/content.js';
@@ -88,10 +88,10 @@ app.startCombat = (node) => {
         setTimeout(() => showLevelUp(() => { refreshCombatStats(); combat.paused = false; }), 120);
       }
     },
-    onGold(v) { run.gold += Math.round(v * combat.P.goldMult); },
+    onGold(v) { const g = Math.round(v * combat.P.goldMult); run.gold += g; run.stats.gold = (run.stats.gold || 0) + g; },
     onEliteKill() {
       run.stats.elites++;
-      const r = dropRelic(run, 0.06);
+      const r = dropRelic(run, 0.06 + 0.04 * altarLvl('relicfind'));
       if (r) { fightRelics.push(r); toast(`<b style="color:${RARITY[r.rarity].color}">◈ Relikt gefunden!</b>`); sfx.loot(); }
     },
     onBoss(e) {
@@ -123,6 +123,8 @@ function addStats(st) {
   run.stats.kills += st.kills;
   run.stats.maxHit = Math.max(run.stats.maxHit, st.maxHit);
   run.stats.dmg += st.dmgDone;
+  run.stats.byType = run.stats.byType || {};
+  for (const [k, v] of Object.entries(st.byType || {})) run.stats.byType[k] = (run.stats.byType[k] || 0) + v;
   run.hp = Math.max(1, combat.player.hp);
 }
 
@@ -132,8 +134,10 @@ function fightWon(node, cfg) {
   combat.cfg = null;
   run.stats.nodes++;
   const boss = cfg.kind === 'boss';
+  if (run.shrine && run.shrine.fights > 0) { run.shrine.fights--; if (run.shrine.fights <= 0) run.shrine = null; }
   if (boss) {
     run.stats.bosses++;
+    if (combat.stats.hitsTaken === 0) save.stats.flawless = (save.stats.flawless || 0) + 1;
     save.stats.bossKills[cfg.bossId] = (save.stats.bossKills[cfg.bossId] || 0) + 1;
     const r = dropRelic(run, 1);
     if (r) fightRelics.push(r);
@@ -142,7 +146,9 @@ function fightWon(node, cfg) {
   const relicTxt = fightRelics.length ? `<br><b style="color:${RARITY[fightRelics[0].rarity].color}">◈ Relikt erhalten: ${fightRelics[0].title}</b>` : '';
   const info = `${cfg.kind === 'boss' ? BOSSES[cfg.bossId].name + ' besiegt!' : cfg.kind === 'elite' ? 'Elite bezwungen' : 'Gebiet gesäubert'}${relicTxt}`;
   afterLevels(() => {
-    showRewards(rollRewards(run, cfg.kind), info, () => {
+    const rkind = node.arena ? 'arena' : cfg.trial ? 'trial' : cfg.kind;
+    showRewards(rollRewards(run, rkind), info, () => {
+      if (node.arena) { run.curNode = null; return app.finishNode(); }
       run.curNode = null;
       if (run.mode === 'abyss') {
         run.floor++;

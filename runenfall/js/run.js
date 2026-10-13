@@ -2,7 +2,7 @@
 // Meta-Belohnungen am Ende. Reine Logik ohne DOM.
 import { makeRng, pick, rand, randi, weighted, clamp, shuffle } from './util.js';
 import { SKILLS, SUPPORTS, supportFits, MAX_SKILLS, SOCKETS, MAX_SKILL_LVL } from './data/skills.js';
-import { ACTS, ABYSS, BOSS_IDS, BOONS, BOON_RARITY, EVENTS, ALTAR, CLASSES, ascHas, ascHpMult, ascDmgMult } from './data/content.js';
+import { ACTS, ABYSS, BIOMES, BOSS_IDS, BOONS, BOON_RARITY, EVENTS, ALTAR, CLASSES, ASCENDANCIES, MUTATORS, QUEST_TEMPLATES, ENEMIES, ascHas, ascHpMult, ascDmgMult } from './data/content.js';
 import { makeItem, makeRelic, SLOTS, itemMods, UNIQUES, craftReroll, craftAdd, craftUpgrade, canCraft, itemValue } from './data/items.js';
 import { getTree, treeMods } from './data/tree.js';
 import { ModSet, computePlayer, computeSkill, flatSum } from './calc.js';
@@ -13,20 +13,29 @@ const START_WEAPON = { pyro: 'wand', storm: 'scepter', ranger: 'bow', plague: 'd
 export const xpNeed = (l) => Math.round(12 + 7 * l + 0.55 * l * l);
 
 // ---------------------------------------------------------------- Neuer Run
-export function newRun({ cls, asc = 0, mode = 'normal' }) {
+export function newRun({ cls, asc = 0, mode = 'normal', ascend = null, mutators = [], daily = null, seed = null }) {
   const run = {
-    v: 1, cls, asc, mode, seed: Math.floor(Math.random() * 1e9), started: Date.now(),
+    v: 1, cls, asc, mode, seed: seed ?? Math.floor(Math.random() * 1e9), started: Date.now(),
+    ascend: ascend && ASCENDANCIES[ascend] && ASCENDANCIES[ascend].cls === cls ? ascend : null,
+    mutators: mutators.filter((m) => MUTATORS[m]), daily, shrine: null, bonusDust: 0,
     act: 0, floor: 0, map: null, pos: null, done: [],
     lvl: 1, xp: 0, gold: 0, hp: null,
     skills: [{ id: CLASSES[cls].start, lvl: 1, sup: [null, null, null] }],
     glyphs: [], eq: {}, bag: [], boons: [], runMods: [],
     rerolls: altarLvl('reroll'), banish: altarLvl('banish'), banned: [],
     revive: altarLvl('revive') > 0, pendingLvl: 0,
-    stats: { kills: 0, elites: 0, bosses: 0, nodes: 0, maxHit: 0, dmg: 0, relics: [] },
+    stats: { kills: 0, elites: 0, bosses: 0, nodes: 0, maxHit: 0, dmg: 0, relics: [], byType: {}, gold: 0 },
   };
+  const brng = makeRng(run.seed + 17);
+  run.biomes = ACTS.map((a) => brng.pick(a.biomes));
+  if (run.mutators.includes('glass')) run.runMods.push({ s: 'life', t: 'more', v: -30 });
+  if (run.mutators.includes('poor')) run.runMods.push({ s: 'gold', t: 'more', v: -50 });
+  run.skills[0].lvl += altarLvl('runelvl');
   const sets = buildSets(run);
   run.gold = Math.round(flatSum(sets, 'startGold'));
-  if (altarLvl('start')) run.glyphs.push(randomGlyph(run));
+  for (let i = 0; i < altarLvl('start'); i++) run.glyphs.push(randomGlyph(run));
+  const gearSlots = shuffle(['armor', 'helm', 'gloves', 'boots', 'belt', 'amulet', 'ring']);
+  for (let i = 0; i < altarLvl('gear'); i++) run.eq[gearSlots[i]] = makeItem({ ilvl: 1, slot: gearSlots[i], rarity: 'magic' });
   // Startausrüstung: eine einfache Waffe
   run.eq.weapon = makeItem({ ilvl: 1, slot: 'weapon', rarity: 'normal' });
   run.eq.weapon.base = START_WEAPON[cls];
@@ -68,9 +77,31 @@ export function buildSets(run, opts = {}) {
     const boons = new ModSet();
     for (const b of run.boons) boons.addAll(boonMods(b));
     boons.addAll(run.runMods);
+    if (run.shrine && run.shrine.fights > 0) boons.addAll(run.shrine.mods);
     sets.push(boons);
+    sets.push(new ModSet(ascendMods(run.ascend)));
   }
   return sets;
+}
+
+/** Freigeschaltete Stufen einer Aufstiegsklasse. */
+export function ascendMods(id) {
+  const A = ASCENDANCIES[id];
+  if (!A) return [];
+  const lvl = (save.ascend && save.ascend[id]) || 0;
+  return A.nodes.slice(0, lvl).flatMap((n) => n.mods);
+}
+
+/** Aktuelles Gebiet (Biom) des Runs. */
+export function actInfo(run) {
+  if (run.mode === 'abyss') {
+    const ids = Object.keys(BIOMES);
+    const b = BIOMES[ids[(run.floor - 1) % ids.length]];
+    return { ...ABYSS, tint: b.tint, floor: b.floor, hazard: run.floor > 10 ? b.hazard : null, biomeName: b.name, power: abyssPower(run.floor) };
+  }
+  const A = ACTS[Math.min(run.act, ACTS.length - 1)];
+  const b = BIOMES[(run.biomes && run.biomes[run.act]) || A.biomes[0]];
+  return { ...b, sub: A.sub, power: A.power };
 }
 
 export function snapshot(run) {
@@ -88,6 +119,9 @@ const NODE_TYPES = {
   event: { name: 'Ereignis', icon: '?' },
   forge: { name: 'Schmiede', icon: '⚒' },
   rest: { name: 'Lager', icon: '☾' },
+  treasure: { name: 'Schatz', icon: '◆' },
+  shrine: { name: 'Schrein', icon: '✧' },
+  trial: { name: 'Prüfung', icon: '⚑' },
   boss: { name: 'Boss', icon: '♛' },
 };
 export { NODE_TYPES };
@@ -106,6 +140,7 @@ export function genMap(run, act) {
       else type = rng.weighted([
         { t: 'fight', w: 46 }, { t: 'elite', w: l >= 2 ? 16 : 0 }, { t: 'event', w: 16 },
         { t: 'shop', w: l >= 2 ? 9 : 0 }, { t: 'forge', w: l >= 2 ? 7 : 0 }, { t: 'rest', w: l >= 3 ? 6 : 0 },
+        { t: 'treasure', w: 5 }, { t: 'shrine', w: 6 }, { t: 'trial', w: l >= 3 ? 5 : 0 },
       ]).t;
       row.push({ type, lane: n === 1 ? 1 : i });
     }
@@ -134,7 +169,7 @@ export function genAbyssChoices(run) {
   const f = run.floor;
   if (f % 5 === 0) return [{ type: 'boss', boss: BOSS_IDS[(f / 5 - 1) % BOSS_IDS.length] }];
   const opts = [{ type: 'fight' }, { type: Math.random() < 0.5 ? 'elite' : 'fight' }];
-  opts.push({ type: pick(['event', 'shop', 'forge', 'rest', 'elite']) });
+  opts.push({ type: pick(['event', 'shop', 'forge', 'rest', 'elite', 'treasure', 'shrine', 'trial']) });
   return opts;
 }
 
@@ -147,27 +182,36 @@ export function itemLevel(run) {
 
 export function combatCfg(run, node) {
   const asc = run.asc;
-  let A, power, act;
+  const A = actInfo(run);
+  let power, act;
   if (run.mode === 'abyss') {
-    A = ABYSS; power = abyssPower(run.floor); act = 3;
+    power = A.power; act = 3;
   } else {
-    A = ACTS[run.act]; act = run.act + 1;
+    act = run.act + 1;
     const layer = run.map.pos ? run.map.pos[0] : 0;
     power = A.power * (1 + 0.14 * layer);
   }
-  const kind = node.type === 'boss' ? 'boss' : node.type === 'elite' ? 'elite' : 'fight';
+  const mu = (k) => run.mutators && run.mutators.includes(k);
+  const trial = node.type === 'trial' || node.arena;
+  const kind = node.type === 'boss' ? 'boss' : node.type === 'elite' || trial ? 'elite' : 'fight';
   return {
-    kind, act, power, pool: A.pool,
+    kind, act, power, pool: A.pool, trial,
     bossId: kind === 'boss' ? (node.boss || A.boss) : null,
     duration: kind === 'boss' ? 0 : 34 + act * 4,
-    hpMult: ascHpMult(asc), dmgMult: ascDmgMult(asc), asc,
-    density: (1 + 0.08 * (act - 1)) * (ascHas(asc, 'density') ? 1.25 : 1),
-    eliteAffixes: Math.min(4, act + (ascHas(asc, 'eliteAffix') ? 1 : 0)),
+    hpMult: ascHpMult(asc) * (mu('titans') ? 1.5 : 1) * (mu('horde') ? 0.75 : 1) * (trial ? 1.25 : 1),
+    dmgMult: ascDmgMult(asc) * (mu('brutal') ? 1.4 : 1),
+    asc,
+    density: (1 + 0.08 * (act - 1)) * (ascHas(asc, 'density') ? 1.25 : 1) * (mu('horde') ? 1.6 : 1),
+    eliteAffixes: Math.min(5, act + (ascHas(asc, 'eliteAffix') ? 1 : 0) + (mu('elites') ? 1 : 0) + (trial ? 1 : 0)),
     champChance: ascHas(asc, 'elites') ? 0.6 : 0.3,
-    extraElite: ascHas(asc, 'elites'),
+    extraElite: ascHas(asc, 'elites') || trial,
+    allElite: mu('elites'),
+    enemySpeed: mu('swift') ? 1.25 : 1,
+    bossRage: mu('bossrage'), bossHpMult: mu('bossrage') ? 1.5 : 1,
+    volatileCorpses: mu('volatile'), meteors: mu('hazards'), hazard: A.hazard || null,
     xpMult: 1 + (act - 1) * 0.35,
     tint: A.tint, floorColor: A.floor,
-    label: `${A.sub} · ${A.name}`,
+    label: run.mode === 'abyss' ? `Abgrund · Ebene ${run.floor} · ${A.biomeName}` : `${A.sub} · ${A.name}`,
   };
 }
 
@@ -188,7 +232,7 @@ function skillTags(run) {
 
 export function rollBoons(run) {
   const tags = skillTags(run);
-  const n = 3 + altarLvl('choice');
+  const n = 3 + altarLvl('choice') - (run.mutators && run.mutators.includes('blind') ? 1 : 0);
   const pool = BOONS.filter((b) => !run.banned.includes(b.id));
   const out = [];
   const used = new Set();
@@ -245,7 +289,13 @@ export function rollRewards(run, kind) {
   const ilvl = itemLevel(run);
   const luck = snapshot(run).P.luck;
   const out = [];
-  if (kind === 'boss') {
+  if (kind === 'arena') {
+    out.push({ kind: 'item', item: makeItem({ ilvl, rarity: 'unique', luck }) });
+    out.push({ kind: 'item', item: makeItem({ ilvl, rarity: 'rare', luck }) });
+  } else if (kind === 'trial') {
+    out.push({ kind: 'item', item: makeItem({ ilvl: ilvl + 5, rarity: Math.random() < 0.35 ? 'unique' : 'rare', luck }) });
+    out.push({ kind: 'glyph', id: randomGlyph(run) });
+  } else if (kind === 'boss') {
     out.push({ kind: 'item', item: makeItem({ ilvl, rarity: Math.random() < 0.45 ? 'unique' : 'rare', luck }) });
     out.push({ kind: 'item', item: makeItem({ ilvl, rarity: 'rare', luck }) });
   } else if (kind === 'elite') {
@@ -271,7 +321,7 @@ export function addItem(run, item) {
 }
 
 // ---------------------------------------------------------------- Händler & Schmiede
-export const priceMult = (run) => (run.mode === 'abyss' ? 1 + run.floor * 0.12 : 1 + run.act * 0.6);
+export const priceMult = (run) => (run.mode === 'abyss' ? 1 + run.floor * 0.12 : 1 + run.act * 0.6) * (1 - 0.08 * altarLvl('discount'));
 export function genShop(run) {
   const ilvl = itemLevel(run), pm = priceMult(run), luck = snapshot(run).P.luck;
   const offers = [];
@@ -323,7 +373,12 @@ export function applyEvent(run, fx) {
     run.hp = clamp(run.hp + (P.maxLife * fx.hpPct) / 100, 1, P.maxLife);
     msgs.push(fx.hpPct > 0 ? 'Du fühlst dich erfrischt.' : 'Es schmerzt.');
   }
-  if (fx.item) { const it = makeItem({ ilvl: itemLevel(run), rarity: fx.item, luck: P.luck }); addItem(run, it); msgs.push('Gegenstand erhalten.'); }
+  if (fx.item) {
+    const rarity = fx.item === 'gamble' ? weighted([{ r: 'magic', w: 40 }, { r: 'rare', w: 45 }, { r: 'unique', w: 15 }]).r : fx.item;
+    const it = makeItem({ ilvl: itemLevel(run), rarity, luck: P.luck });
+    addItem(run, it);
+    msgs.push(it.rarity === 'unique' ? 'Ein einzigartiger Gegenstand!' : 'Gegenstand erhalten (im Beutel).');
+  }
   if (fx.skillLvl) {
     const up = run.skills.filter((s) => s.lvl < MAX_SKILL_LVL);
     if (up.length) { const s = pick(up); s.lvl++; msgs.push(`${SKILLS[s.id].name} steigt auf Stufe ${s.lvl}.`); }
@@ -334,13 +389,51 @@ export function applyEvent(run, fx) {
     if (Math.random() < 0.5) { run.gold += bet; msgs.push(`Gewonnen! +${bet} Gold.`); }
     else { run.gold -= bet; msgs.push(`Verloren. −${bet} Gold.`); }
   }
-  if (fx.upgrade) {
+  for (let k = 0; k < (fx.upgrade || 0); k++) {
     const items = SLOTS.map((s) => run.eq[s]).filter((x) => x && canCraft(x) && x.affixes.length);
     const it = items.length ? pick(items) : null;
     if (it && craftUpgrade(it)) msgs.push('Ein Affix wurde verstärkt.');
-    else msgs.push('Der Schmied findet nichts zu verbessern.');
+    else msgs.push('Es gibt nichts zu verbessern.');
   }
-  if (fx.glyph) { const g = randomGlyph(run); run.glyphs.push(g); msgs.push(`Glyphe „${SUPPORTS[g].name}“ erhalten.`); }
+  for (let k = 0; k < (fx.glyph || 0); k++) { const g = randomGlyph(run); run.glyphs.push(g); msgs.push(`Glyphe „${SUPPORTS[g].name}“ erhalten.`); }
+  if (fx.banish) { run.banish += fx.banish; msgs.push(`+${fx.banish} Verbannen.`); }
+  if (fx.lvls) { run.pendingLvl += fx.lvls; run.lvl += fx.lvls; msgs.push(`Du steigst ${fx.lvls} Stufen auf!`); }
+  if (fx.dust) { run.bonusDust += fx.dust; msgs.push(`+${fx.dust} Sternenstaub am Ende des Runs.`); }
+  if (fx.relic) { const r = dropRelic(run, 1); if (r) msgs.push(`Relikt „${r.title}“ erhalten!`); }
+  if (fx.newSkill) {
+    const id = run.skills.length < MAX_SKILLS ? newSkillChoice(run) : null;
+    if (id) { run.skills.push({ id, lvl: 1, sup: [null, null, null] }); msgs.push(`Neue Rune: ${SKILLS[id].name}!`); }
+    else { const g = randomGlyph(run); run.glyphs.push(g); msgs.push(`Kein Platz für eine Rune – stattdessen Glyphe „${SUPPORTS[g].name}“.`); }
+  }
+  if (fx.sacrifice) {
+    const slots = SLOTS.filter((s) => run.eq[s]);
+    if (slots.length) {
+      const sl = pick(slots);
+      delete run.eq[sl];
+      for (let k = 0; k < 2; k++) addItem(run, makeItem({ ilvl: itemLevel(run) + 4, rarity: 'rare', luck: P.luck }));
+      msgs.push('Dein Gegenstand zerfällt – zwei seltene Gegenstände liegen im Beutel.');
+    } else msgs.push('Du trägst nichts, was du opfern könntest.');
+  }
+  if (fx.sellAll) {
+    let g = 0;
+    for (const it of run.bag) g += sellValue(run, it) * fx.sellAll;
+    run.bag = [];
+    run.gold += g;
+    msgs.push(`+${g} Gold.`);
+  }
+  if (fx.mirror) {
+    const sorted = [...run.skills].sort((a, b) => a.lvl - b.lvl);
+    if (sorted.length >= 2) {
+      sorted[0].lvl = Math.min(MAX_SKILL_LVL, sorted[0].lvl + 2);
+      sorted[sorted.length - 1].lvl = Math.max(1, sorted[sorted.length - 1].lvl - 1);
+      msgs.push(`${SKILLS[sorted[0].id].name} wird stärker, ${SKILLS[sorted.at(-1).id].name} schwächer.`);
+    } else msgs.push('Dein Spiegelbild zuckt mit den Schultern. Du brauchst mehr Runen.');
+  }
+  if (fx.frozen) {
+    if (Math.random() < 0.7) { addItem(run, makeItem({ ilvl: itemLevel(run) + 3, slot: 'weapon', rarity: 'rare', luck: P.luck })); msgs.push('Eine prächtige Waffe!'); }
+    else { run.hp = Math.max(1, run.hp - P.maxLife * 0.2); msgs.push('Der Krieger erwacht und schlägt zu!'); }
+  }
+  if (fx.arena) { run.arenaPending = true; msgs.push('Der Champion tritt vor …'); }
   if (fx.rerolls) { run.rerolls += fx.rerolls; msgs.push(`+${fx.rerolls} Neu würfeln.`); }
   if (fx.tomb) {
     if (Math.random() < 0.6) {
@@ -358,6 +451,7 @@ export function applyEvent(run, fx) {
 // ---------------------------------------------------------------- Fortschritt
 export function healAfterFight(run) {
   const P = snapshot(run).P;
+  if (run.mutators && run.mutators.includes('famine')) return;
   let pct = 0.2 + 0.1 * altarLvl('heal');
   if (ascHas(run.asc, 'heal')) pct *= 0.7;
   run.hp = Math.min(P.maxLife, run.hp + P.maxLife * pct * P.heal);
@@ -383,6 +477,12 @@ export function endRun(run, outcome) {
   let axp = (s.kills * 0.6 + s.nodes * 35 + s.elites * 40 + s.bosses * 220 + (win ? 600 : 0)) * ascF;
   let dust = (s.nodes * 5 + s.elites * 12 + s.bosses * 70 + (win ? 200 : 0)) * (1 + run.asc * 0.25);
   if (run.mode === 'abyss') { dust *= 1 + run.floor * 0.04; axp *= 1 + run.floor * 0.03; }
+  const prophBonus = (run.mutators || []).reduce((sum, m) => sum + MUTATORS[m].reward, 0);
+  dust *= 1 + prophBonus / 100;
+  axp *= 1 + prophBonus / 200;
+  dust += run.bonusDust || 0;
+  let dailyBonus = false;
+  if (run.daily && save.dailyDone !== run.daily) { dust *= 2; dailyBonus = true; save.dailyDone = run.daily; if (win) save.stats.dailies = (save.stats.dailies || 0) + 1; }
   axp = Math.round(axp * statMul(sets, 'axp'));
   dust = Math.round(dust * statMul(sets, 'dust'));
   const lvlBefore = accountLevel().level;
@@ -402,11 +502,21 @@ export function endRun(run, outcome) {
     save.ascUnlocked = Math.max(save.ascUnlocked, run.asc + 1);
   }
   if (run.mode === 'abyss') st.maxAbyss = Math.max(st.maxAbyss, run.floor - (outcome === 'win' ? 0 : 1));
+  if (win) {
+    st.maxProphWin = Math.max(st.maxProphWin || 0, (run.mutators || []).length);
+    const secs = Math.round((Date.now() - run.started) / 1000);
+    st.fastestWin = Math.min(st.fastestWin || 1e9, secs);
+  }
+  st.enemyKills = st.enemyKills || {};
+  for (const [k, v] of Object.entries(run.stats.byType || {})) st.enemyKills[k] = (st.enemyKills[k] || 0) + v;
+  const quests = checkQuests(run, outcome);
+  st.lastCls = run.cls;
   // Klassen automatisch freischalten, wenn genug Staub gesammelt wurde? Nein: im Kodex kaufen.
   const result = {
     outcome, win, axp, dust, lvlBefore, lvlAfter, depth, relics: s.relics, cls: run.cls, asc: run.asc,
     mode: run.mode, floor: run.floor, lvl: run.lvl, kills: s.kills, maxHit: s.maxHit, bosses: s.bosses,
     time: Math.round((Date.now() - run.started) / 1000),
+    quests, prophBonus, dailyBonus, mutators: run.mutators || [], ascend: run.ascend,
   };
   const score = depth * 1000 + run.asc * 5000 + s.kills;
   if (!st.bestRun || score > st.bestRun.score) st.bestRun = { score, ...result, date: Date.now() };
@@ -414,6 +524,60 @@ export function endRun(run, outcome) {
   result.achievements = checkAchievements();
   persist();
   return result;
+}
+
+// ---------------------------------------------------------------- Aufträge
+export function questMetrics(run, outcome) {
+  return {
+    runKills: run.stats.kills, runElites: run.stats.elites, runBosses: run.stats.bosses, runLvl: run.lvl,
+    runMaxHit: run.stats.maxHit, runWin: outcome === 'win' ? 1 : 0, runGold: run.stats.gold || 0,
+    runAct: run.mode === 'abyss' ? 0 : outcome === 'win' ? 4 : run.act + 1,
+    runAbyss: run.mode === 'abyss' ? run.floor : 0, runProph: (run.mutators || []).length,
+    runNewClass: save.stats.lastCls && save.stats.lastCls !== run.cls ? 1 : 0,
+  };
+}
+export function ensureQuests() {
+  if (!Array.isArray(save.quests)) save.quests = [];
+  const lvl = accountLevel().level;
+  while (save.quests.length < 3) {
+    const used = new Set(save.quests.map((q) => q.tpl));
+    const pool = QUEST_TEMPLATES.filter((t) => !used.has(t.id) && (t.minLvl || 0) <= lvl);
+    const t = pick(pool.length ? pool : QUEST_TEMPLATES);
+    const target = t.target(lvl);
+    save.quests.push({ tpl: t.id, target, dust: Math.round(80 + lvl * 12), relic: Math.random() < 0.3 });
+  }
+}
+export const questText = (q) => QUEST_TEMPLATES.find((t) => t.id === q.tpl).text(q.target);
+function checkQuests(run, outcome) {
+  const m = questMetrics(run, outcome);
+  const done = [];
+  save.quests = (save.quests || []).filter((q) => {
+    const t = QUEST_TEMPLATES.find((x) => x.id === q.tpl);
+    if (!t || (m[t.key] || 0) < q.target) return true;
+    save.dust += q.dust;
+    save.stats.quests = (save.stats.quests || 0) + 1;
+    let relic = null;
+    if (q.relic) relic = dropRelic(run, 1);
+    done.push({ text: questText(q), dust: q.dust, relic });
+    return false;
+  });
+  ensureQuests();
+  return done;
+}
+
+// ---------------------------------------------------------------- Tägliche Herausforderung
+export const todayKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+export function dailyConfig() {
+  const key = todayKey();
+  let h = 0;
+  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const rng = makeRng(h);
+  const cls = rng.pick(save.unlockedCls);
+  const muts = rng.shuffle(Object.keys(MUTATORS)).slice(0, 3);
+  return { key, cls, asc: Math.min(save.ascUnlocked, 2), mutators: muts, seed: h, done: save.dailyDone === key };
 }
 
 const statMul = (sets, key) => {

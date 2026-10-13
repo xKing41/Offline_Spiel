@@ -3,14 +3,15 @@ import { app } from './app.js';
 import { $, on, screen, modal, closeModal, toast, confirmBox, itemCard, glyphCard, skillInfo, skillStatsLine, bar, tagChips, itemTitle } from './ui.js';
 import { esc, fmt, fmtV } from './util.js';
 import { save, persist, accountLevel } from './save.js';
-import { CLASSES, BOONS, BOON_RARITY, ACTS, ASC_MODS } from './data/content.js';
+import { CLASSES, BOONS, BOON_RARITY, ACTS, ASC_MODS, ASCENDANCIES, MUTATORS } from './data/content.js';
 import { SKILLS, SUPPORTS, supportFits, catTags, MAX_SKILL_LVL } from './data/skills.js';
 import { SLOTS, SLOT_NAME, RARITY, canCraft, itemName } from './data/items.js';
 import { ELEM, modText } from './data/stats.js';
 import {
   snapshot, boonMods, reachable, NODE_TYPES, LAYERS, xpNeed, rollBoons, applyChoice, genShop, forge, forgeCost,
-  sellValue, socket, unsocket, equip, sell, applyEvent, pickEvent, priceMult, genAbyssChoices,
+  sellValue, socket, unsocket, equip, sell, applyEvent, pickEvent, priceMult, genAbyssChoices, actInfo, itemLevel, addItem,
 } from './run.js';
+import { makeItem } from './data/items.js';
 import { sfx, buzz } from './audio.js';
 
 const R = () => save.run;
@@ -19,9 +20,12 @@ const R = () => save.run;
 function runHeader() {
   const run = R();
   const { P } = snapshot(run);
-  const where = run.mode === 'abyss' ? `Abgrund · Ebene ${run.floor}` : `${ACTS[run.act].sub} · ${ACTS[run.act].name}`;
+  const A = actInfo(run);
+  const where = run.mode === 'abyss' ? `Abgrund · Ebene ${run.floor}` : `${A.sub} · ${A.name}`;
+  const asc = run.ascend ? ` · ${ASCENDANCIES[run.ascend].name}` : '';
+  const proph = run.mutators && run.mutators.length ? ` · ✧${run.mutators.length}` : '';
   return `<div class="rhead">
-    <div class="rh1"><b style="color:${CLASSES[run.cls].color}">${CLASSES[run.cls].glyph} ${CLASSES[run.cls].name}</b><small>${where}${run.asc ? ` · Höhe ${run.asc}` : ''}</small></div>
+    <div class="rh1"><b style="color:${CLASSES[run.cls].color}">${CLASSES[run.cls].glyph} ${CLASSES[run.cls].name}</b><small>${where}${run.asc ? ` · Höhe ${run.asc}` : ''}${asc}${proph}${run.shrine ? ` · <span class="up">Schrein (${run.shrine.fights})</span>` : ''}</small></div>
     <div class="rh2">${bar(run.hp, P.maxLife, 'hp')}<div class="rstats"><span>Stufe <b>${run.lvl}</b></span><span class="gold">● ${fmt(run.gold)}</span></div></div>
     <div class="rh3"><button class="btn small" data-a="build">⚒ Build</button><button class="btn small ghost" data-a="nav" data-to="tree">✶ Karte</button><button class="btn small ghost" data-a="runMenu">☰</button></div></div>`;
 }
@@ -113,7 +117,9 @@ on('abEnter', (d) => {
 function enterNode(node) {
   const run = R();
   run.curNode = node;
-  if (['fight', 'elite', 'boss'].includes(node.type)) app.startCombat(node);
+  if (['fight', 'elite', 'boss', 'trial'].includes(node.type)) app.startCombat(node);
+  else if (node.type === 'treasure') showTreasure();
+  else if (node.type === 'shrine') showShrine();
   else if (node.type === 'shop') showShop(true);
   else if (node.type === 'forge') showForge();
   else if (node.type === 'event') showEvent();
@@ -121,7 +127,9 @@ function enterNode(node) {
 }
 
 /** Nicht-Kampf-Knoten abschließen und zur Karte zurück. */
+app.finishNode = () => finishNode();
 function finishNode() {
+  R().curNode = null;
   const run = R();
   run.stats.nodes++;
   run.shop = null;
@@ -421,7 +429,69 @@ on('evOpt', async (d) => {
   const ev = EVENTS.find((e) => e.id === run.event);
   const msgs = applyEvent(run, ev.options[Number(d.i)].fx);
   persist();
-  modal(`<h2 class="evt">${esc(ev.title)}</h2>${msgs.map((m) => `<p class="center">${esc(m)}</p>`).join('')}<button class="btn primary" data-a="leave">Weiter</button>`, 'event');
+  const arena = run.arenaPending;
+  if (arena) { run.arenaPending = false; persist(); }
+  modal(`<h2 class="evt">${esc(ev.title)}</h2>${msgs.map((m) => `<p class="center">${esc(m)}</p>`).join('')}
+    ${arena ? '<button class="btn primary" data-a="arenaFight">⚔ Kämpfen</button>' : '<button class="btn primary" data-a="leave">Weiter</button>'}`, 'event');
+});
+on('arenaFight', () => {
+  const run = R();
+  run.curNode = { type: 'elite', arena: true };
+  persist();
+  closeModal();
+  app.startCombat(run.curNode);
+});
+
+// ===================================================================== Schatzkammer
+function showTreasure() {
+  const run = R();
+  if (!run.treasure) {
+    const luck = snapshot(run).P.luck;
+    run.treasure = {
+      gold: Math.round(60 * priceMult(run) * (0.7 + Math.random() * 0.6)),
+      items: [0, 1, 2].map(() => makeItem({ ilvl: itemLevel(run) + 3, rarity: Math.random() < 0.12 ? 'unique' : 'rare', luck })),
+    };
+    persist();
+  }
+  const t = run.treasure;
+  modal(`<h2 class="evt">◆ Schatzkammer</h2><p class="center">Gold glitzert im Sternenlicht: <b class="gold">+${t.gold} Gold</b>. Dazu darfst du einen Gegenstand mitnehmen.</p>
+    <div class="choices">${t.items.map((it, i) => `<button class="choice item" data-a="treasurePick" data-i="${i}">${itemCard(it, { compare: run.eq[it.slot] || null, small: true })}</button>`).join('')}</div>`, 'rewards');
+}
+on('treasurePick', (d) => {
+  const run = R();
+  const t = run.treasure;
+  run.gold += t.gold;
+  addItem(run, t.items[Number(d.i)]);
+  run.treasure = null;
+  sfx.loot();
+  finishNode();
+});
+
+// ===================================================================== Schrein
+const SHRINES = [
+  { name: 'Schrein des Zorns', mods: [{ s: 'dmg', t: 'more', v: 40 }] },
+  { name: 'Schrein der Eile', mods: [{ s: 'speed', t: 'more', v: 30 }, { s: 'move', t: 'inc', v: 15 }] },
+  { name: 'Schrein der Festung', mods: [{ s: 'life', t: 'more', v: 30 }, { s: 'res_elem', v: 20 }] },
+  { name: 'Schrein der Gier', mods: [{ s: 'gold', t: 'more', v: 100 }, { s: 'luck', t: 'inc', v: 60 }] },
+  { name: 'Schrein der Weisheit', mods: [{ s: 'xp', t: 'more', v: 50 }] },
+  { name: 'Schrein der Präzision', mods: [{ s: 'critBase', v: 5 }, { s: 'critMulti', v: 60 }] },
+  { name: 'Schrein des Verfalls', mods: [{ s: 'poisonChance', v: 40 }, { s: 'igniteChance', v: 40 }, { s: 'bleedChance', v: 40 }] },
+  { name: 'Schrein der Weite', mods: [{ s: 'area', t: 'more', v: 40 }, { s: 'proj', v: 2 }] },
+];
+function showShrine() {
+  const run = R();
+  if (!run.shrineChoice) { run.shrineChoice = [...SHRINES].sort(() => Math.random() - 0.5).slice(0, 3).map((x) => SHRINES.indexOf(x)); persist(); }
+  modal(`<h2 class="evt">✧ Schrein</h2><p class="center">Wähle einen Segen. Er wirkt für die nächsten <b>zwei Kämpfe</b>.</p>
+    <div class="choices">${run.shrineChoice.map((i) => `<button class="choice" style="--cc:#7dffb0" data-a="shrinePick" data-i="${i}"><small>Schrein</small><b>${SHRINES[i].name}</b>
+      <ul class="mods">${SHRINES[i].mods.map((m) => `<li>${esc(modText(m))}</li>`).join('')}</ul></button>`).join('')}</div>`, 'rewards');
+}
+on('shrinePick', (d) => {
+  const run = R();
+  const sh = SHRINES[Number(d.i)];
+  run.shrine = { name: sh.name, mods: sh.mods, fights: 2 };
+  run.shrineChoice = null;
+  sfx.levelup();
+  finishNode();
 });
 
 // ===================================================================== Lager
@@ -447,6 +517,8 @@ export function showSummary(res, relics) {
   const accBefore = res.lvlBefore, acc = accountLevel();
   const relicHtml = relics.length ? `<h3>Neue Relikte</h3>${relics.map((r) => itemCard(r, { small: true })).join('')}` : '';
   const ach = res.achievements.length ? `<h3>Erfolge</h3>${res.achievements.map((a) => `<div class="ach done"><span class="ai">♛</span><div><b>${esc(a.name)}</b><small>${esc(a.desc)}</small></div></div>`).join('')}` : '';
+  const quests = (res.quests || []).length ? `<h3>Aufträge erfüllt</h3>${res.quests.map((q) => `<div class="ach done"><span class="ai">✔</span><div><b>${esc(q.text)}</b><small>+✦ ${q.dust}${q.relic ? ' · Relikt' : ''}</small></div></div>`).join('')}` : '';
+  const extra = `${res.prophBonus ? `<div class="srow"><span>Prophezeiungen</span><b class="up">+${res.prophBonus}% Staub</b></div>` : ''}${res.dailyBonus ? '<div class="srow"><span>Tägliche Herausforderung</span><b class="up">Staub ×2</b></div>' : ''}`;
   const title = res.win ? '<h1 class="win">TRIUMPH</h1>' : res.outcome === 'abandon' ? '<h1 class="lose">RÜCKZUG</h1>' : '<h1 class="lose">GEFALLEN</h1>';
   const where = res.mode === 'abyss' ? `Abgrund · Ebene ${res.floor}` : res.win ? 'Alle drei Akte bezwungen' : `Fortschritt: ${res.depth} von ${3 * LAYERS} Orten`;
   const m = Math.floor(res.time / 60), s = res.time % 60;
@@ -454,8 +526,8 @@ export function showSummary(res, relics) {
     <div class="sgrid"><div><small>Stufe</small><b>${res.lvl}</b></div><div><small>Gegner</small><b>${fmt(res.kills)}</b></div>
     <div><small>Stärkster Treffer</small><b>${fmt(res.maxHit)}</b></div><div><small>Dauer</small><b>${m}:${String(s).padStart(2, '0')}</b></div></div>
     <div class="panel"><div class="srow"><span>Konto-Erfahrung</span><b>+${fmt(res.axp)}</b></div><div class="srow"><span>Sternenstaub</span><b class="dust">+✦ ${fmt(res.dust)}</b></div>
-    ${acc.level > accBefore ? `<p class="up">Kontostufe ${accBefore} → ${acc.level}! +${acc.level - accBefore} Sternpunkt${acc.level - accBefore > 1 ? 'e' : ''}</p>` : ''}
+    ${extra}${acc.level > accBefore ? `<p class="up">Kontostufe ${accBefore} → ${acc.level}! +${acc.level - accBefore} Sternpunkt${acc.level - accBefore > 1 ? 'e' : ''}</p>` : ''}
     ${bar(acc.cur, acc.need, 'xp')}</div>
     ${res.win && res.mode !== 'abyss' ? `<p class="up">Sternenhöhe ${res.asc + 1} freigeschaltet!</p>` : ''}
-    ${relicHtml}${ach}<button class="btn primary big" data-a="nav" data-to="hub">Zur Sternwarte</button></div>`);
+    ${quests}${relicHtml}${ach}<button class="btn primary big" data-a="nav" data-to="hub">Zur Sternwarte</button></div>`);
 }

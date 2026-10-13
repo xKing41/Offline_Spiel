@@ -3,6 +3,7 @@
 import { SKILLS, SUPPORTS } from './data/skills.js';
 import { CLASSES, ACHIEVEMENTS, ALTAR } from './data/content.js';
 import { UNIQUES } from './data/items.js';
+import { ENEMIES } from './data/content.js';
 import { TREE_VERSION, getTree } from './data/tree.js';
 
 const KEY = 'runenfall.save.v1';
@@ -23,6 +24,9 @@ function defaults() {
       uniques: [],
     },
     altar: {},
+    ascend: {},
+    quests: [],
+    dailyDone: null,
     relics: [],
     relicEq: [],
     ach: {},
@@ -30,7 +34,8 @@ function defaults() {
     stats: {
       runs: 0, wins: {}, kills: 0, bossKills: { shepherd: 0, queen: 0, voidlord: 0 },
       maxAscWin: -1, maxAbyss: 0, maxHit: 0, maxRunLvl: 0, mythic: 0, keystone: 0,
-      playTime: 0, bestRun: null,
+      playTime: 0, bestRun: null, enemyKills: {}, dailies: 0, quests: 0, maxProphWin: 0, flawless: 0,
+      fastestWin: 1e9, lastCls: null,
     },
     settings: { sound: true, vibrate: true, dmgNums: true, shake: true },
     run: null,
@@ -108,7 +113,13 @@ export const relicSlots = () => 3 + altarLvl('relic');
 
 export function checkAchievements() {
   const newly = [];
-  const ctx = { level: accountLevel().level, uniques: Object.keys(UNIQUES).length };
+  const ctx = {
+    level: accountLevel().level, uniques: Object.keys(UNIQUES).length,
+    skills: Object.keys(SKILLS).length, supports: Object.keys(SUPPORTS).length,
+    altarMaxed: ALTAR.filter((a) => (save.altar[a.id] || 0) >= a.max).length,
+    bestiary: Object.keys(ENEMIES).filter((k) => (save.stats.enemyKills || {})[k] > 0).length,
+    enemyTypes: Object.keys(ENEMIES).length,
+  };
   for (const a of ACHIEVEMENTS) {
     if (save.ach[a.id]) continue;
     let ok = false;

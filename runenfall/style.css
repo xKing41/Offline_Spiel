@@ -306,3 +306,26 @@ h2.evt { text-align: center; color: var(--cyan); }
 .bossb { height: 12px; border-radius: 6px; background: rgba(0, 0, 0, .6); overflow: hidden; border: 1px solid rgba(255, 92, 122, .5); margin-top: 4px; }
 #hBossFill { display: block; height: 100%; background: linear-gradient(90deg, #8a1030, #ff5c7a); }
 .altar .btn, .row.between > .btn { flex: none; white-space: nowrap; }
+
+/* ---------------- Erweiterung ---------------- */
+.daily { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; background: linear-gradient(120deg, rgba(255, 216, 77, .2), rgba(255, 140, 60, .12)); border: 1.5px solid rgba(255, 216, 77, .55); border-radius: 14px; padding: 12px 14px; }
+.daily div { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.daily small { color: var(--muted); font-size: 12px; }
+.daily em { font-style: normal; font-weight: 800; color: var(--gold); font-size: 13px; white-space: nowrap; }
+.daily.done { opacity: .6; }
+.quests { width: 100%; }
+.quest { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.quest > span { font-size: 18px; }
+.quest div { flex: 1; display: flex; flex-direction: column; }
+.quest small { color: var(--dust); font-size: 12px; }
+.proph { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.proph button { position: relative; text-align: left; background: rgba(0, 0, 0, .25); border: 1.5px solid var(--line); border-radius: 10px; padding: 8px 8px 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.proph button small { font-size: 11px; color: var(--muted); line-height: 1.25; }
+.proph button em { position: absolute; top: 6px; right: 8px; font-style: normal; font-size: 11px; color: var(--good); }
+.proph button.on { border-color: #ff8a5c; background: rgba(255, 92, 60, .16); box-shadow: 0 0 10px rgba(255, 120, 60, .35); }
+.seg button { min-width: 0; }
+.mnode.t-treasure span { color: var(--gold); }
+.mnode.t-shrine span { color: var(--good); }
+.mnode.t-trial span { color: #ff8a5c; }
+.abnode.t-trial { border-color: #ff8a5c; }
+.proph button b { padding-right: 36px; }

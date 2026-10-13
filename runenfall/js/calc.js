@@ -191,7 +191,7 @@ export function computeSkill(inst, gsets) {
   const areaMul = mul(sets, 'area', cat, skip);
   S.area = (def.area || 0) * Math.sqrt(areaMul);
   S.explode = (def.explode || 0) * Math.sqrt(areaMul);
-  const usesProj = def.tags.includes('proj') || def.tags.includes('orbit') || def.beh === 'meteor';
+  const usesProj = def.tags.includes('proj') || def.tags.includes('orbit') || ['meteor', 'zone', 'strikes'].includes(def.beh);
   S.count = Math.max(1, (def.count || 1) + (usesProj ? Math.round(flatSum(sets, 'proj')) : 0));
   S.pierce = (def.pierce || 0) + Math.round(flatSum(sets, 'pierce'));
   S.chain = (def.chain || 0) + Math.round(flatSum(sets, 'chain'));
@@ -229,6 +229,13 @@ export function computeSkill(inst, gsets) {
   S.echo = has('spec_echo') || (has('spec_echoAll') && def.tags.includes('spell') && def.beh !== 'aura' && def.beh !== 'minion');
   S.killExplode = flatSum(sets, 'spec_killExplode');
   S.ruthless = flatSum(sets, 'spec_ruthless');
+  S.ret = !!def.ret || has('spec_return');
+  S.fork = has('spec_fork');
+  S.aftershock = has('spec_aftershock');
+  S.shatter = has('spec_shatter');
+  S.steps = (def.steps || 0) + Math.round(flatSum(sets, 'spec_steps'));
+  S.pulse = def.pulse ? { r: def.pulse.r * Math.sqrt(areaMul), rate: def.pulse.rate } : null;
+  S.chillAura = !!def.chillAura;
 
   // --- Schätzung: Schaden pro Sekunde gegen ein Ziel ---
   const critF = S.nthCrit ? 1 + (S.critMulti / 100 - 1) / S.nthCrit : 1 + (S.crit / 100) * (S.critMulti / 100 - 1);
@@ -236,8 +243,12 @@ export function computeSkill(inst, gsets) {
   if (S.echo) perSec *= 2;
   let mult = 1;
   if (def.beh === 'minion') mult = S.minions;
-  if (def.beh === 'meteor') mult = S.count;
-  if (isDot) S.dps = S.avgHit; // dps-Werte sind bereits pro Sekunde
+  if (def.beh === 'meteor' || def.beh === 'strikes') mult = S.count;
+  if (def.beh === 'line') mult = 1 + (S.steps - 1) * 0.35;
+  if (S.pulse) mult = (S.interval / S.pulse.rate) * 0.5 * S.count;
+  if (S.aftershock) mult *= 1.5;
+  if (S.ret) mult *= 1.5;
+  if (isDot) S.dps = S.avgHit * (def.beh === 'zone' ? Math.min(S.count, S.dur / S.interval) : 1); // dps-Werte sind bereits pro Sekunde
   else S.dps = S.avgHit * critF * perSec * mult;
   return S;
 }

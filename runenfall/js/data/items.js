@@ -2,9 +2,9 @@
 import { pick, weighted, uid, clamp } from '../util.js';
 import { modText } from './stats.js';
 
-export const SLOTS = ['weapon', 'armor', 'helm', 'boots', 'amulet', 'ring'];
+export const SLOTS = ['weapon', 'armor', 'helm', 'gloves', 'boots', 'belt', 'amulet', 'ring'];
 export const SLOT_NAME = {
-  weapon: 'Waffe', armor: 'Rüstung', helm: 'Helm', boots: 'Stiefel', amulet: 'Amulett', ring: 'Ring', relic: 'Relikt',
+  weapon: 'Waffe', armor: 'Rüstung', helm: 'Helm', gloves: 'Handschuhe', belt: 'Gürtel', boots: 'Stiefel', amulet: 'Amulett', ring: 'Ring', relic: 'Relikt',
 };
 export const RARITY = {
   normal: { name: 'Normal', color: '#c9c3b5' },
@@ -41,6 +41,14 @@ export const BASES = {
   topaz: { slot: 'ring', name: 'Topasring', g: 'm', imp: [{ s: 'res_light', v: 12 }] },
   goldring: { slot: 'ring', name: 'Goldring', g: 'm', imp: [{ s: 'luck', t: 'inc', v: 15 }] },
   ironring: { slot: 'ring', name: 'Eisenring', g: 'm', imp: [{ s: 'add_phys', v: 2 }] },
+  gauntlets: { slot: 'gloves', name: 'Panzerhandschuhe', g: 'p', imp: [{ s: 'armor', v: 15 }, { s: 'dmg_attack', t: 'inc', v: 8 }] },
+  wraps: { slot: 'gloves', name: 'Lederwickel', g: 'p', imp: [{ s: 'speed_attack', t: 'inc', v: 8 }] },
+  silkgloves: { slot: 'gloves', name: 'Seidenhandschuhe', g: 'p', imp: [{ s: 'speed_spell', t: 'inc', v: 8 }] },
+  runegloves: { slot: 'gloves', name: 'Runenhandschuhe', g: 'p', imp: [{ s: 'crit', t: 'inc', v: 15 }] },
+  leatherbelt: { slot: 'belt', name: 'Ledergürtel', g: 'm', imp: [{ s: 'life', v: 20 }] },
+  heavybelt: { slot: 'belt', name: 'Schwerer Gurt', g: 'm', imp: [{ s: 'armor', v: 25 }, { s: 'life', v: 10 }] },
+  chainbelt: { slot: 'belt', name: 'Kettengürtel', g: 'm', imp: [{ s: 'barrier', v: 15 }] },
+  sash: { slot: 'belt', name: 'Seidenschärpe', g: 'f', imp: [{ s: 'dur', t: 'inc', v: 10 }] },
   shard: { slot: 'relic', name: 'Sternensplitter', g: 'm', imp: [] },
 };
 
@@ -58,10 +66,10 @@ function tiers(lo, hi, n, g) {
 }
 
 const W = ['weapon'];
-const WA = ['weapon', 'amulet'];
-const WAR = ['weapon', 'amulet', 'ring'];
-const DEF = ['armor', 'helm', 'boots'];
-const DEFJ = ['armor', 'helm', 'boots', 'amulet', 'ring'];
+const WA = ['weapon', 'amulet', 'gloves'];
+const WAR = ['weapon', 'amulet', 'ring', 'gloves'];
+const DEF = ['armor', 'helm', 'boots', 'gloves', 'belt'];
+const DEFJ = ['armor', 'helm', 'boots', 'gloves', 'belt', 'amulet', 'ring'];
 
 // pn = Adjektiv-Stamm für Präfixe, sn = Namenszusatz für Suffixe
 export const AFFIXES = [
@@ -130,6 +138,21 @@ export const AFFIXES = [
   { id: 'lvlPhys', k: 'suf', s: 'lvl_phys', tiers: [[1, 1]], slots: WA, sn: 'des Schlächters', min: 50, w: 12 },
   { id: 'lvlChaos', k: 'suf', s: 'lvl_chaos', tiers: [[1, 1]], slots: WA, sn: 'der Seuche', min: 50, w: 12 },
   { id: 'lvlAll', k: 'suf', s: 'lvl', tiers: [[1, 1]], slots: ['amulet'], sn: 'des Erzmagiers', min: 70, w: 8 },
+  { id: 'atkSpd', k: 'pre', s: 'speed_attack', t: 'inc', tiers: tiers(4, 7, 6, 1.25), slots: ['gloves', 'weapon', 'ring'], pn: 'Flink' },
+  { id: 'castSpd', k: 'pre', s: 'speed_spell', t: 'inc', tiers: tiers(4, 7, 6, 1.25), slots: ['gloves', 'weapon', 'amulet'], pn: 'Beredt' },
+  { id: 'dmgTrap', k: 'pre', s: 'dmg_trap', t: 'inc', tiers: tiers(10, 16, 7, 1.3), slots: [...WA, 'belt'], pn: 'Tückisch' },
+  { id: 'dmgAura', k: 'pre', s: 'dmg_aura', t: 'inc', tiers: tiers(10, 16, 7, 1.3), slots: [...WA, 'belt'], pn: 'Strahlend' },
+  { id: 'dmgOrbit', k: 'pre', s: 'dmg_orbit', t: 'inc', tiers: tiers(10, 16, 7, 1.3), slots: [...WA, 'belt'], pn: 'Wirbelnd' },
+  { id: 'dmgElem', k: 'pre', s: 'dmg_elem', t: 'inc', tiers: tiers(7, 12, 7, 1.3), slots: [...WAR, 'belt'], pn: 'Prismatisch' },
+  { id: 'lifeBelt', k: 'pre', s: 'life', t: 'inc', tiers: tiers(5, 8, 6, 1.25), slots: ['belt'], pn: 'Kräftig' },
+  { id: 'vsBoss', k: 'suf', s: 'dmgVsBoss', t: 'inc', tiers: tiers(8, 14, 6, 1.25), slots: ['gloves', 'weapon', 'belt'], sn: 'des Jägers' },
+  { id: 'vsLow', k: 'suf', s: 'dmgVsLow', t: 'inc', tiers: tiers(10, 18, 6, 1.25), slots: ['gloves', 'weapon'], sn: 'des Henkers' },
+  { id: 'ailDur', k: 'suf', s: 'ailDur', t: 'inc', tiers: tiers(6, 12, 5, 1.25), slots: ['gloves', 'belt', 'amulet'], sn: 'der Qual' },
+  { id: 'minSpd', k: 'suf', s: 'speed_minion', t: 'inc', tiers: tiers(5, 9, 5, 1.25), slots: ['gloves', 'helm', 'amulet'], sn: 'des Befehls' },
+  { id: 'dodge', k: 'suf', s: 'dodge', tiers: tiers(2, 3, 4, 1.25), slots: ['boots', 'belt'], sn: 'des Phantoms', min: 30, w: 30 },
+  { id: 'resMax', k: 'suf', s: 'resMax', tiers: [[1, 1], [2, 2], [3, 3]], slots: ['armor', 'belt'], sn: 'der Festung', min: 55, w: 15 },
+  { id: 'lvlMinion', k: 'suf', s: 'lvl_minion', tiers: [[1, 1]], slots: ['helm', 'weapon'], sn: 'des Totenbeschwörers', min: 50, w: 12 },
+  { id: 'lvlTrap', k: 'suf', s: 'lvl_trap', tiers: [[1, 1]], slots: ['gloves', 'weapon'], sn: 'des Fallenmeisters', min: 50, w: 12 },
 ];
 export const AFFIX = Object.fromEntries(AFFIXES.map((a) => [a.id, a]));
 
@@ -259,6 +282,137 @@ export const UNIQUES = {
     mods: [{ s: 'conv_phys_fire', v: 100 }, { s: 'conv_cold_fire', v: 50 }, { s: 'conv_light_fire', v: 50 }, { s: 'dmg_fire', t: 'inc', v: 40 }],
     flavor: 'Am Ende wird alles zu Asche.',
   },
+  frosthand: {
+    base: 'runegloves', name: 'Frostfaust',
+    mods: [{ s: 'add_cold', v: 10 }, { s: 'spec_shatter', v: 1 }, { s: 'freezeChance', v: 10 }],
+    flavor: 'Was sie berührt, zerbricht.',
+  },
+  titanbelt: {
+    base: 'heavybelt', name: 'Gurt des Titanen',
+    mods: [{ s: 'life', v: 80 }, { s: 'armor', t: 'inc', v: 40 }, { s: 'dmg_melee', t: 'inc', v: 30 }],
+    flavor: 'Für Schultern, die Berge tragen.',
+  },
+  soulchain: {
+    base: 'chainbelt', name: 'Seelenkette',
+    mods: [{ s: 'minionCount', v: 1 }, { s: 'spec_minionLeech', v: 2 }, { s: 'dmg_minion', t: 'inc', v: 25 }],
+    flavor: 'Jedes Glied ein gebundener Geist.',
+  },
+  emberfingers: {
+    base: 'silkgloves', name: 'Glutfinger',
+    mods: [{ s: 'igniteChance', v: 20 }, { s: 'spec_burnStack', v: 1 }, { s: 'burn', t: 'inc', v: 30 }],
+    flavor: 'Sie lodern seit tausend Jahren.',
+  },
+  prismfists: {
+    base: 'gauntlets', name: 'Prismafäuste',
+    mods: [{ s: 'conv_phys_light', v: 50 }, { s: 'conv_light_cold', v: 50 }, { s: 'dmg_elem', t: 'inc', v: 30 }],
+    flavor: 'Licht bricht sich, Gegner auch.',
+  },
+  timewalker: {
+    base: 'greaves', name: 'Zeitwanderer',
+    mods: [{ s: 'speed', t: 'inc', v: 15 }, { s: 'move', t: 'inc', v: 12 }, { s: 'dur', t: 'inc', v: -20 }],
+    flavor: 'Gestern ist schon morgen.',
+  },
+  stormcrown: {
+    base: 'ironhelm', name: 'Krone des Sturms',
+    mods: [{ s: 'lvl_light', v: 1 }, { s: 'shockChance', v: 20 }, { s: 'life', v: 40 }],
+    flavor: 'Gekrönt vom Donner.',
+  },
+  voideye: {
+    base: 'hood', name: 'Leerenauge',
+    mods: [{ s: 'dmg_chaos', t: 'inc', v: 40 }, { s: 'pen_chaos', v: 20 }, { s: 'spec_poisonVuln', v: 10 }],
+    flavor: 'Es starrt zurück.',
+  },
+  bloodmoon: {
+    base: 'amber', name: 'Blutmond',
+    mods: [{ s: 'bleedChance', v: 30 }, { s: 'bleed', t: 'more', v: 30 }, { s: 'leech', v: 1 }],
+    flavor: 'Wenn er aufgeht, fließt Blut.',
+  },
+  starfall: {
+    base: 'lapis', name: 'Sternenfall',
+    mods: [{ s: 'lvl', v: 1 }, { s: 'dmg', t: 'inc', v: 20 }, { s: 'life', t: 'inc', v: -15 }],
+    flavor: 'Ein Stück vom Himmel, um den Hals getragen.',
+  },
+  chainward: {
+    base: 'robe', name: 'Kettenwächter',
+    mods: [{ s: 'chain', v: 1 }, { s: 'barrier', v: 80 }, { s: 'dmg_chain', t: 'inc', v: 30 }],
+    flavor: 'Ein Netz aus Licht.',
+  },
+  thornmail: {
+    base: 'plate', name: 'Dornenpanzer',
+    mods: [{ s: 'armor', v: 150 }, { s: 'spec_thorns', v: 80 }, { s: 'life', v: 30 }],
+    flavor: 'Wer schlägt, blutet.',
+  },
+  splitbow: {
+    base: 'bow', name: 'Gespaltener Himmel',
+    mods: [{ s: 'proj', v: 2 }, { s: 'spec_fork', v: 1 }, { s: 'dmg_proj', t: 'inc', v: 20 }],
+    flavor: 'Ein Pfeil wird viele.',
+  },
+  boomaxe: {
+    base: 'axe', name: 'Heimkehrer',
+    mods: [{ s: 'spec_return', v: 1 }, { s: 'dmg_attack', t: 'inc', v: 40 }, { s: 'add_phys', v: 8 }],
+    flavor: 'Er kommt immer zurück.',
+  },
+  coldheart: {
+    base: 'sapphire', name: 'Herz der Kälte',
+    mods: [{ s: 'dmg_cold', t: 'inc', v: 35 }, { s: 'freezeChance', v: 12 }, { s: 'res_cold', v: 30 }],
+    flavor: 'Es schlägt einmal pro Winter.',
+  },
+  eternring: {
+    base: 'goldring', name: 'Ring der Ewigkeit',
+    mods: [{ s: 'dur', t: 'inc', v: 40 }, { s: 'ailDur', t: 'inc', v: 40 }, { s: 'dmg_dot', t: 'inc', v: 20 }],
+    flavor: 'Ohne Anfang, ohne Ende.',
+  },
+  execring: {
+    base: 'ironring', name: 'Henkersring',
+    mods: [{ s: 'dmgVsLow', t: 'more', v: 40 }, { s: 'critMulti', v: 30 }, { s: 'spec_overkill', v: 1 }],
+    flavor: 'Das letzte, was sie sehen.',
+  },
+  stardust: {
+    base: 'goldring', name: 'Staubfänger',
+    mods: [{ s: 'dust', t: 'inc', v: 30 }, { s: 'luck', t: 'inc', v: 25 }, { s: 'xp', t: 'inc', v: 10 }],
+    flavor: 'Jedes Körnchen zählt.',
+  },
+  necronomicon: {
+    base: 'totem', name: 'Totenbuch',
+    mods: [{ s: 'dmg_minion', t: 'inc', v: 50 }, { s: 'spec_killExplode', v: 5 }, { s: 'lvl_minion', v: 1 }],
+    flavor: 'Seine Seiten flüstern Namen.',
+  },
+  arcanestorm: {
+    base: 'wand', name: 'Arkaner Sturm',
+    mods: [{ s: 'speed_spell', t: 'more', v: 20 }, { s: 'crit_spell', t: 'inc', v: 60 }, { s: 'dmg_spell', t: 'inc', v: 30 }],
+    flavor: 'Zauber wie Regen.',
+  },
+  lifethief: {
+    base: 'dagger', name: 'Lebensdieb',
+    mods: [{ s: 'leech', v: 2.5 }, { s: 'lifeOnKill', v: 6 }, { s: 'add_phys', v: 6 }],
+    flavor: 'Was dir fehlt, nimm dir.',
+  },
+  peakbreaker: {
+    base: 'scepter', name: 'Gipfelstürmer',
+    mods: [{ s: 'dmg_elem', t: 'inc', v: 50 }, { s: 'pen', v: 12 }, { s: 'res_elem', v: -15 }],
+    flavor: 'Höher. Immer höher.',
+  },
+  phoenix: {
+    base: 'amber', name: 'Phönixfeder',
+    mods: [{ s: 'spec_rebirth', v: 1 }, { s: 'res_fire', v: 25 }, { s: 'lifeRegen', v: 4 }],
+    flavor: 'Aus der Asche.',
+  },
+  voidboots: {
+    base: 'slippers', name: 'Schritte der Leere',
+    mods: [{ s: 'dodge', v: 15 }, { s: 'move', t: 'inc', v: 10 }, { s: 'evasion', t: 'inc', v: 30 }],
+    flavor: 'Du bist hier. Und nicht.',
+  },
+  ragewraps: {
+    base: 'wraps', name: 'Fäuste des Zorns',
+    mods: [{ s: 'spec_berserk', v: 1 }, { s: 'speed_attack', t: 'inc', v: 20 }, { s: 'lifeOnKill', v: 3 }],
+    flavor: 'Je tiefer die Wunde, desto härter der Schlag.',
+  },
+  stillsash: {
+    base: 'sash', name: 'Schärpe der Stille',
+    mods: [{ s: 'spec_stillness', v: 1 }, { s: 'barrier', v: 40 }, { s: 'dmg_aura', t: 'inc', v: 30 }],
+    flavor: 'Bewegungslos wie ein Stern.',
+  },
+
   hunterbow: {
     base: 'bow', name: 'Jägermond',
     mods: [{ s: 'proj', v: 1 }, { s: 'critMulti', v: 50 }, { s: 'dmgVsBoss', t: 'inc', v: 40 }],

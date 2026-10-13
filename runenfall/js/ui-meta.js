@@ -3,12 +3,12 @@ import { app } from './app.js';
 import { $, on, screen, hideScreen, modal, closeModal, toast, confirmBox, topbar, itemCard, glyphCard, skillInfo, bar, tagChips } from './ui.js';
 import { esc, fmt, fmtV } from './util.js';
 import { save, persist, accountLevel, totalPoints, spentPoints, altarLvl, relicSlots, checkAchievements, exportSave, importSave, resetSave, achievementPoints, xpForLevel } from './save.js';
-import { CLASSES, ALTAR, altarCost, ACHIEVEMENTS, ASC_MODS, BOSSES } from './data/content.js';
+import { CLASSES, ALTAR, altarCost, ACHIEVEMENTS, ASC_MODS, BOSSES, ENEMIES, ASCENDANCIES, ASCEND_COST, MUTATORS } from './data/content.js';
 import { SKILLS, SUPPORTS, catTags } from './data/skills.js';
 import { UNIQUES, BASES, RARITY, relicRefine, relicRefineCost, relicSalvage, RELIC_TIERS } from './data/items.js';
 import { getTree, findPath, removalSet, KEYSTONES } from './data/tree.js';
 import { modText } from './data/stats.js';
-import { buildSets, relicMods } from './run.js';
+import { buildSets, relicMods, ensureQuests, questText, dailyConfig } from './run.js';
 import { computePlayer, computeSkill } from './calc.js';
 import { sfx } from './audio.js';
 
@@ -33,6 +33,8 @@ export function showHub() {
       ${run ? `<button class="btn primary big" data-a="continue">FORTSETZEN<small>${esc(CLASSES[run.cls].name)} · ${run.mode === 'abyss' ? 'Abgrund Ebene ' + run.floor : 'Akt ' + (run.act + 1)} · Stufe ${run.lvl}</small></button>
         <button class="btn small ghost" data-a="abandon">Run aufgeben</button>`
       : `<button class="btn primary big" data-a="nav" data-to="setup">NEUER RUN</button>`}
+      ${run ? '' : dailyTile()}
+      ${questPanel()}
       <div class="grid2">
         <button class="tile" data-a="nav" data-to="tree"><span class="ti">✶</span>Sternenkarte${unspent ? '<i class="dot"></i>' : ''}<small>${pts} Punkte</small></button>
         <button class="tile" data-a="nav" data-to="codex"><span class="ti">❖</span>Kodex<small>Runen · Glyphen · Klassen</small></button>
@@ -47,10 +49,39 @@ export function showHub() {
   if (save.treeReset) { save.treeReset = false; persist(); }
 }
 on('continue', () => app.continueRun());
+
+function dailyTile() {
+  const d = dailyConfig();
+  return `<button class="daily ${d.done ? 'done' : ''}" data-a="daily"><div><b>☀ Tägliche Herausforderung</b>
+    <small>${esc(CLASSES[d.cls].name)} · Höhe ${d.asc} · ${d.mutators.map((m) => MUTATORS[m].name).join(', ')}</small></div>
+    <em>${d.done ? '✓ erledigt' : 'Staub ×2'}</em></button>`;
+}
+on('daily', () => {
+  const d = dailyConfig();
+  confirmBox(`<b>Tägliche Herausforderung</b><br><br>Klasse: ${esc(CLASSES[d.cls].name)}<br>Sternenhöhe: ${d.asc}<br>Prophezeiungen: ${d.mutators.map((m) => `<br>· ${MUTATORS[m].name} – ${MUTATORS[m].desc}`).join('')}<br><br>Alle Spieler bekommen heute dieselbe Karte. ${d.done ? 'Du hast den Bonus heute schon erhalten.' : 'Der erste Versuch heute verdoppelt deinen Sternenstaub.'}`,
+    'Starten', () => app.startRun({ cls: d.cls, asc: d.asc, mode: 'normal', mutators: d.mutators, daily: d.key, seed: d.seed, ascend: null }));
+});
+
+function questPanel() {
+  ensureQuests();
+  persist();
+  const rows = save.quests.map((q, i) => `<div class="quest"><span>📜</span><div><b>${esc(questText(q))}</b><small>+✦ ${q.dust}${q.relic ? ' · + Relikt' : ''}</small></div>
+    <button class="icon small" data-a="qReroll" data-i="${i}" title="Austauschen">↻</button></div>`).join('');
+  return `<div class="panel quests"><div class="row between"><h3>Aufträge</h3><small class="muted">1× täglich austauschbar</small></div>${rows}</div>`;
+}
+on('qReroll', (d) => {
+  const today = new Date().toDateString();
+  if (save.questReroll === today) { toast('Heute schon ausgetauscht – morgen wieder.'); return; }
+  save.questReroll = today;
+  save.quests.splice(Number(d.i), 1);
+  ensureQuests();
+  persist();
+  showHub();
+});
 on('abandon', () => confirmBox('Run wirklich aufgeben? Du erhältst die Belohnungen für den bisherigen Fortschritt.', 'Aufgeben', () => app.abandonRun()));
 
 // ===================================================================== Run vorbereiten
-let setup = { cls: null, asc: 0, mode: 'normal' };
+let setup = { cls: null, asc: 0, mode: 'normal', ascend: null, mutators: [] };
 export function showSetup() {
   if (!setup.cls || !save.unlockedCls.includes(setup.cls)) setup.cls = save.unlockedCls.includes(save.lastCls) ? save.lastCls : save.unlockedCls[0];
   setup.asc = Math.min(setup.asc, save.ascUnlocked);
@@ -87,10 +118,41 @@ export function showSetup() {
         <p class="small muted">Gegner +${Math.round((Math.pow(1.12, setup.asc) - 1) * 100)}% Leben, +${Math.round((Math.pow(1.07, setup.asc) - 1) * 100)}% Schaden · Belohnungen +${setup.asc * 25}% Staub. Gewinne, um die nächste Höhe freizuschalten (unendlich).</p>
         ${asc ? `<ul class="asclist">${asc}</ul>` : ''}
       </div>
+      ${ascendPanel()}
+      ${prophPanel()}
       <button class="btn primary big" data-a="go">LOS</button>
     </div>`);
 }
-on('pickCls', (d) => { setup.cls = d.id; showSetup(); });
+on('pickCls', (d) => { setup.cls = d.id; setup.ascend = null; showSetup(); });
+
+function ascendPanel() {
+  const opts = Object.entries(ASCENDANCIES).filter(([, a]) => a.cls === setup.cls);
+  const btn = (id, a) => {
+    const lvl = (save.ascend || {})[id] || 0;
+    return `<button class="${setup.ascend === id ? 'on' : ''} ${lvl ? '' : 'disabled'}" data-a="pickAsc" data-id="${id}">${esc(a.name)}<small>${lvl ? `Stufe ${lvl}/5` : '🔒 im Kodex'}</small></button>`;
+  };
+  return `<div class="panel"><h3>Aufstiegsklasse</h3><div class="seg">
+    <button class="${!setup.ascend ? 'on' : ''}" data-a="pickAsc" data-id="">Keine<small>–</small></button>${opts.map(([id, a]) => btn(id, a)).join('')}</div>
+    ${setup.ascend ? `<ul class="mods">${ASCENDANCIES[setup.ascend].nodes.slice(0, save.ascend[setup.ascend]).map((n) => `<li><b>${esc(n.name)}:</b> ${n.mods.map(modText).map(esc).join(', ')}</li>`).join('')}</ul>` : ''}</div>`;
+}
+on('pickAsc', (d) => {
+  if (d.id && !((save.ascend || {})[d.id] > 0)) { toast('Schalte die Aufstiegsklasse zuerst im Kodex frei.'); return; }
+  setup.ascend = d.id || null; showSetup();
+});
+
+function prophPanel() {
+  const bonus = setup.mutators.reduce((s, m) => s + MUTATORS[m].reward, 0);
+  return `<div class="panel"><div class="row between"><h3>Prophezeiungen</h3><b class="up">+${bonus}% Staub</b></div>
+    <p class="small muted">Optionale Erschwernisse. Jede erhöht die Belohnung – für echte Min-Maxer.</p>
+    <div class="proph">${Object.entries(MUTATORS).map(([id, m]) => `<button class="${setup.mutators.includes(id) ? 'on' : ''}" data-a="togMut" data-id="${id}"><b>${esc(m.name)}</b><small>${esc(m.desc)}</small><em>+${m.reward}%</em></button>`).join('')}</div></div>`;
+}
+on('togMut', (d) => {
+  const i = setup.mutators.indexOf(d.id);
+  if (i >= 0) setup.mutators.splice(i, 1); else setup.mutators.push(d.id);
+  const y = document.getElementById('ui').scrollTop;
+  showSetup();
+  document.getElementById('ui').scrollTop = y;
+});
 on('buyCls', (d) => {
   const c = CLASSES[d.id];
   if (save.dust < c.unlock) { sfx.deny(); toast(`Benötigt ✦ ${fmt(c.unlock)} Sternenstaub`); return; }
@@ -210,7 +272,7 @@ export const treeTabLocked = () => !!save.run;
 // ===================================================================== Kodex
 let codexTab = 'skills';
 export function showCodex() {
-  const tabs = [['skills', 'Runen'], ['supports', 'Glyphen'], ['uniques', 'Unikate']]
+  const tabs = [['skills', 'Runen'], ['supports', 'Glyphen'], ['ascend', 'Aufstieg'], ['uniques', 'Unikate'], ['bestiary', 'Bestien']]
     .map(([k, n]) => `<button class="${codexTab === k ? 'on' : ''}" data-a="ctab" data-t="${k}">${n}</button>`).join('');
   let body = '';
   if (codexTab === 'skills') {
@@ -225,6 +287,23 @@ export function showCodex() {
       const have = save.codex.supports.includes(id);
       return glyphCard(id, have ? '<span class="ok">✓ freigeschaltet</span>' : `<button class="btn small primary" data-a="cbuy" data-k="supports" data-id="${id}">✦ ${s.cost}</button>`);
     }).join('')}</div>`;
+  } else if (codexTab === 'ascend') {
+    const gate = Object.values(save.stats.bossKills).some((v) => v > 0);
+    body = (gate ? '' : '<p class="note">Besiege zuerst einen Boss, um Aufstiegsklassen freizuschalten.</p>') +
+      Object.entries(ASCENDANCIES).map(([id, a]) => {
+        const lvl = (save.ascend || {})[id] || 0;
+        const c = CLASSES[a.cls];
+        const nodes = a.nodes.map((n, i) => `<li class="${i < lvl ? 'up' : 'muted'}">${i < lvl ? '✓' : '○'} <b>${esc(n.name)}:</b> ${n.mods.map(modText).map(esc).join(', ')}</li>`).join('');
+        const btn = lvl >= 5 ? '<span class="ok">VOLLENDET</span>' : `<button class="btn small ${gate && save.dust >= ASCEND_COST[lvl] ? 'primary' : 'disabled'}" data-a="ascBuy" data-id="${id}">Stufe ${lvl + 1}: ✦ ${fmt(ASCEND_COST[lvl])}</button>`;
+        return `<div class="panel"><div class="row between"><div><h3 style="color:${c.color}">${c.glyph} ${esc(a.name)}</h3><small class="muted">${esc(c.name)} · ${esc(a.desc)}</small></div>${btn}</div><ul class="mods">${nodes}</ul></div>`;
+      }).join('');
+  } else if (codexTab === 'bestiary') {
+    const kills = save.stats.enemyKills || {};
+    const known = Object.keys(ENEMIES).filter((k) => kills[k] > 0).length;
+    body = `<p class="muted center">${known}/${Object.keys(ENEMIES).length} Gegnerarten entdeckt</p>` +
+      Object.entries(ENEMIES).map(([k, e]) => kills[k] ? `<div class="srow"><span><b style="color:${e.color}">●</b> ${esc(e.name)}</span><b>${fmt(kills[k])}</b></div>` : `<div class="srow muted"><span>● ???</span><b>0</b></div>`).join('') +
+      `<h3>Bosse</h3>` + Object.entries(BOSSES).map(([k, b]) => `<div class="srow"><span><b style="color:${b.color}">♛</b> ${save.stats.bossKills[k] ? esc(b.name) : '???'}</span><b>${save.stats.bossKills[k] || 0}</b></div>`).join('');
+    body = `<div class="panel">${body}</div>`;
   } else {
     const total = Object.keys(UNIQUES).length;
     body = `<p class="muted center">${save.codex.uniques.length}/${total} entdeckt. Einzigartige Gegenstände findest du bei Bossen, Eliten und Händlern.</p><div class="gcards">` +
@@ -237,6 +316,16 @@ export function showCodex() {
     <div class="seg">${tabs}</div>${body}</div>`);
 }
 on('ctab', (d) => { codexTab = d.t; showCodex(); });
+on('ascBuy', (d) => {
+  const lvl = (save.ascend || {})[d.id] || 0;
+  if (!Object.values(save.stats.bossKills).some((v) => v > 0)) { toast('Besiege zuerst einen Boss.'); return; }
+  if (lvl >= 5 || save.dust < ASCEND_COST[lvl]) { sfx.deny(); toast(`Benötigt ✦ ${fmt(ASCEND_COST[lvl])}`); return; }
+  save.dust -= ASCEND_COST[lvl];
+  save.ascend = save.ascend || {};
+  save.ascend[d.id] = lvl + 1;
+  checkAchievements();
+  persist(); sfx.levelup(); showCodex();
+});
 on('cbuy', (d) => {
   const def = d.k === 'skills' ? SKILLS[d.id] : SUPPORTS[d.id];
   if (save.dust < def.cost) { sfx.deny(); toast(`Benötigt ✦ ${def.cost}`); return; }

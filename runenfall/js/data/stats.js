@@ -98,6 +98,22 @@ const FLAT = {
   spec_ci: 'Leben ist 1 · Barriere erhält 150% deines Lebens',
   spec_ruthless: 'Jeder 3. Treffer verursacht {v}% mehr Schaden',
   spec_trapMax: '{sv} gleichzeitige Fallen',
+  spec_return: 'Projektile kehren zu dir zurück und treffen erneut',
+  spec_fork: 'Projektile teilen sich beim ersten Treffer in zwei',
+  spec_aftershock: 'Flächentreffer wiederholen sich als Nachbeben (50% Schaden)',
+  spec_shatter: 'Eingefrorene Gegner zersplittern beim Tod und unterkühlen ihre Umgebung',
+  spec_steps: '{sv} Explosionen pro Welle',
+  spec_thorns: 'Gegner, die dich berühren, erleiden {v}% deiner Rüstung als Schaden',
+  spec_rebirth: 'Einmal pro Kampf: Tödlicher Schaden lässt dich stattdessen mit 30% Leben weiterleben',
+  spec_minionLeech: 'Begleiter heilen dich um {v}% ihres Schadens',
+  spec_critChain: 'Kritische Treffer springen auf einen weiteren Gegner über',
+  spec_overkill: 'Überschüssiger Schaden beim Töten springt auf den nächsten Gegner über',
+  spec_frenzy: 'Jede Tötung gibt 1% mehr Tempo (bis 30%, verfällt nach 3 s)',
+  spec_berserk: 'Bis zu 40% mehr Schaden, je weniger Leben du hast',
+  spec_stillness: '30% mehr Schaden, solange du stehst',
+  spec_bulwark: 'Barriere schützt auch vor Schaden über Zeit und lädt sofort nach Tötungen von Eliten',
+  pen_phys: 'Durchdringt {v}% physischen Widerstand',
+  dustRun: '{sv}% Sternenstaub aus diesem Run',
 };
 
 export function modText(m) {
