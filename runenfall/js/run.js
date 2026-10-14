@@ -3,7 +3,7 @@
 import { makeRng, pick, rand, randi, weighted, clamp, shuffle } from './util.js';
 import { SKILLS, SUPPORTS, supportFits, MAX_SKILLS, SOCKETS, MAX_SKILL_LVL } from './data/skills.js';
 import { ACTS, ABYSS, BIOMES, BOSS_IDS, BOONS, BOON_RARITY, EVENTS, ALTAR, CLASSES, ASCENDANCIES, MUTATORS, QUEST_TEMPLATES, ENEMIES, ascHas, ascHpMult, ascDmgMult } from './data/content.js';
-import { makeItem, makeRelic, SLOTS, itemMods, UNIQUES, craftReroll, craftAdd, craftUpgrade, canCraft, itemValue } from './data/items.js';
+import { makeItem, makeRelic, SLOTS, itemMods, UNIQUES, craftReroll, craftAdd, craftUpgrade, canCraft, itemValue, craftLockReroll, craftFuse, craftCorrupt, craftUniqueUp, UQ_MAX } from './data/items.js';
 import { getTree, treeMods } from './data/tree.js';
 import { PETS, PET_IDS, PET_MAX, petSkillDef, SETS, getAtlas, atlasPower, ATLAS_PASSIVES, PARAGON, makeJewel, jewelMods } from './data/endgame.js';
 import {
@@ -11,6 +11,7 @@ import {
   deckSize, openPack, currentLeague, seasonKey, SEASON_TIERS, seasonXpFor,
 } from './data/systems.js';
 import { makeMythic } from './data/items.js';
+import { EVOLUTIONS } from './data/evolutions.js';
 
 // ---------------------------------------------------------------- Sternwarte-Helfer
 export const baseLvl = (id) => (save.base && save.base.lvl && save.base.lvl[id]) || 0;
@@ -46,6 +47,20 @@ export const atlasHas = (id) => !!(save.atlas && save.atlas.passives && save.atl
 export const xpNeed = (l) => Math.round(12 + 7 * l + 0.55 * l * l);
 
 // ---------------------------------------------------------------- Neuer Run
+/** Index der ersten Rune, die bereit zur Evolution ist (oder -1). */
+export function pendingEvolution(run) {
+  return run.skills.findIndex((s) => s.lvl >= MAX_SKILL_LVL && !s.evo && EVOLUTIONS[s.id]);
+}
+export function evolveRune(run, idx, evo) {
+  const s = run.skills[idx];
+  if (!s || s.evo || !EVOLUTIONS[s.id]) return false;
+  s.evo = evo === 'b' ? 'b' : 'a';
+  save.stats.evolutions = (save.stats.evolutions || 0) + 1;
+  save.codex.evos = save.codex.evos || [];
+  const k = `${s.id}:${s.evo}`;
+  if (!save.codex.evos.includes(k)) save.codex.evos.push(k);
+  return true;
+}
 export function newRun({ cls, asc = 0, mode = 'normal', ascend = null, mutators = [], daily = null, seed = null, pet = null, atlas = null, potion = null, league = false }) {
   if (league) { const L = currentLeague(); mutators = [...new Set([...mutators, ...L.muts])]; }
   const run = {
@@ -455,19 +470,35 @@ export function genShop(run) {
 
 export const forgeCost = (run, op, item) => {
   const pm = priceMult(run) * (1 + item.ilvl / 40) * (atlasHas('aForge') ? 0.75 : 1) * (1 - 0.05 * baseLvl('forge'));
-  return Math.round({ reroll: 25, add: 45, upgrade: 60 }[op] * pm);
+  const base = { reroll: 25, add: 45, upgrade: 60, lock: 70, fuse: 80, corrupt: 90, unique: 140 * ((item.uqLvl || 0) + 1) }[op];
+  return Math.round(base * pm);
 };
-export function forge(run, op, item) {
-  if (!canCraft(item)) return false;
+export function forge(run, op, item, arg) {
   const cost = forgeCost(run, op, item);
   if (run.gold < cost) return false;
-  let ok = false;
-  if (op === 'reroll') { if (item.rarity === 'normal') return false; craftReroll(item); ok = true; }
-  else if (op === 'add') ok = craftAdd(item);
-  else if (op === 'upgrade') ok = craftUpgrade(item);
+  let ok = false, res = null;
+  if (op === 'corrupt') { res = craftCorrupt(item); ok = !!res; if (ok) save.stats.corrupts = (save.stats.corrupts || 0) + 1; }
+  else if (op === 'unique') { ok = craftUniqueUp(item); if (ok) save.stats.uqUps = (save.stats.uqUps || 0) + 1; }
+  else {
+    if (!canCraft(item)) return false;
+    if (op === 'reroll') { if (item.rarity === 'normal') return false; craftReroll(item); ok = true; }
+    else if (op === 'add') ok = craftAdd(item);
+    else if (op === 'upgrade') ok = craftUpgrade(item);
+    else if (op === 'lock') ok = craftLockReroll(item, arg);
+    else if (op === 'fuse') {
+      const other = arg;
+      ok = craftFuse(item, other);
+      if (ok) {
+        run.bag = run.bag.filter((x) => x !== other);
+        for (const s of SLOTS) if (run.eq[s] === other) delete run.eq[s];
+        save.stats.fuses = (save.stats.fuses || 0) + 1;
+      }
+    }
+  }
   if (ok) run.gold -= cost;
-  return ok;
+  return res || ok;
 }
+export { UQ_MAX };
 /** Runenschliff: Merkmale einer Rune neu würfeln (Anzahl bleibt, mindestens 1). */
 export const grindCost = (run) => Math.round(70 * priceMult(run) * (1 + run.act * 0.5) * (1 - 0.05 * baseLvl('forge')));
 export function grindRune(run, inst) {

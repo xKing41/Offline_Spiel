@@ -5,10 +5,11 @@
 // Gescopte Werte (z. B. dmg_fire) zählen nur, wenn der Schaden bzw. die Fertigkeit den Tag trägt.
 import { SKILLS, SUPPORTS, supportFits, catTags } from './data/skills.js';
 import { RUNE_TRAITS, traitFits } from './data/systems.js';
+import { evolvedDef, evoOf } from './data/evolutions.js';
 
 /** Anzeigename einer Rune inklusive Merkmalen (z. B. „Glühender Zwillings-Feuerball“). */
 export function runeName(inst) {
-  const def = inst.def || SKILLS[inst.id];
+  const def = inst.evo ? evolvedDef(inst.def || SKILLS[inst.id], inst.id, inst.evo) : inst.def || SKILLS[inst.id];
   const tr = (inst.traits || []).filter((t) => RUNE_TRAITS[t]).map((t) => RUNE_TRAITS[t].name);
   return tr.length ? `${tr.join('-')}-${def.name}` : def.name;
 }
@@ -122,8 +123,11 @@ export function skillLevel(inst, sets) {
 }
 
 export function computeSkill(inst, gsets) {
-  const def = inst.def || SKILLS[inst.id];
+  const def0 = inst.def || SKILLS[inst.id];
+  const def = inst.evo ? evolvedDef(def0, inst.id, inst.evo) : def0;
+  const evo = inst.evo ? evoOf(inst.id, inst.evo) : null;
   const local = new ModSet();
+  if (evo) local.addAll(evo.mods);
   for (const sid of inst.sup || []) {
     if (!sid) continue;
     const sd = SUPPORTS[sid];
@@ -142,7 +146,7 @@ export function computeSkill(inst, gsets) {
   const cat = catTags(def);
   const isDot = !def.dmg && !!def.dps;
   const lvlMult = 1 + 0.22 * (lvl - 1);
-  const S = { id: inst.id, def, lvl, cat, isDot };
+  const S = { id: inst.id, def, lvl, cat, isDot, evo: inst.evo || null, evoVis: evo ? evo.vis : null };
 
   // --- Grundschaden je Art (inkl. hinzugefügtem Schaden) ---
   const base = {};

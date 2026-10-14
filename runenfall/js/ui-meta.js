@@ -11,6 +11,7 @@ import { modText } from './data/stats.js';
 import { buildSets, relicMods, ensureQuests, questText, dailyConfig } from './run.js';
 import { computePlayer, computeSkill } from './calc.js';
 import { systemTiles, leaguePanel, potionPanel, archiveTab } from './ui-systems.js';
+import { EVOLUTIONS, evoOf } from './data/evolutions.js';
 import { sfx } from './audio.js';
 import { jewelsTab, jewelSocketPanel, paragonPanel } from './ui-endgame.js';
 import { PETS, SETS, getAtlas } from './data/endgame.js';
@@ -224,7 +225,7 @@ function renderTreeUI() {
       <button class="icon" data-a="tnext" title="Nächster Treffer">⌕</button>
       <button class="icon" data-a="tzoom" data-f="1.3">+</button><button class="icon" data-a="tzoom" data-f="0.77">−</button>
       <button class="icon" data-a="tview" title="Gesamtansicht">◎</button><button class="icon" data-a="thome" title="Zum Ursprung">⌂</button>
-      <button class="icon" data-a="tsum" title="Zusammenfassung">Σ</button></div>
+      <button class="icon" data-a="tsum" title="Zusammenfassung">Σ</button><button class="icon" data-a="tbuilds" title="Gespeicherte Builds">⎘</button></div>
     <div id="tsinfo" class="tsinfo"></div>
     ${locked ? '<div class="lockbar">Während eines Runs kann die Karte nur angesehen werden.</div>' : ''}
     <div id="tpanel" class="tpanel"></div>`, 'treescreen');
@@ -339,6 +340,71 @@ on('treset', () => {
 });
 export const treeTabLocked = () => !!save.run;
 
+// ===================================================================== Gespeicherte Builds
+const BUILD_SLOTS = 4;
+function showBuilds() {
+  save.loadouts = save.loadouts || {};
+  const list = save.loadouts[treeCls] = save.loadouts[treeCls] || [];
+  const cur = save.alloc[treeCls].length - 1;
+  const rows = Array.from({ length: BUILD_SLOTS }, (_, i) => {
+    const b = list[i];
+    if (!b) return `<div class="bslot empty"><div><b>Platz ${i + 1}</b><small class="muted">leer</small></div>
+      <button class="btn small" data-a="bSave" data-i="${i}" ${save.run ? 'disabled' : ''}>Speichern</button></div>`;
+    const keys = b.alloc.map((id) => getTree().nodes.get(id)).filter((n) => n && n.type === 'key').map((n) => n.name);
+    return `<div class="bslot"><div><b>${esc(b.name)}</b><small class="muted">${b.alloc.length - 1} Sterne${keys.length ? ' · ' + esc(keys.join(', ')) : ''}</small></div>
+      <div class="row"><button class="btn small primary" data-a="bLoad" data-i="${i}" ${save.run ? 'disabled' : ''}>Laden</button>
+      <button class="btn small" data-a="bSave" data-i="${i}" ${save.run ? 'disabled' : ''}>Überschreiben</button>
+      <button class="icon small" data-a="bRen" data-i="${i}" title="Umbenennen">✎</button><button class="icon small" data-a="bDel" data-i="${i}" title="Löschen">✕</button></div></div>`;
+  }).join('');
+  modal(`<h3>Gespeicherte Builds: ${esc(CLASSES[treeCls].name)}</h3>
+    <p class="small muted">Speichere deine aktuelle Sternenkarte (inkl. Meisterschaften und Juwelen) und wechsle mit einem Tippen. Aktuell: ${cur} Sterne.</p>
+    ${save.run ? '<p class="note">Während eines Runs nicht möglich.</p>' : ''}
+    <div class="col">${rows}</div><button class="btn" data-a="_close">Schließen</button>`);
+}
+on('tbuilds', () => showBuilds());
+on('bSave', (d) => {
+  if (save.run) return;
+  const list = save.loadouts[treeCls];
+  const i = Number(d.i);
+  const name = list[i] ? list[i].name : `Build ${i + 1}`;
+  list[i] = {
+    name, alloc: [...save.alloc[treeCls]],
+    mastery: { ...((save.mastery || {})[treeCls] || {}) },
+    jewels: { ...((save.jewelSock || {})[treeCls] || {}) },
+  };
+  save.stats.buildsSaved = (save.stats.buildsSaved || 0) + 1;
+  persist(); sfx.loot(); toast('Build gespeichert.');
+  showBuilds();
+});
+on('bLoad', (d) => {
+  if (save.run) return;
+  const b = save.loadouts[treeCls][Number(d.i)];
+  if (!b) return;
+  const tree = getTree();
+  const alloc = b.alloc.filter((id) => tree.nodes.has(id));
+  if (alloc.length - 1 > totalPoints()) { sfx.deny(); toast('Nicht genug Sternpunkte für diesen Build.'); return; }
+  save.alloc[treeCls] = alloc;
+  save.mastery = save.mastery || {}; save.mastery[treeCls] = { ...b.mastery };
+  const own = new Set((save.jewels || []).map((j) => j.uid));
+  save.jewelSock = save.jewelSock || {};
+  save.jewelSock[treeCls] = Object.fromEntries(Object.entries(b.jewels || {}).filter(([, u]) => own.has(u)));
+  persist(); sfx.levelup(); closeModal();
+  app.treeView.setAlloc(save.alloc[treeCls]);
+  renderTreeUI();
+  toast(`„${esc(b.name)}“ geladen.`);
+});
+on('bRen', (d) => {
+  const b = save.loadouts[treeCls][Number(d.i)];
+  if (!b) return;
+  const n = prompt('Name des Builds:', b.name);
+  if (n && n.trim()) { b.name = n.trim().slice(0, 24); persist(); }
+  showBuilds();
+});
+on('bDel', (d) => {
+  const i = Number(d.i);
+  confirmBox('Diesen gespeicherten Build löschen?', 'Löschen', () => { save.loadouts[treeCls][i] = null; persist(); showBuilds(); });
+});
+
 // ===================================================================== Kodex
 let codexTab = 'skills';
 export function showCodex() {
@@ -350,7 +416,7 @@ export function showCodex() {
       const have = save.codex.skills.includes(id);
       return `<div class="panel ${have ? '' : 'locked'}"><div class="row between"><h3>${esc(s.name)}</h3>
         ${have ? '<span class="ok">✓ freigeschaltet</span>' : `<button class="btn small primary" data-a="cbuy" data-k="skills" data-id="${id}">✦ ${s.cost}</button>`}</div>
-        ${skillInfo(id)}</div>`;
+        ${skillInfo(id)}${EVOLUTIONS[id] ? `<div class="evolist">${['a', 'b'].map((k) => { const e = evoOf(id, k); const seen = (save.codex.evos || []).includes(`${id}:${k}`); return `<p class="small"><b class="evoline">✦ ${esc(e.name)}</b>${seen ? ' ✓' : ''} – ${esc(e.desc)}</p>`; }).join('')}</div>` : ''}</div>`;
     }).join('');
   } else if (codexTab === 'supports') {
     body = `<div class="gcards">${Object.entries(SUPPORTS).map(([id, s]) => {

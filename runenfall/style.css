@@ -551,3 +551,31 @@ h2.evt { text-align: center; color: var(--cyan); }
 .tnode.t-myth b { color: #ff9ae6; }
 .tnode.t-legend b { color: #fff2b0; }
 .tnode.t-mastery b { color: var(--gold); }
+
+/* Runen-Evolution */
+.evotitle { font-family: "Cinzel Decorative", var(--serif); background: linear-gradient(180deg, #fff6d0, #ffd84d 50%, #c86ae8); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 12px rgba(220, 150, 255, .5)); }
+.evochoices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 420px) { .evochoices { grid-template-columns: 1fr; } }
+.evocard { border: 1.5px solid rgba(220, 150, 255, .55); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 6px;
+  background: radial-gradient(120% 80% at 50% 0%, rgba(200, 120, 255, .25), rgba(20, 10, 40, .9) 70%); box-shadow: 0 0 18px rgba(200, 120, 255, .25); }
+.evocard b { font-family: var(--serif); font-size: 17px; color: #f4d8ff; }
+.evocard .btn { margin-top: auto; }
+.evoline { color: #f0c8ff; }
+.panel.skill.evolved { box-shadow: 0 0 0 1px rgba(220, 150, 255, .5), 0 0 18px rgba(200, 120, 255, .25); }
+.evobtn { align-self: flex-start; }
+
+/* Handwerk */
+ul.mods li.pick { cursor: pointer; border-radius: 6px; padding: 1px 4px; margin: 0 -4px; }
+ul.mods li.pick:active { background: rgba(255, 255, 255, .06); }
+ul.mods li.locked { background: rgba(255, 216, 77, .14); color: #fff0c0; }
+ul.mods li.corr { color: #ff6b8a; }
+ul.mods li.corrtag { color: #ff4d6d; font-weight: 800; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+.uqlvl { color: #ffd84d; font-size: .85em; }
+
+/* Gespeicherte Builds */
+.bslot { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0, 0, 0, .25); flex-wrap: wrap; }
+.bslot > div:first-child { display: flex; flex-direction: column; min-width: 0; }
+.bslot small { font-size: 11px; }
+.bslot.empty { opacity: .75; border-style: dashed; }
+.bslot .row { gap: 6px; flex-wrap: wrap; }
+.evolist { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 4px; }

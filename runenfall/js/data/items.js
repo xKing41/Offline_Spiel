@@ -607,8 +607,25 @@ function rollAffix(slot, ilvl, existing) {
   return { id: a.id, tier, v: rollTierValue(a.tiers[tier]) };
 }
 
+/** Spezial-Implizite durch Korruption (stark, aber nur durch Glück zu bekommen). */
+export const CORRUPT_MODS = [
+  [{ s: 'lvl', v: 1 }], [{ s: 'dmg', t: 'more', v: 8 }], [{ s: 'life', t: 'more', v: 8 }], [{ s: 'resMax', v: 2 }],
+  [{ s: 'critMulti', v: 25 }], [{ s: 'speed', t: 'inc', v: 10 }], [{ s: 'proj', v: 1 }], [{ s: 'pen', v: 6 }],
+  [{ s: 'leech', v: 1 }], [{ s: 'dodge', v: 5 }], [{ s: 'spec_killExplode', v: 4 }], [{ s: 'minionCount', v: 1 }],
+  [{ s: 'area', t: 'inc', v: 15 }], [{ s: 'lifeRegenPct', v: 0.8 }], [{ s: 'res_elem', v: 15 }], [{ s: 'dmgVsBoss', t: 'more', v: 15 }],
+];
+const NO_SCALE = (m) => m.s.startsWith('spec_') || ['lvl', 'proj', 'minionCount', 'chain', 'pierce'].includes(m.s);
+/** Aufgewertete Unikate: Zahlenwerte steigen je Stufe um 15 %. */
+export const uniqueMods = (item) => {
+  const k = 1 + 0.15 * (item.uqLvl || 0);
+  return UNIQUES[item.uq].mods.map((m) => (k === 1 || NO_SCALE(m) ? m : { ...m, v: Math.round(m.v * k * 10) / 10 }));
+};
 export function itemMods(item) {
-  if (item.rarity === 'unique') return UNIQUES[item.uq].mods;
+  const base = itemModsRaw(item);
+  return item.cmods && item.cmods.length ? [...base, ...item.cmods] : base;
+}
+function itemModsRaw(item) {
+  if (item.rarity === 'unique') return uniqueMods(item);
   if (item.rarity === 'set') return SETS[item.set].pieces[item.piece].mods;
   if (item.rarity === 'mythic' && item.slot !== 'relic' && item.slot !== 'jewel') {
     const out = [...(BASES[item.base].imp || [])];
@@ -723,7 +740,73 @@ export function craftUpgrade(item) {
   return true;
 }
 export function canCraft(item) {
-  return item.rarity !== 'unique' && item.rarity !== 'set' && item.rarity !== 'mythic' && item.slot !== 'relic' && item.slot !== 'jewel';
+  return item.rarity !== 'unique' && item.rarity !== 'set' && item.rarity !== 'mythic' && item.slot !== 'relic' && item.slot !== 'jewel' && !item.corrupt;
+}
+/** Ein Affix sperren und alle übrigen neu würfeln. */
+export function craftLockReroll(item, keep) {
+  if (!canCraft(item) || item.affixes.length < 2 || !item.affixes[keep]) return false;
+  const kept = item.affixes[keep];
+  const n = item.affixes.length;
+  item.affixes = [kept];
+  for (let i = 1; i < n; i++) { const af = rollAffix(item.slot, item.ilvl, item.affixes); if (af) item.affixes.push(af); }
+  return true;
+}
+/** Zwei Gegenstände verschmelzen: die besten Affixe beider bleiben (max. 3 Präfixe/3 Suffixe). */
+export function craftFuse(a, b) {
+  if (!canCraft(a) || !canCraft(b) || a === b || a.slot !== b.slot) return false;
+  const best = new Map();
+  for (const af of [...a.affixes, ...b.affixes]) {
+    const cur = best.get(af.id);
+    if (!cur || af.tier > cur.tier || (af.tier === cur.tier && af.v > cur.v)) best.set(af.id, { ...af });
+  }
+  const sorted = [...best.values()].sort((x, y) => y.tier - x.tier || y.v - x.v);
+  const out = []; let pre = 0, suf = 0;
+  for (const af of sorted) {
+    const k = AFFIX[af.id].k;
+    if (k === 'pre' && pre >= 3) continue;
+    if (k === 'suf' && suf >= 3) continue;
+    out.push(af); if (k === 'pre') pre++; else suf++;
+    if (out.length >= 6) break;
+  }
+  a.affixes = out;
+  a.ilvl = Math.max(a.ilvl, b.ilvl);
+  if (out.length > 2 && a.rarity !== 'rare') { a.rarity = 'rare'; a.title = rareTitle(); }
+  else if (out.length && a.rarity === 'normal') a.rarity = 'magic';
+  return true;
+}
+/** Korruption: einmalig, mit ungewissem Ausgang. Gibt das Ergebnis als Text zurück. */
+export function craftCorrupt(item) {
+  if (item.corrupt || item.slot === 'relic' || item.slot === 'jewel') return null;
+  item.corrupt = true;
+  const fixed = item.rarity === 'unique' || item.rarity === 'set' || item.rarity === 'mythic';
+  const r = Math.random();
+  if (fixed) {
+    if (r < 0.55) { item.cmods = [...(item.cmods || []), ...pick(CORRUPT_MODS)]; return { kind: 'imp', text: 'Ein verborgener Effekt erwacht!' }; }
+    if (r < 0.85) return { kind: 'none', text: 'Nichts geschieht – der Gegenstand ist nun versiegelt.' };
+    if (item.rarity === 'unique') { item.uqLvl = Math.max(0, (item.uqLvl || 0) - 1); return { kind: 'bad', text: 'Die Macht des Unikats schwindet.' }; }
+    return { kind: 'none', text: 'Nichts geschieht – der Gegenstand ist nun versiegelt.' };
+  }
+  if (r < 0.3) {
+    for (const af of item.affixes) { const top = AFFIX[af.id].tiers.length - 1; if (af.tier < top) { af.tier++; af.v = rollTierValue(AFFIX[af.id].tiers[af.tier]); } }
+    return { kind: 'good', text: 'Erhaben! Alle Affixe steigen um eine Stufe.' };
+  }
+  if (r < 0.55) { item.cmods = [...(item.cmods || []), ...pick(CORRUPT_MODS)]; return { kind: 'imp', text: 'Ein verborgener Effekt erwacht!' }; }
+  if (r < 0.72) {
+    const n = Math.min(6, Math.max(3, item.affixes.length + 1));
+    item.affixes = [];
+    for (let i = 0; i < n; i++) { const af = rollAffix(item.slot, item.ilvl + 10, item.affixes); if (af) item.affixes.push(af); }
+    item.rarity = 'rare'; item.title = item.title || rareTitle();
+    return { kind: 'chaos', text: 'Chaos! Der Gegenstand wurde völlig neu geformt.' };
+  }
+  if (r < 0.9) return { kind: 'none', text: 'Nichts geschieht – der Gegenstand ist nun versiegelt.' };
+  if (item.affixes.length) { item.affixes.splice(Math.floor(Math.random() * item.affixes.length), 1); }
+  return { kind: 'bad', text: 'Zerfall! Ein Affix ist verloren.' };
+}
+export const UQ_MAX = 3;
+export function craftUniqueUp(item) {
+  if (item.rarity !== 'unique' || (item.uqLvl || 0) >= UQ_MAX) return false;
+  item.uqLvl = (item.uqLvl || 0) + 1;
+  return true;
 }
 
 // ---------- Relikte ----------

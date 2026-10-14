@@ -2,7 +2,7 @@
 import { esc, fmt, fmtV } from './util.js';
 import { SKILLS, SUPPORTS, catTags } from './data/skills.js';
 import { TAG_NAME, ELEM, modText } from './data/stats.js';
-import { BASES, RARITY, SLOT_NAME, UNIQUES, itemName, itemMods, affixLine } from './data/items.js';
+import { BASES, RARITY, SLOT_NAME, UNIQUES, itemName, itemMods, affixLine, uniqueMods } from './data/items.js';
 import { SETS, JEWEL_SPECIALS } from './data/endgame.js';
 import { MYTHIC_EFFECTS } from './data/systems.js';
 import { sfx, unlockAudio } from './audio.js';
@@ -66,16 +66,16 @@ export const topbar = (title, back = 'hub', extra = '') =>
 export const rarityColor = (r) => (RARITY[r] || RARITY.normal).color;
 
 export function itemTitle(item) {
-  return `<b style="color:${rarityColor(item.rarity)}">${esc(itemName(item))}</b>`;
+  return `<b style="color:${rarityColor(item.rarity)}">${esc(itemName(item))}${item.uqLvl ? ` <span class="uqlvl">${'★'.repeat(item.uqLvl)}</span>` : ''}</b>`;
 }
 
-export function itemCard(item, { compare = null, actions = '', small = false } = {}) {
+export function itemCard(item, { compare = null, actions = '', small = false, affixAction = null, lockIdx = -1 } = {}) {
   if (!item) return '';
   const base = BASES[item.base];
   const col = rarityColor(item.rarity);
   const lines = [];
   if (item.rarity === 'unique') {
-    for (const m of UNIQUES[item.uq].mods) lines.push(`<li class="u">${esc(modText(m))}</li>`);
+    for (const m of uniqueMods(item)) lines.push(`<li class="u">${esc(modText(m))}</li>`);
   } else if (item.rarity === 'set') {
     const st = SETS[item.set];
     for (const m of st.pieces[item.piece].mods) lines.push(`<li class="u">${esc(modText(m))}</li>`);
@@ -85,10 +85,11 @@ export function itemCard(item, { compare = null, actions = '', small = false } =
   } else {
     for (const m of base.imp || []) lines.push(`<li class="imp">${esc(modText(m))}</li>`);
     if (base.imp && base.imp.length && item.affixes.length) lines.push('<li class="sep"></li>');
-    for (const af of item.affixes) {
+    item.affixes.forEach((af, i) => {
       const l = affixLine(item, af);
-      lines.push(`<li>${esc(l.text)} <span class="tier">S${l.tier}</span></li>`);
-    }
+      const act = affixAction ? ` data-a="${affixAction}" data-i="${i}"` : '';
+      lines.push(`<li class="${affixAction ? 'pick' : ''} ${lockIdx === i ? 'locked' : ''}"${act}>${lockIdx === i ? '🔒 ' : ''}${esc(l.text)} <span class="tier">S${l.tier}</span></li>`);
+    });
     if (item.rarity === 'mythic' && item.effects) {
       for (const e of item.effects) {
         const fx = MYTHIC_EFFECTS[e];
@@ -99,6 +100,8 @@ export function itemCard(item, { compare = null, actions = '', small = false } =
       for (const m of JEWEL_SPECIALS[item.special]) lines.push(`<li class="u">✦ ${esc(modText(m))}</li>`);
     }
   }
+  if (item.cmods && item.cmods.length) { lines.push('<li class="sep"></li>'); for (const m of item.cmods) lines.push(`<li class="corr">⛧ ${esc(modText(m))}</li>`); }
+  if (item.corrupt) lines.push('<li class="corrtag">Korrumpiert</li>');
   const sub = item.slot === 'relic' ? `Relikt · Stufe ${item.ilvl}` : item.slot === 'jewel' ? `Juwel · Stufe ${item.ilvl}` : `${SLOT_NAME[base.slot]} · ${base.name}${item.rarity === 'set' ? '' : ` · Gst. ${item.ilvl}`}`;
   const flavor = item.rarity === 'unique' ? `<p class="flavor">${esc(UNIQUES[item.uq].flavor)}</p>` : '';
   let cmp = '';

@@ -8,7 +8,7 @@ import { SKILLS, SUPPORTS, supportFits, catTags, MAX_SKILL_LVL } from './data/sk
 import { SLOTS, SLOT_NAME, RARITY, canCraft, itemName } from './data/items.js';
 import { ELEM, modText } from './data/stats.js';
 import {
-  snapshot, boonMods, reachable, NODE_TYPES, LAYERS, xpNeed, rollBoons, applyChoice, genShop, forge, forgeCost,
+  snapshot, boonMods, reachable, NODE_TYPES, LAYERS, xpNeed, rollBoons, applyChoice, genShop, forge, forgeCost, UQ_MAX,
   sellValue, socket, unsocket, equip, sell, applyEvent, pickEvent, priceMult, genAbyssChoices, actInfo, itemLevel, addItem, atlasHas,
 } from './run.js';
 import { PETS } from './data/endgame.js';
@@ -17,6 +17,8 @@ import { sfx, buzz } from './audio.js';
 import { RUNE_TRAITS } from './data/systems.js';
 import { runeName } from './calc.js';
 import { grindPanel, systemsSummary } from './ui-systems.js';
+import { EVOLUTIONS, evolvedDef, evoOf } from './data/evolutions.js';
+import { pendingEvolution, evolveRune } from './run.js';
 
 const R = () => save.run;
 const traitLines = (trs) => (trs || []).filter((t) => RUNE_TRAITS[t]).length
@@ -43,6 +45,10 @@ on('runMenu', () => modal(`<h3>Run</h3><div class="col">
 // ===================================================================== Karte
 export function showMap() {
   const run = R();
+  // Rune bereit zur Evolution? Erst wählen lassen.
+  const ev = pendingEvolution(run);
+  if (ev < 0) evoShown = false;
+  else if (!evoShown) { evoShown = true; setTimeout(() => showEvolution(ev, () => { evoShown = false; showMap(); }), 30); }
   if (run.mode === 'abyss') return showAbyss();
   const m = run.map;
   const reach = new Set(reachable(run).map(([l, i]) => `${l}_${i}`));
@@ -179,8 +185,11 @@ function skillsTab(run, snap) {
     }).join('');
     const lvlNote = S.lvl !== sk.lvl ? ` <small class="up">(+${S.lvl - sk.lvl})</small>` : '';
     const trs = (sk.traits || []).filter((t) => RUNE_TRAITS[t]);
-    return `<div class="panel skill"><div class="row between"><h3>${esc(runeName(sk))} <small>Stufe ${sk.lvl}${lvlNote}/${MAX_SKILL_LVL}</small></h3>
-      <button class="icon small" data-a="skInfo" data-id="${sk.id}">i</button></div>
+    const evo = sk.evo ? evoOf(sk.id, sk.evo) : null;
+    const evoLine = evo ? `<p class="small evoline">✦ <b>Evolution:</b> ${esc(evo.desc)}</p>`
+      : sk.lvl >= MAX_SKILL_LVL && EVOLUTIONS[sk.id] ? `<button class="btn small primary evobtn" data-a="evoOpen" data-s="${i}">✦ Bereit zur Evolution</button>` : '';
+    return `<div class="panel skill ${evo ? 'evolved' : ''}"><div class="row between"><h3>${esc(runeName(sk))} <small>Stufe ${sk.lvl}${lvlNote}/${MAX_SKILL_LVL}</small></h3>
+      <button class="icon small" data-a="skInfo" data-id="${sk.id}">i</button></div>${evoLine}
       <div class="tags">${tagChips(catTags(def))}</div>
       ${trs.length ? `<p class="small trait">${trs.map((t) => `✧ <b>${esc(RUNE_TRAITS[t].name)}:</b> ${RUNE_TRAITS[t].mods.map(modText).map(esc).join(', ')}`).join('<br>')}</p>` : ''}
       ${skillStatsLine(S)}<div class="socks">${sockets}</div></div>`;
@@ -190,6 +199,49 @@ function skillsTab(run, snap) {
   const sel = glyphPick !== null ? glyphCard(run.glyphs[glyphPick], '<span class="small muted">Tippe einen grün markierten Sockel an.</span>') : '';
   return `${skills}<h3>Glyphen-Beutel</h3><div class="glyphs">${glyphs}</div>${sel}`;
 }
+// ===================================================================== Runen-Evolution
+let evoShown = false;
+const OV_TXT = { count: 'Anzahl', area: 'Fläche', size: 'Größe', explode: 'Explosion', pierce: 'Durchbohren', chain: 'Sprünge', cd: 'Intervall', steps: 'Explosionen', max: 'Max. Fallen', dur: 'Dauer', delay: 'Vorwarnzeit', speed: 'Geschosstempo' };
+function ovLines(id, evo) {
+  const base = SKILLS[id], d = evolvedDef(base, id, evo), out = [];
+  for (const k of Object.keys(OV_TXT)) {
+    const a = base[k], b = d[k];
+    if (b === undefined || a === b || typeof b !== 'number') continue;
+    if (a === undefined || a === 0) out.push(`${OV_TXT[k]}: neu ${fmtV(b)}`);
+    else if (['count', 'pierce', 'chain', 'steps', 'max'].includes(k)) out.push(`${OV_TXT[k]}: ${fmtV(a)} → ${fmtV(b)}`);
+    else { const pct = Math.round((b / a - 1) * 100); out.push(`${OV_TXT[k]} ${pct > 0 ? '+' : ''}${pct}%`); }
+  }
+  return out;
+}
+export function evoCard(id, key, btn = '') {
+  const e = evoOf(id, key);
+  const lines = [...e.mods.map(modText), ...ovLines(id, key)];
+  return `<div class="evocard"><b>${esc(e.name)}</b><p class="small">${esc(e.desc)}</p><ul class="mods">${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>${btn}</div>`;
+}
+export function showEvolution(idx, next) {
+  const run = R();
+  const sk = run.skills[idx];
+  if (!sk || sk.evo || !EVOLUTIONS[sk.id]) return next && next();
+  app._evoNext = next;
+  modal(`<h2 class="center evotitle">✦ Evolution ✦</h2>
+    <p class="center"><b>${esc(runeName(sk))}</b> hat die Höchststufe erreicht. Wähle ihre endgültige Form – die Entscheidung gilt für diesen Run.</p>
+    <div class="evochoices">${['a', 'b'].map((k) => evoCard(sk.id, k, `<button class="btn primary" data-a="evoPick" data-s="${idx}" data-k="${k}">Verwandeln</button>`)).join('')}</div>
+    <button class="btn small ghost" data-a="evoLater">Später entscheiden</button>`, 'event');
+  sfx.levelup();
+}
+on('evoOpen', (d) => showEvolution(Number(d.s), () => showBuild(buildBackTo)));
+on('evoPick', (d) => {
+  const run = R();
+  if (!evolveRune(run, Number(d.s), d.k)) return;
+  persist();
+  closeModal();
+  if (sfx.evolve) sfx.evolve(); else sfx.levelup();
+  buzz([40, 30, 80]);
+  toast(`✦ ${esc(runeName(run.skills[Number(d.s)]))} ist erwacht!`);
+  const n = app._evoNext; app._evoNext = null;
+  if (n) n();
+});
+on('evoLater', () => { closeModal(); app._evoNext = null; toast('Du kannst die Evolution jederzeit im Build-Fenster wählen.'); });
 on('skInfo', (d) => modal(`<h3>${esc(SKILLS[d.id].name)}</h3>${skillInfo(d.id)}<button class="btn" data-a="_close">OK</button>`));
 on('gPick', (d) => { glyphPick = glyphPick === Number(d.i) ? null : Number(d.i); showBuild(buildBackTo); });
 on('sockTap', (d) => {
@@ -398,26 +450,74 @@ on('leave', () => finishNode());
 let forgeSel = null;
 export function showForge() {
   const run = R();
-  const items = [...SLOTS.map((s) => run.eq[s]).filter(Boolean), ...run.bag].filter(canCraft);
-  const list = items.map((it) => `<button class="bagi ${forgeSel === it.uid ? 'sel' : ''}" style="--rc:${RARITY[it.rarity].color}" data-a="fSel" data-u="${it.uid}">
-    <small>${SLOT_NAME[it.slot]}${Object.values(run.eq).includes(it) ? ' · angelegt' : ''}</small><b>${esc(itemName(it))}</b></button>`).join('');
-  const it = items.find((x) => x.uid === forgeSel);
+  const all = [...SLOTS.map((s) => run.eq[s]).filter(Boolean), ...run.bag].filter((it) => it.slot !== 'relic' && it.slot !== 'jewel');
+  const list = all.map((it) => `<button class="bagi ${forgeSel === it.uid ? 'sel' : ''}" style="--rc:${RARITY[it.rarity].color}" data-a="fSel" data-u="${it.uid}">
+    <small>${SLOT_NAME[it.slot]}${Object.values(run.eq).includes(it) ? ' · angelegt' : ''}${it.corrupt ? ' · ⛧' : ''}</small><b>${esc(itemName(it))}</b></button>`).join('');
+  const it = all.find((x) => x.uid === forgeSel);
   let detail = '<p class="muted small center">Wähle einen Gegenstand.</p>';
   if (it) {
-    const b = (op, label, desc) => `<button class="btn small ${run.gold >= forgeCost(run, op, it) ? 'primary' : 'disabled'}" data-a="fDo" data-op="${op}">${label} ● ${forgeCost(run, op, it)}<small>${desc}</small></button>`;
-    detail = itemCard(it, { actions: `${it.rarity !== 'normal' ? b('reroll', 'Chaos', 'Alle Affixe neu würfeln') : ''}${it.affixes.length < 6 ? b('add', 'Erhebung', 'Neuen Affix hinzufügen') : ''}${it.affixes.length ? b('upgrade', 'Veredelung', 'Ein Affix +1 Stufe') : ''}` });
+    const b = (op, label, desc, extra = '') => `<button class="btn small ${run.gold >= forgeCost(run, op, it) ? 'primary' : 'disabled'}" data-a="fDo" data-op="${op}"${extra}>${label} ● ${forgeCost(run, op, it)}<small>${desc}</small></button>`;
+    const acts = [];
+    if (it.corrupt) acts.push('<p class="small muted">⛧ Korrumpiert – dieser Gegenstand kann nicht mehr verändert werden.</p>');
+    else if (canCraft(it)) {
+      if (it.rarity !== 'normal') acts.push(b('reroll', 'Chaos', 'Alle Affixe neu würfeln'));
+      if (it.affixes.length < 6) acts.push(b('add', 'Erhebung', 'Neuen Affix hinzufügen'));
+      if (it.affixes.length) acts.push(b('upgrade', 'Veredelung', 'Ein Affix +1 Stufe'));
+      if (it.affixes.length >= 2) acts.push(forgeLock >= 0 && forgeLock < it.affixes.length ? b('lock', 'Sperren & Würfeln', 'Gesperrter Affix bleibt, Rest neu') : '<small class="muted">Tippe einen Affix an, um ihn zu sperren.</small>');
+      const partners = all.filter((x) => x !== it && x.slot === it.slot && canCraft(x));
+      if (partners.length) acts.push(b('fuse', 'Verschmelzen', 'Mit einem gleichen Gegenstand'));
+      acts.push(b('corrupt', 'Korrumpieren', 'Riskant: Erhaben, Implizit, Chaos … oder Zerfall'));
+    } else {
+      if (it.rarity === 'unique' && (it.uqLvl || 0) < UQ_MAX) acts.push(b('unique', `Aufwerten ${'★'.repeat((it.uqLvl || 0) + 1)}`, '+15 % auf alle Werte des Unikats'));
+      acts.push(b('corrupt', 'Korrumpieren', 'Riskant: verborgener Effekt … oder nichts'));
+    }
+    detail = itemCard(it, { actions: acts.join(''), affixAction: canCraft(it) && it.affixes.length >= 2 ? 'fLock' : null, lockIdx: canCraft(it) ? forgeLock : -1 });
   }
   screen(`${runHeader()}<div class="pad"><h2>⚒ Schmiede</h2><p class="muted small">Gegenstandsstufe ${it ? it.ilvl : '–'} begrenzt die höchste erreichbare Affix-Stufe.</p>
     <div class="bag">${list || '<p class="muted">Nichts zu schmieden.</p>'}</div>${detail}${grindPanel(run)}
     <button class="btn primary" data-a="leave">Weiterziehen ›</button></div>`, 'runscreen');
 }
-on('fSel', (d) => { forgeSel = d.u; showForge(); });
+let forgeLock = -1;
+on('fSel', (d) => { forgeSel = d.u; forgeLock = -1; showForge(); });
+on('fLock', (d) => { forgeLock = forgeLock === Number(d.i) ? -1 : Number(d.i); showForge(); });
+const forgeItem = (run) => [...SLOTS.map((s) => run.eq[s]).filter(Boolean), ...run.bag].find((x) => x.uid === forgeSel);
 on('fDo', (d) => {
   const run = R();
-  const it = [...SLOTS.map((s) => run.eq[s]).filter(Boolean), ...run.bag].find((x) => x.uid === forgeSel);
+  const it = forgeItem(run);
   if (!it) return;
-  if (forge(run, d.op, it)) { sfx.loot(); buzz(15); persist(); }
+  if (d.op === 'fuse') {
+    const partners = [...SLOTS.map((s) => run.eq[s]).filter(Boolean), ...run.bag].filter((x) => x !== it && x.slot === it.slot && canCraft(x));
+    modal(`<h3>Verschmelzen mit …</h3><p class="small muted">Der gewählte Gegenstand wird verbraucht. Es bleiben die besten Affixe beider (max. 3 Präfixe und 3 Suffixe).</p>
+      <div class="col">${partners.map((x) => itemCard(x, { small: true, actions: `<button class="btn small primary" data-a="fFuse" data-u="${x.uid}">Verschmelzen</button>` })).join('')}</div>
+      <button class="btn" data-a="_close">Abbrechen</button>`);
+    return;
+  }
+  if (d.op === 'corrupt') {
+    confirmBox('Korrumpieren ist endgültig: Danach kann der Gegenstand nicht mehr verändert werden. Wagen?', 'Korrumpieren', () => {
+      forgeLock = -1;
+      const res = forge(R(), 'corrupt', forgeItem(R()));
+      if (!res) { sfx.deny(); toast('Nicht genug Gold.'); return; }
+      persist();
+      (sfx.craft || sfx.loot)();
+      buzz(res.kind === 'bad' ? [80, 40, 80] : 40);
+      toast(`<b style="color:${res.kind === 'bad' ? '#ff5c7a' : res.kind === 'none' ? '#c9c3b5' : '#ffd84d'}">⛧ ${esc(res.text)}</b>`);
+      showForge();
+    });
+    return;
+  }
+  const res = forge(run, d.op, it, d.op === 'lock' ? forgeLock : undefined);
+  if (res) { sfx.loot(); buzz(15); persist(); if (d.op === 'unique') toast('★ Das Unikat erstrahlt heller!'); }
   else { sfx.deny(); toast('Nicht möglich (Gold, Affix-Grenze oder Höchststufe).'); }
+  showForge();
+});
+on('fFuse', (d) => {
+  const run = R();
+  const it = forgeItem(run);
+  const other = [...SLOTS.map((s) => run.eq[s]).filter(Boolean), ...run.bag].find((x) => x.uid === d.u);
+  closeModal();
+  if (!it || !other) return;
+  if (forge(run, 'fuse', it, other)) { sfx.loot(); buzz(30); persist(); toast('⚒ Verschmolzen!'); }
+  else { sfx.deny(); toast('Nicht genug Gold.'); }
   showForge();
 });
 

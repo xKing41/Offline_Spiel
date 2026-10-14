@@ -22,7 +22,12 @@ export const VIS = {
   runetrap: { trap: 'rune', blast: 'runeBurst' }, poisontrap: { trap: 'canister', blast: 'poisonBurst' }, spiketrap: { trap: 'caltrop', blast: 'spikes' },
   blades: { orbit: 'knife' }, frostorb: { orbit: 'iceorb' }, shadowblades: { orbit: 'shadow' }, stormblades: { orbit: 'storm' },
 };
-export const visOf = (S) => (S && VIS[S.id]) || {};
+export function visOf(S) {
+  if (!S) return {};
+  if (S._vis) return S._vis;
+  S._vis = S.evoVis ? { ...(VIS[S.id] || {}), ...S.evoVis } : VIS[S.id] || {};
+  return S._vis;
+}
 
 // Hauptelement einer Schadensverteilung
 export function elemOf(dmg) {
