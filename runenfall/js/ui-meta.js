@@ -1,7 +1,7 @@
 // Meta-Bildschirme außerhalb eines Runs.
 import { app } from './app.js';
 import { $, on, screen, hideScreen, modal, closeModal, toast, confirmBox, topbar, itemCard, glyphCard, skillInfo, bar, tagChips } from './ui.js';
-import { esc, fmt, fmtV } from './util.js';
+import { esc, fmt, fmtV, clock } from './util.js';
 import { save, persist, accountLevel, totalPoints, spentPoints, altarLvl, relicSlots, checkAchievements, exportSave, importSave, resetSave, achievementPoints, xpForLevel } from './save.js';
 import { CLASSES, ALTAR, altarCost, ACHIEVEMENTS, ASC_MODS, BOSSES, ENEMIES, ASCENDANCIES, ASCEND_COST, MUTATORS } from './data/content.js';
 import { SKILLS, SUPPORTS, catTags } from './data/skills.js';
@@ -14,6 +14,8 @@ import { systemTiles, leaguePanel, potionPanel, archiveTab } from './ui-systems.
 import { EVOLUTIONS, evoOf } from './data/evolutions.js';
 import { sfx } from './audio.js';
 import { jewelsTab, jewelSocketPanel, paragonPanel } from './ui-endgame.js';
+import { modeGrid, modePanel, modeTiles, towerClaimPanel, modeWhere, resWhere } from './ui-modes.js';
+import { modeLock } from './data/modes.js';
 import { PETS, SETS, getAtlas } from './data/endgame.js';
 
 on('nav', (d) => app.nav(d.to));
@@ -34,10 +36,11 @@ export function showHub() {
         <div class="acc-bar">${bar(acc.cur, acc.need, 'xp')}</div>
         <div class="acc-d"><small>Sternenstaub</small><b class="dust">✦ ${fmt(save.dust)}</b></div>
       </div>
-      ${run ? `<button class="btn primary big" data-a="continue">FORTSETZEN<small>${esc(CLASSES[run.cls].name)} · ${run.mode === 'abyss' ? 'Abgrund Ebene ' + run.floor : 'Akt ' + (run.act + 1)} · Stufe ${run.lvl}</small></button>
+      ${run ? `<button class="btn primary big" data-a="continue">FORTSETZEN<small>${esc(CLASSES[run.cls].name)} · ${run.mode === 'abyss' ? 'Abgrund Ebene ' + run.floor : modeWhere(run) || 'Akt ' + (run.act + 1)} · Stufe ${run.lvl}</small></button>
         <button class="btn small ghost" data-a="abandon">Run aufgeben</button>`
       : `<button class="btn primary big" data-a="nav" data-to="setup">NEUER RUN</button>`}
       ${run ? '' : dailyTile()}
+      ${towerClaimPanel()}
       ${questPanel()}
       <div class="grid2">
         <button class="tile" data-a="nav" data-to="tree"><span class="ti">✶</span>Sternenkarte${unspent ? '<i class="dot"></i>' : ''}<small>${pts} Punkte</small></button>
@@ -49,6 +52,7 @@ export function showHub() {
         <button class="tile" data-a="nav" data-to="atlas"><span class="ti">✷</span>Sternenatlas${(save.atlas?.points || 0) > Object.keys(save.atlas?.passives || {}).length ? '<i class="dot"></i>' : ''}<small>${Object.keys(save.atlas?.done || {}).length}/30 Regionen</small></button>
         <button class="tile" data-a="nav" data-to="pets"><span class="ti">🐾</span>Gefährten<small>${Object.keys(save.pets || {}).length}/12 gesammelt</small></button>
         ${systemTiles()}
+        ${modeTiles()}
       </div>
       <button class="btn small ghost" data-a="nav" data-to="settings">⚙ Einstellungen</button>
       ${save.treeReset ? '<p class="note">Die Sternenkarte wurde überarbeitet – deine Punkte wurden zurückerstattet.</p>' : ''}
@@ -92,8 +96,8 @@ let setup = { cls: null, asc: 0, mode: 'normal', ascend: null, mutators: [] };
 export function showSetup() {
   if (!setup.cls || !save.unlockedCls.includes(setup.cls)) setup.cls = save.unlockedCls.includes(save.lastCls) ? save.lastCls : save.unlockedCls[0];
   setup.asc = Math.min(setup.asc, save.ascUnlocked);
-  const abyssOk = Object.keys(save.stats.wins).length > 0;
-  if (!abyssOk) setup.mode = 'normal';
+  if (app.setupMode) { setup.mode = app.setupMode; app.setupMode = null; }
+  if (!setup.mode || modeLock(setup.mode, save)) setup.mode = 'normal';
   const cards = Object.entries(CLASSES).map(([id, c]) => {
     const unlocked = save.unlockedCls.includes(id);
     const pts = spentPoints(id);
@@ -114,10 +118,7 @@ export function showSetup() {
       </div>
       <div class="panel">
         <h3>Modus</h3>
-        <div class="seg">
-          <button class="${setup.mode === 'normal' ? 'on' : ''}" data-a="mode" data-m="normal">Feldzug<small>3 Akte · 3 Bosse</small></button>
-          <button class="${setup.mode === 'abyss' ? 'on' : ''} ${abyssOk ? '' : 'disabled'}" data-a="mode" data-m="abyss">Abgrund<small>${abyssOk ? 'Endlos · Bestenliste' : '🔒 Gewinne einen Feldzug'}</small></button>
-        </div>
+        ${modeGrid(setup)}
         <h3>Sternenhöhe ${setup.asc}</h3>
         <div class="stepper"><button class="icon" data-a="asc" data-d="-1">−</button>
           <div class="ascbar">${Array.from({ length: Math.max(1, save.ascUnlocked + 1) }, (_, i) => `<i class="${i <= setup.asc ? 'on' : ''}"></i>`).join('')}</div>
@@ -125,12 +126,13 @@ export function showSetup() {
         <p class="small muted">Gegner +${Math.round((Math.pow(1.12, setup.asc) - 1) * 100)}% Leben, +${Math.round((Math.pow(1.07, setup.asc) - 1) * 100)}% Schaden · Belohnungen +${setup.asc * 25}% Staub. Gewinne, um die nächste Höhe freizuschalten (unendlich).</p>
         ${asc ? `<ul class="asclist">${asc}</ul>` : ''}
       </div>
+      ${modePanel(setup)}
       ${ascendPanel()}
       ${petPanel()}
       ${atlasPanel()}
       ${leaguePanel(setup)}
       ${potionPanel(setup)}
-      ${prophPanel()}
+      ${setup.mode === 'tower' ? '' : prophPanel()}
       <button class="btn primary big" data-a="go">LOS</button>
     </div>`);
 }
@@ -171,11 +173,21 @@ on('buyCls', (d) => {
     save.dust -= c.unlock; save.unlockedCls.push(d.id); setup.cls = d.id; persist(); sfx.loot(); showSetup();
   });
 });
-on('mode', (d) => { setup.mode = d.m; showSetup(); });
+on('mode', (d) => {
+  const lock = modeLock(d.m, save);
+  if (lock) { sfx.deny(); toast(`🔒 ${lock}`); return; }
+  setup.mode = d.m;
+  const y = document.getElementById('ui').scrollTop; showSetup(); document.getElementById('ui').scrollTop = y;
+});
+on('huntTier', (d) => {
+  const max = (save.hunt && save.hunt.tier) || 1;
+  setup.tier = Math.max(1, Math.min(max, (setup.tier || 1) + Number(d.d)));
+  const y = document.getElementById('ui').scrollTop; showSetup(); document.getElementById('ui').scrollTop = y;
+});
 on('asc', (d) => { setup.asc = Math.max(0, Math.min(save.ascUnlocked, setup.asc + Number(d.d))); showSetup(); });
 on('go', () => {
   save.lastCls = setup.cls;
-  app.startRun({ ...setup, pet: setup.pet || null, atlas: setup.mode === 'normal' ? (save.atlas?.target || null) : null, potion: setup.potion || null, league: setup.mode === 'normal' && !!setup.league });
+  app.startRun({ ...setup, mutators: setup.mode === 'tower' ? [] : setup.mutators, pet: setup.pet || null, atlas: setup.mode === 'normal' ? (save.atlas?.target || null) : null, potion: setup.potion || null, league: setup.mode === 'normal' && !!setup.league, tier: setup.tier || 1 });
 });
 function petPanel() {
   const own = Object.keys(save.pets || {});
@@ -584,10 +596,12 @@ export function showStats() {
   screen(`${topbar('Chronik')}<div class="pad"><div class="panel">
     ${row('Runs', s.runs)}${row('Siege', Object.values(s.wins).reduce((a, b) => a + b, 0))}
     ${row('Höchste gewonnene Sternenhöhe', s.maxAscWin < 0 ? '–' : s.maxAscWin)}${row('Tiefste Abgrund-Ebene', s.maxAbyss)}
+    ${row('Höchste Turm-Etage', s.maxTower || 0)}${row('Turm-Wochensiege', s.towerWins || 0)}
+    ${row('Boss-Rush', save.rush && save.rush.best ? `${save.rush.best.n}/10 · ${clock(save.rush.best.time)}` : '–')}${row('Höchste Jagdstufe (erlegt)', s.maxHunt || '–')}
     ${row('Besiegte Gegner', fmt(s.kills))}${row('Stärkster Treffer', fmt(s.maxHit))}${row('Höchste Run-Stufe', s.maxRunLvl)}
     ${Object.entries(BOSSES).map(([k, b]) => row(b.name, s.bossKills[k] || 0)).join('')}
     ${row('Spielzeit', `${h} h ${m} min`)}${row('Mythische Relikte', s.mythic)}</div>
-    ${best ? `<div class="panel"><h3>Bester Run</h3><p>${esc(CLASSES[best.cls].name)} · ${best.mode === 'abyss' ? `Abgrund Ebene ${best.floor}` : best.win ? 'Feldzug gewonnen' : 'Feldzug'} · Sternenhöhe ${best.asc} · Stufe ${best.lvl} · ${fmt(best.kills)} Gegner</p></div>` : ''}
+    ${best ? `<div class="panel"><h3>Bester Run</h3><p>${esc(CLASSES[best.cls].name)} · ${best.mode === 'abyss' ? `Abgrund Ebene ${best.floor}` : resWhere(best) || (best.win ? 'Feldzug gewonnen' : 'Feldzug')} · Sternenhöhe ${best.asc} · Stufe ${best.lvl} · ${fmt(best.kills)} Gegner</p></div>` : ''}
     </div>`);
 }
 

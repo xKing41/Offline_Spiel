@@ -19,17 +19,19 @@ import { runeName } from './calc.js';
 import { grindPanel, systemsSummary } from './ui-systems.js';
 import { EVOLUTIONS, evolvedDef, evoOf } from './data/evolutions.js';
 import { pendingEvolution, evolveRune } from './run.js';
+import { showTowerRun, showRushRun, showHuntRun, modeWhere, resWhere } from './ui-modes.js';
+import { huntTile } from './data/modes.js';
 
 const R = () => save.run;
 const traitLines = (trs) => (trs || []).filter((t) => RUNE_TRAITS[t]).length
   ? `<p class="small trait">${trs.filter((t) => RUNE_TRAITS[t]).map((t) => `✧ <b>${esc(RUNE_TRAITS[t].name)}:</b> ${RUNE_TRAITS[t].mods.map(modText).map(esc).join(', ')}`).join('<br>')}</p>` : '';
 
 // ===================================================================== Kopfzeile
-function runHeader() {
+export function runHeader() {
   const run = R();
   const { P } = snapshot(run);
   const A = actInfo(run);
-  const where = run.mode === 'abyss' ? `Abgrund · Ebene ${run.floor}` : `${A.sub} · ${A.name}`;
+  const where = run.mode === 'abyss' ? `Abgrund · Ebene ${run.floor}` : modeWhere(run) || `${A.sub} · ${A.name}`;
   const asc = run.ascend ? ` · ${ASCENDANCIES[run.ascend].name}` : '';
   const proph = run.mutators && run.mutators.length ? ` · ✧${run.mutators.length}` : '';
   return `<div class="rhead">
@@ -50,6 +52,9 @@ export function showMap() {
   if (ev < 0) evoShown = false;
   else if (!evoShown) { evoShown = true; setTimeout(() => showEvolution(ev, () => { evoShown = false; showMap(); }), 30); }
   if (run.mode === 'abyss') return showAbyss();
+  if (run.mode === 'tower') return showTowerRun();
+  if (run.mode === 'rush') return showRushRun();
+  if (run.mode === 'hunt') return showHuntRun();
   const m = run.map;
   const reach = new Set(reachable(run).map(([l, i]) => `${l}_${i}`));
   const rows = [];
@@ -126,7 +131,7 @@ on('abEnter', (d) => {
   enterNode(node);
 });
 
-function enterNode(node) {
+export function enterNode(node) {
   const run = R();
   run.curNode = node;
   if (['fight', 'elite', 'boss', 'trial'].includes(node.type)) app.startCombat(node);
@@ -147,6 +152,8 @@ function finishNode() {
   run.shop = null;
   run.event = null;
   if (run.mode === 'abyss') { run.floor++; run.abyssChoices = genAbyssChoices(run); }
+  else if (run.mode === 'tower' || run.mode === 'rush') { run.towerCamp = false; run.rushCamp = false; }
+  else if (run.mode === 'hunt') { const t = huntTile(run.hunt, run.hunt.x, run.hunt.y); if (t) t.done = true; }
   persist();
   closeModal();
   showMap();
@@ -632,14 +639,15 @@ export function showSummary(res, relics) {
   const quests = (res.quests || []).length ? `<h3>Aufträge erfüllt</h3>${res.quests.map((q) => `<div class="ach done"><span class="ai">✔</span><div><b>${esc(q.text)}</b><small>+✦ ${q.dust}${q.relic ? ' · Relikt' : ''}</small></div></div>`).join('')}` : '';
   const extra = `${res.prophBonus ? `<div class="srow"><span>Prophezeiungen</span><b class="up">+${res.prophBonus}% Staub</b></div>` : ''}${res.dailyBonus ? '<div class="srow"><span>Tägliche Herausforderung</span><b class="up">Staub ×2</b></div>' : ''}`;
   const title = res.win ? '<h1 class="win">TRIUMPH</h1>' : res.outcome === 'abandon' ? '<h1 class="lose">RÜCKZUG</h1>' : '<h1 class="lose">GEFALLEN</h1>';
-  const where = res.mode === 'abyss' ? `Abgrund · Ebene ${res.floor}` : res.win ? 'Alle drei Akte bezwungen' : `Fortschritt: ${res.depth} von ${3 * LAYERS} Orten`;
+  const where = res.mode === 'abyss' ? `Abgrund · Ebene ${res.floor}` : resWhere(res) || (res.win ? 'Alle drei Akte bezwungen' : `Fortschritt: ${res.depth} von ${3 * LAYERS} Orten`);
+  const modeRows = (res.modeLines || []).map(([k, v]) => `<div class="srow"><span>${esc(k)}</span><b class="up">${esc(v)}</b></div>`).join('');
   const m = Math.floor(res.time / 60), s = res.time % 60;
   screen(`<div class="pad center summary">${title}<p>${esc(CLASSES[res.cls].name)} · ${where}${res.asc ? ` · Sternenhöhe ${res.asc}` : ''}</p>
     <div class="sgrid"><div><small>Stufe</small><b>${res.lvl}</b></div><div><small>Gegner</small><b>${fmt(res.kills)}</b></div>
     <div><small>Stärkster Treffer</small><b>${fmt(res.maxHit)}</b></div><div><small>Dauer</small><b>${m}:${String(s).padStart(2, '0')}</b></div></div>
     <div class="panel"><div class="srow"><span>Konto-Erfahrung</span><b>+${fmt(res.axp)}</b></div><div class="srow"><span>Sternenstaub</span><b class="dust">+✦ ${fmt(res.dust)}</b></div>
-    ${extra}${acc.level > accBefore ? `<p class="up">Kontostufe ${accBefore} → ${acc.level}! +${acc.level - accBefore} Sternpunkt${acc.level - accBefore > 1 ? 'e' : ''}</p>` : ''}
+    ${extra}${modeRows}${acc.level > accBefore ? `<p class="up">Kontostufe ${accBefore} → ${acc.level}! +${acc.level - accBefore} Sternpunkt${acc.level - accBefore > 1 ? 'e' : ''}</p>` : ''}
     ${bar(acc.cur, acc.need, 'xp')}</div>
-    ${res.win && res.mode !== 'abyss' ? `<p class="up">Sternenhöhe ${res.asc + 1} freigeschaltet!</p>` : ''}
+    ${res.win && res.mode === 'normal' ? `<p class="up">Sternenhöhe ${res.asc + 1} freigeschaltet!</p>` : ''}
     ${systemsSummary(res)}${atlas}${pets}${quests}${relicHtml}${jewelHtml}${ach}<button class="btn primary big" data-a="nav" data-to="hub">Zur Sternwarte</button></div>`);
 }

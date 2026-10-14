@@ -16,6 +16,7 @@ import { showAtlas, showPets } from './ui-endgame.js';
 import { showBase, showCards, showNemesis, showSeason } from './ui-systems.js';
 import { showMap, showBuild, showLevelUp, showRewards, showShop, showForge, showEvent, showRest, showSummary } from './ui-run.js';
 import { sfx, buzz } from './audio.js';
+import { towerCampAfter, RUSH_LEN, rushCampAfter, huntTile } from './data/modes.js';
 
 const combat = new Combat($('#cv'));
 const treeView = new TreeView($('#tree'));
@@ -117,8 +118,8 @@ app.startCombat = (node) => {
       }
       return false;
     },
-    onWin(stats) { addStats(stats); fightWon(node, cfg); },
-    onLose(stats) { addStats(stats); run.killer = combat.killer || null; $('#hud').classList.remove('show'); combat.cfg = null; finishRun('death'); },
+    onWin(stats) { if (run.rush) run.rush.time += combat.t; addStats(stats); fightWon(node, cfg); },
+    onLose(stats) { if (run.rush) run.rush.time += combat.t; addStats(stats); run.killer = combat.killer || null; $('#hud').classList.remove('show'); combat.cfg = null; finishRun('death'); },
   });
   last = performance.now();
 };
@@ -150,13 +151,13 @@ function fightWon(node, cfg) {
   if (boss) {
     run.stats.bosses++;
     if (combat.stats.hitsTaken === 0) save.stats.flawless = (save.stats.flawless || 0) + 1;
-    if (dropJewel(run, 0.25 + (atlasHas('aJewel') ? 0.2 : 0))) toast('⬢ Juwel gefunden!');
+    if (dropJewel(run, node.lair ? 1 : 0.25 + (atlasHas('aJewel') ? 0.2 : 0))) toast('⬢ Juwel gefunden!');
     if (Math.random() < 0.08 + (atlasHas('aEgg') ? 0.1 : 0)) { run.eggs = (run.eggs || 0) + 1; toast('🥚 Ein Gefährten-Ei!'); }
     if (run.mode === 'normal' && run.act >= 3 && run.atlas) completeAtlas(run);
     if (Math.random() < 0.3 + (BOSSES[cfg.bossId].beast ? 0.4 : 0)) { run.packs = (run.packs || 0) + 1; toast('🂠 Ein Schicksalskartenpack!'); }
     if (BOSSES[cfg.bossId].beast) save.stats.beasts = (save.stats.beasts || 0) + 1;
     save.stats.bossKills[cfg.bossId] = (save.stats.bossKills[cfg.bossId] || 0) + 1;
-    const r = dropRelic(run, 1);
+    const r = dropRelic(run, run.mode === 'rush' ? 0.35 : 1);
     if (r) fightRelics.push(r);
   } else healAfterFight(run);
   persist();
@@ -171,6 +172,29 @@ function fightWon(node, cfg) {
         run.floor++;
         run.abyssChoices = genAbyssChoices(run);
         if (boss) run.hp = snapshot(run).P.maxLife;
+        persist();
+        return showMap();
+      }
+      if (run.mode === 'tower') {
+        if (towerCampAfter(run.floor)) run.towerCamp = true;
+        run.floor++;
+        if (boss) run.hp = snapshot(run).P.maxLife;
+        persist();
+        return showMap();
+      }
+      if (run.mode === 'rush') {
+        if (rushCampAfter(run.rush.idx)) run.rushCamp = true;
+        run.rush.idx++;
+        if (run.rush.idx >= RUSH_LEN) { persist(); return finishRun('win'); }
+        // Zwischen den Bossen: zwei freie Stufen und volle Heilung
+        run.lvl += 2; run.pendingLvl += 2;
+        persist();
+        return afterLevels(() => { run.hp = snapshot(run).P.maxLife; persist(); showMap(); });
+      }
+      if (run.mode === 'hunt') {
+        const t = huntTile(run.hunt, run.hunt.x, run.hunt.y);
+        if (t) t.done = true;
+        if (node.lair) { persist(); return finishRun('win'); }
         persist();
         return showMap();
       }

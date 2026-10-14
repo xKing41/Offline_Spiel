@@ -483,7 +483,7 @@ export class Combat {
     const hp = b.hp * c.power * c.hpMult * (ascHas(c.asc, 'bossHp') ? 1.3 : 1) * (c.bossHpMult || 1);
     const e = {
       id: c.bossId, d: { name: b.name, shape: 'boss' }, b, boss: true, x: pos.x, y: pos.y, r: b.r, hp, maxHp: hp,
-      dmg: b.dmg * Math.pow(c.power, 0.72) * c.dmgMult, speed: b.speed, xp: 60, color: b.color, res: {}, takenMult: 1,
+      dmg: b.dmg * Math.pow(c.power, 0.72) * c.dmgMult * (c.bossDmgMult || 1), speed: b.speed, xp: 60, color: b.color, res: {}, takenMult: 1,
       burns: [], poisons: [], bleed: null, chill: 0, chillEff: 0, frozen: 0, shock: 0, shockEff: 0, flash: 0, affixes: [],
       pat: b.patterns.map(([n, cd]) => ({ n, cd, t: cd * rand(0.5, 1) })), rage: ascHas(c.asc, 'bossRage') || !!c.bossRage, dotAcc: 0, dotShow: 0.5,
       name: b.name,

@@ -12,6 +12,12 @@ import {
 } from './data/systems.js';
 import { makeMythic } from './data/items.js';
 import { EVOLUTIONS } from './data/evolutions.js';
+import {
+  towerFloor, towerPower, towerAct, towerState, towerBoard, TOWER_MILES, towerMileReward, rushOrder, RUSH_POWER, RUSH_LEN, bossBiome,
+  genHunt, huntPower, huntAct, huntDist, ensureBoss,
+} from './data/modes.js';
+import { weekKey } from './data/systems.js';
+import { clock } from './util.js';
 
 // ---------------------------------------------------------------- Sternwarte-Helfer
 export const baseLvl = (id) => (save.base && save.base.lvl && save.base.lvl[id]) || 0;
@@ -29,7 +35,7 @@ export function archiveRune(inst) {
 }
 function rollRuneTraits(run, id) {
   const r = Math.random();
-  const bonus = run.asc * 0.01 + (run.act >= 3 ? 0.1 : 0);
+  const bonus = run.asc * 0.01 + (effAct(run) >= 3 ? 0.1 : 0);
   const n = r < 0.08 + bonus ? 2 : r < 0.38 + bonus ? 1 : 0;
   return rollTraits(SKILLS[id], n);
 }
@@ -61,7 +67,9 @@ export function evolveRune(run, idx, evo) {
   if (!save.codex.evos.includes(k)) save.codex.evos.push(k);
   return true;
 }
-export function newRun({ cls, asc = 0, mode = 'normal', ascend = null, mutators = [], daily = null, seed = null, pet = null, atlas = null, potion = null, league = false }) {
+export function newRun({ cls, asc = 0, mode = 'normal', ascend = null, mutators = [], daily = null, seed = null, pet = null, atlas = null, potion = null, league = false, tier = 1 }) {
+  if (mode !== 'normal') league = false;
+  if (mode === 'tower') mutators = [];
   if (league) { const L = currentLeague(); mutators = [...new Set([...mutators, ...L.muts])]; }
   const run = {
     v: 1, cls, asc, mode, seed: seed ?? Math.floor(Math.random() * 1e9), started: Date.now(),
@@ -104,6 +112,9 @@ export function newRun({ cls, asc = 0, mode = 'normal', ascend = null, mutators 
   run.eq.weapon = makeItem({ ilvl: 1, slot: 'weapon', rarity: 'normal' });
   run.eq.weapon.base = START_WEAPON[cls];
   if (mode === 'abyss') { run.floor = 1; run.abyssChoices = genAbyssChoices(run); }
+  else if (mode === 'tower') { run.floor = 1; run.towerKey = weekKey(); }
+  else if (mode === 'rush') { run.rush = { order: rushOrder(run.seed), idx: 0, time: 0 }; rushKit(run); }
+  else if (mode === 'hunt') { run.hunt = genHunt(run.seed, Math.max(1, Math.min(tier, (save.hunt && save.hunt.tier) || 1))); }
   else run.map = genMap(run, 0);
   run.hp = snapshot(run).P.maxLife;
   return run;
@@ -197,6 +208,26 @@ export function atlasUnlocked(id) {
 export const atlasRegion = (run) => (run && run.atlas ? getAtlas().regions[run.atlas] : null);
 
 /** Freigeschaltete Stufen einer Aufstiegsklasse. */
+/** Boss-Rush: Startausrüstung, damit es direkt mit Bossen losgehen kann. */
+function rushKit(run) {
+  run.lvl += 7; run.pendingLvl += 7;
+  const id = newSkillChoice(run);
+  if (id) applyChoice(run, { kind: 'newSkill', id, traits: rollRuneTraits(run, id) });
+  for (let i = 0; i < 2; i++) run.glyphs.push(randomGlyph(run));
+  for (const sl of ['armor', 'helm', 'gloves', 'boots', 'ring']) if (!run.eq[sl]) run.eq[sl] = makeItem({ ilvl: 10, slot: sl, rarity: 'magic' });
+  run.gold += 120;
+}
+/** Fortschritt eines Runs in „Akten“ gemessen (für Preise, Beute-Stufen, Materialien). */
+export function effAct(run) {
+  if (run.mode === 'abyss') return run.floor / 6;
+  if (run.mode === 'tower') return (run.floor - 1) / 6;
+  if (run.mode === 'rush') return run.rush.idx / 3;
+  if (run.mode === 'hunt') return (run.hunt.tier - 1) * 0.7 + huntDist(run.hunt, run.hunt.x, run.hunt.y) / 10;
+  return run.act;
+}
+/** Erwartete Turmhöhe des Spielers (für passende Rivalen). */
+export const towerAnchor = () => clamp(save.stats.maxTower ? save.stats.maxTower * 1.08 + 3 : 7 + accountLevel().level * 0.5, 8, 150);
+
 export function ascendMods(id) {
   const A = ASCENDANCIES[id];
   if (!A) return [];
@@ -210,6 +241,18 @@ export function actInfo(run) {
     const ids = Object.keys(BIOMES);
     const bid = ids[(run.floor - 1) % ids.length], b = BIOMES[bid];
     return { ...ABYSS, biomeId: bid, tint: b.tint, floor: b.floor, hazard: run.floor > 10 ? b.hazard : null, biomeName: b.name, power: abyssPower(run.floor) };
+  }
+  if (run.mode === 'tower') {
+    const F = towerFloor(run.towerKey, run.floor), b = BIOMES[F.biome];
+    return { ...b, biomeId: F.biome, biomeName: b.name, sub: 'Sternenturm', name: `Etage ${run.floor}`, power: towerPower(run.floor), boss: F.boss || b.boss, regionMods: [F.law, F.law2].filter((l) => l && l !== 'calm') };
+  }
+  if (run.mode === 'rush') {
+    const i = Math.min(run.rush.idx, RUSH_LEN - 1), id = run.rush.order[i], bid = bossBiome(id), b = BIOMES[bid];
+    return { ...b, biomeId: bid, biomeName: b.name, sub: 'Boss-Rush', name: `Boss ${i + 1}/${RUSH_LEN}`, power: RUSH_POWER[i], boss: id };
+  }
+  if (run.mode === 'hunt') {
+    const h = run.hunt, b = BIOMES[h.biome];
+    return { ...b, biomeId: h.biome, biomeName: b.name, sub: 'Sternenjagd', name: `${b.name} · Jagdstufe ${h.tier}`, power: huntPower(h.tier, huntDist(h, h.x, h.y)), boss: h.beast };
   }
   if (run.act >= ACTS.length && run.atlas) {
     const reg = getAtlas().regions[run.atlas];
@@ -298,7 +341,9 @@ export function genAbyssChoices(run) {
 
 // ---------------------------------------------------------------- Kampf-Konfiguration
 export function itemLevel(run) {
-  if (run.mode === 'abyss') return clamp(4 + run.floor * 3 + run.asc * 2, 1, 100);
+  if (run.mode === 'abyss' || run.mode === 'tower') return clamp(4 + run.floor * 3 + run.asc * 2, 1, 100);
+  if (run.mode === 'rush') return clamp(8 + run.rush.idx * 9 + run.asc * 3, 1, 100);
+  if (run.mode === 'hunt') return clamp(6 + run.hunt.tier * 10 + huntDist(run.hunt, run.hunt.x, run.hunt.y) * 2 + run.asc * 3, 1, 100);
   const layer = run.map && run.map.pos ? run.map.pos[0] : 0;
   return clamp(1 + run.act * 26 + layer * 3 + run.asc * 3, 1, 100);
 }
@@ -309,6 +354,13 @@ export function combatCfg(run, node) {
   let power, act;
   if (run.mode === 'abyss') {
     power = A.power; act = 3;
+  } else if (run.mode === 'tower') {
+    power = A.power; act = towerAct(run.floor);
+  } else if (run.mode === 'rush') {
+    power = A.power; act = Math.min(3, 1 + Math.floor(run.rush.idx / 3));
+  } else if (run.mode === 'hunt') {
+    // Die Bestie ist immer so stark wie an ihrem Hort – auch im Hinterhalt
+    power = node.lair ? huntPower(run.hunt.tier, huntDist(run.hunt, run.hunt.lx, run.hunt.ly)) : A.power; act = huntAct(run.hunt.tier);
   } else {
     act = run.act + 1;
     const layer = run.map.pos ? run.map.pos[0] : 0;
@@ -317,10 +369,14 @@ export function combatCfg(run, node) {
   const mu = (k) => (run.mutators && run.mutators.includes(k)) || (A.regionMods && A.regionMods.includes(k));
   const trial = node.type === 'trial' || node.arena;
   const kind = node.type === 'boss' ? 'boss' : node.type === 'elite' || trial ? 'elite' : 'fight';
+  const bossId = kind === 'boss' ? (node.boss || A.boss) : null;
+  if (bossId) ensureBoss(bossId);
+  // Sternenjagd: Splitter schwächen die Bestie, ein Hinterhalt stärkt sie
+  const lair = run.mode === 'hunt' && node.lair ? { hp: (1 - 0.12 * run.hunt.shards) * (node.ambush ? 1.25 : 1), dmg: 1 - 0.06 * run.hunt.shards } : null;
   return {
     kind, act, power, pool: A.pool, trial, nemesis: pickNemesis(run, kind),
-    bossId: kind === 'boss' ? (node.boss || A.boss) : null,
-    duration: kind === 'boss' ? 0 : 34 + act * 4,
+    bossId,
+    duration: kind === 'boss' ? 0 : run.mode === 'tower' ? 26 + act * 3 : 34 + act * 4,
     hpMult: ascHpMult(asc) * (mu('titans') ? 1.5 : 1) * (mu('horde') ? 0.75 : 1) * (trial ? 1.25 : 1),
     dmgMult: ascDmgMult(asc) * (mu('brutal') ? 1.4 : 1),
     asc,
@@ -330,11 +386,15 @@ export function combatCfg(run, node) {
     extraElite: ascHas(asc, 'elites') || trial,
     allElite: mu('elites'),
     enemySpeed: mu('swift') ? 1.25 : 1,
-    bossRage: mu('bossrage'), bossHpMult: mu('bossrage') ? 1.5 : 1,
+    bossRage: mu('bossrage'), bossHpMult: (mu('bossrage') ? 1.5 : 1) * (lair ? lair.hp : 1), bossDmgMult: lair ? lair.dmg : 1,
     volatileCorpses: mu('volatile'), meteors: mu('hazards'), hazard: A.hazard || null, eliteLoot: atlasHas('aElite'),
     xpMult: 1 + (act - 1) * 0.35,
     tint: A.tint, floorColor: A.floor, biome: A.biomeId, clsColor: CLASSES[run.cls].color,
-    label: run.mode === 'abyss' ? `Abgrund · Ebene ${run.floor} · ${A.biomeName}` : `${A.sub} · ${A.name}${A.tier ? ` · Stufe ${A.tier}` : ''}`,
+    label: run.mode === 'abyss' ? `Abgrund · Ebene ${run.floor} · ${A.biomeName}`
+      : run.mode === 'tower' ? `Sternenturm · Etage ${run.floor} · ${A.biomeName}`
+      : run.mode === 'rush' ? `Boss-Rush · ${A.name}`
+      : run.mode === 'hunt' ? `Sternenjagd · ${A.name}`
+      : `${A.sub} · ${A.name}${A.tier ? ` · Stufe ${A.tier}` : ''}`,
   };
 }
 
@@ -452,7 +512,7 @@ export function addItem(run, item) {
 }
 
 // ---------------------------------------------------------------- Händler & Schmiede
-export const priceMult = (run) => (run.mode === 'abyss' ? 1 + run.floor * 0.12 : 1 + run.act * 0.6) * (1 - 0.08 * altarLvl('discount'));
+export const priceMult = (run) => (run.mode === 'abyss' ? 1 + run.floor * 0.12 : 1 + effAct(run) * 0.6) * (1 - 0.08 * altarLvl('discount'));
 export function genShop(run) {
   const ilvl = itemLevel(run), pm = priceMult(run), luck = snapshot(run).P.luck;
   const offers = [];
@@ -500,7 +560,7 @@ export function forge(run, op, item, arg) {
 }
 export { UQ_MAX };
 /** Runenschliff: Merkmale einer Rune neu würfeln (Anzahl bleibt, mindestens 1). */
-export const grindCost = (run) => Math.round(70 * priceMult(run) * (1 + run.act * 0.5) * (1 - 0.05 * baseLvl('forge')));
+export const grindCost = (run) => Math.round(70 * priceMult(run) * (1 + effAct(run) * 0.5) * (1 - 0.05 * baseLvl('forge')));
 export function grindRune(run, inst) {
   const cost = grindCost(run);
   if (run.gold < cost || !SKILLS[inst.id]) return false;
@@ -512,7 +572,7 @@ export function grindRune(run, inst) {
   return true;
 }
 /** Mythisches Umschmieden (Meisterschmiede Stufe 5+): einen Spezialeffekt neu würfeln. */
-export const mythForgeCost = (run) => Math.round(150 * priceMult(run) * (1 + run.act * 0.4));
+export const mythForgeCost = (run) => Math.round(150 * priceMult(run) * (1 + effAct(run) * 0.4));
 export function mythForge(run, item) {
   if (item.rarity !== 'mythic' || baseLvl('forge') < 5) return false;
   const cost = mythForgeCost(run);
@@ -665,10 +725,15 @@ export function endRun(run, outcome) {
   const s = run.stats;
   const win = outcome === 'win';
   const ascF = 1 + run.asc * 0.15;
-  const depth = run.mode === 'abyss' ? run.floor : run.act * LAYERS + (run.map && run.map.pos ? run.map.pos[0] + 1 : 0);
+  const depth = run.mode === 'abyss' ? run.floor : run.mode === 'tower' ? run.floor - 1 : run.mode === 'rush' ? run.rush.idx : run.mode === 'hunt' ? run.hunt.moves
+    : run.act * LAYERS + (run.map && run.map.pos ? run.map.pos[0] + 1 : 0);
+  const campaignWin = win && run.mode === 'normal';
   let axp = (s.kills * 0.6 + s.nodes * 35 + s.elites * 40 + s.bosses * 220 + (win ? 600 : 0)) * ascF * (1 + 0.05 * baseLvl('library'));
   let dust = (s.nodes * 5 + s.elites * 12 + s.bosses * 70 + (win ? 200 : 0)) * (1 + run.asc * 0.25);
   if (run.mode === 'abyss') { dust *= 1 + run.floor * 0.04; axp *= 1 + run.floor * 0.03; }
+  if (run.mode === 'tower') { dust *= 1 + depth * 0.05; axp *= 1 + depth * 0.035; }
+  if (run.mode === 'rush') { dust *= 1 + depth * 0.12; axp *= 1 + depth * 0.08; }
+  if (run.mode === 'hunt') { dust *= (1 + run.hunt.tier * 0.25) * (win ? 1.5 : 1); axp *= 1 + run.hunt.tier * 0.15; }
   const prophBonus = Math.round((run.mutators || []).reduce((sum, m) => sum + MUTATORS[m].reward, 0) * (atlasHas('aProph') ? 1.25 : 1));
   dust *= 1 + (prophBonus + (run.leagueBonus || 0)) / 100;
   axp *= 1 + prophBonus / 200;
@@ -689,13 +754,13 @@ export function endRun(run, outcome) {
   st.maxHit = Math.max(st.maxHit, s.maxHit);
   st.maxRunLvl = Math.max(st.maxRunLvl, run.lvl);
   st.playTime += Math.round((Date.now() - run.started) / 1000);
-  if (win) {
+  if (campaignWin) {
     st.wins[run.cls] = (st.wins[run.cls] || 0) + 1;
     st.maxAscWin = Math.max(st.maxAscWin, run.asc);
     save.ascUnlocked = Math.max(save.ascUnlocked, run.asc + 1);
   }
   if (run.mode === 'abyss') st.maxAbyss = Math.max(st.maxAbyss, run.floor - (outcome === 'win' ? 0 : 1));
-  if (win) {
+  if (campaignWin) {
     st.maxProphWin = Math.max(st.maxProphWin || 0, (run.mutators || []).length);
     const secs = Math.round((Date.now() - run.started) / 1000);
     st.fastestWin = Math.min(st.fastestWin || 1e9, secs);
@@ -705,13 +770,14 @@ export function endRun(run, outcome) {
   const quests = checkQuests(run, outcome);
   st.lastCls = run.cls;
   st.maxSet = Math.max(st.maxSet || 0, run.stats.maxSet || 0);
-  if (win && !run.usedRevive) st.cleanAscWin = Math.max(st.cleanAscWin ?? -1, run.asc);
+  if (campaignWin && !run.usedRevive) st.cleanAscWin = Math.max(st.cleanAscWin ?? -1, run.asc);
+  const modeRes = modeRecord(run, win);
   // Gefährten-Eier schlüpfen
   // Erzfeind
   let nemesis = null;
   if (outcome === 'death' && run.killer) nemesis = recordNemesis(run.killer);
   // Materialien für die Sternwarte
-  const depthF = 1 + run.act * 0.6 + run.asc * 0.1 + (run.mode === 'abyss' ? run.floor * 0.08 : 0);
+  const depthF = 1 + (run.mode === 'normal' ? run.act : effAct(run)) * 0.6 + run.asc * 0.1 + (run.mode === 'abyss' ? run.floor * 0.08 : 0);
   const mats = {
     ore: Math.round((s.kills * 0.04 + s.elites * 3 + s.bosses * 15) * depthF),
     crystal: Math.round((s.elites * 0.6 + s.bosses * 6 + (win ? 10 : 0)) * depthF),
@@ -720,7 +786,7 @@ export function endRun(run, outcome) {
   addRes(mats);
   // Saison-Erfahrung
   save.season = save.season && save.season.key === seasonKey() ? save.season : { key: seasonKey(), xp: 0, claimed: [] };
-  const sxp = Math.round((s.nodes * 20 + s.bosses * 120 + (win ? 400 : 0) + (run.mode === 'abyss' ? run.floor * 30 : 0)) * (run.league ? 1.5 : 1));
+  const sxp = Math.round((s.nodes * 20 + s.bosses * 120 + (win ? 400 : 0) + (['abyss', 'tower'].includes(run.mode) ? run.floor * 30 : 0)) * (run.league ? 1.5 : 1));
   save.season.xp += sxp;
   // Kartenpacks aus dem Run
   const packs = [];
@@ -743,21 +809,68 @@ export function endRun(run, outcome) {
     time: Math.round((Date.now() - run.started) / 1000),
     quests, prophBonus, dailyBonus, mutators: run.mutators || [], ascend: run.ascend, hatched, atlasDone: run.atlasDone || null,
     nemesis, mats, sxp, packs, nemesisSlain: run.nemesisSlain || [], cards: run.cards || [], league: run.league,
+    tier: run.hunt ? run.hunt.tier : null, modeLines: modeRes.lines, towerRank: modeRes.rank || null,
   };
   const score = depth * 1000 + run.asc * 5000 + s.kills;
-  if (!st.bestRun || score > st.bestRun.score) st.bestRun = { score, ...result, date: Date.now() };
+  if (['normal', 'abyss', 'tower'].includes(run.mode) && (!st.bestRun || score > st.bestRun.score)) st.bestRun = { score, ...result, date: Date.now() };
   save.run = null;
   result.achievements = checkAchievements();
   persist();
   return result;
 }
 
+/** Bestleistungen der Modi festhalten. Gibt Zeilen für die Zusammenfassung zurück. */
+function modeRecord(run, win) {
+  const st = save.stats, out = { lines: [] };
+  if (run.mode === 'tower') {
+    const cleared = run.floor - 1;
+    st.maxTower = Math.max(st.maxTower || 0, cleared);
+    const T = towerState(save, towerAnchor());
+    if (run.towerKey === T.key) {
+      T.tries++;
+      const secs = Math.round((Date.now() - run.started) / 1000);
+      if (cleared > T.best || (cleared === T.best && cleared > 0 && secs < T.bestTime)) {
+        T.best = cleared; T.bestTime = secs; T.bestCls = run.cls;
+        out.lines.push(['Neuer Wochenrekord', `Etage ${cleared}`]);
+      }
+      for (const m of TOWER_MILES) {
+        if (cleared < m || T.miles.includes(m)) continue;
+        T.miles.push(m);
+        const r = towerMileReward(m);
+        save.dust += r.dust; addRes(r.res);
+        out.lines.push([`Turmtruhe (Etage ${m})`, `+✦ ${r.dust}`]);
+      }
+      out.rank = towerBoard(T).find((r) => r.me).rank;
+      out.lines.push(['Wochenplatz', `${out.rank} von ${T.rivals.length + 1}`]);
+    }
+  } else if (run.mode === 'rush') {
+    const n = run.rush.idx, time = Math.round(run.rush.time);
+    save.rush = save.rush || {};
+    const b = save.rush.best;
+    if (!b || n > b.n || (n === b.n && time < b.time)) { save.rush.best = { n, time, cls: run.cls, asc: run.asc, date: Date.now() }; if (n) out.lines.push(['Neue Bestleistung', `${n}/${RUSH_LEN} · ${clock(time)}`]); }
+    st.rushBest = Math.max(st.rushBest || 0, n);
+    if (win) { st.rushClears = (st.rushClears || 0) + 1; st.rushFastest = Math.min(st.rushFastest || 1e9, time); }
+    out.lines.push(['Kampfzeit', clock(time)]);
+  } else if (run.mode === 'hunt') {
+    save.hunt = save.hunt || { tier: 1 };
+    if (win) {
+      save.hunt.tier = Math.max(save.hunt.tier || 1, run.hunt.tier + 1);
+      st.huntWins = (st.huntWins || 0) + 1;
+      st.maxHunt = Math.max(st.maxHunt || 0, run.hunt.tier);
+      out.lines.push(['Bestie erlegt', `Jagdstufe ${run.hunt.tier + 1} frei`]);
+    }
+    out.lines.push(['Erkundet', `${run.hunt.tiles.filter((t) => t.seen).length}/${run.hunt.tiles.length} Felder`]);
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------- Aufträge
 export function questMetrics(run, outcome) {
   return {
     runKills: run.stats.kills, runElites: run.stats.elites, runBosses: run.stats.bosses, runLvl: run.lvl,
-    runMaxHit: run.stats.maxHit, runWin: outcome === 'win' ? 1 : 0, runGold: run.stats.gold || 0,
-    runAct: run.mode === 'abyss' ? 0 : outcome === 'win' ? 4 : run.act + 1,
+    runMaxHit: run.stats.maxHit, runWin: outcome === 'win' && run.mode === 'normal' ? 1 : 0, runGold: run.stats.gold || 0,
+    runAct: run.mode !== 'normal' ? 0 : outcome === 'win' ? 4 : run.act + 1,
+    runTower: run.mode === 'tower' ? run.floor - 1 : 0, runRush: run.mode === 'rush' ? run.rush.idx : 0, runHunt: run.mode === 'hunt' && outcome === 'win' ? 1 : 0,
     runAbyss: run.mode === 'abyss' ? run.floor : 0, runProph: (run.mutators || []).length,
     runNewClass: save.stats.lastCls && save.stats.lastCls !== run.cls ? 1 : 0,
   };
@@ -767,7 +880,7 @@ export function ensureQuests() {
   const lvl = accountLevel().level;
   while (save.quests.length < 3) {
     const used = new Set(save.quests.map((q) => q.tpl));
-    const pool = QUEST_TEMPLATES.filter((t) => !used.has(t.id) && (t.minLvl || 0) <= lvl);
+    const pool = QUEST_TEMPLATES.filter((t) => !used.has(t.id) && (t.minLvl || 0) <= lvl && (!t.need || t.need(save)));
     const t = pick(pool.length ? pool : QUEST_TEMPLATES);
     const target = t.target(lvl);
     save.quests.push({ tpl: t.id, target, dust: Math.round(80 + lvl * 12), relic: Math.random() < 0.3 });
@@ -814,7 +927,7 @@ const statMul = (sets, key) => {
 
 /** Relikt-Drop (dauerhaft). Stufe richtet sich nach Fortschritt. */
 export function dropRelic(run, chanceMult = 1) {
-  const level = run.mode === 'abyss' ? 10 + run.floor * 3 + run.asc * 4 : 8 + run.act * 12 + run.asc * 5;
+  const level = run.mode === 'abyss' ? 10 + run.floor * 3 + run.asc * 4 : 8 + effAct(run) * 12 + run.asc * 5;
   if (Math.random() > chanceMult) return null;
   const r = makeRelic(level, snapshot(run).P.luck);
   save.relics.push(r);
@@ -864,7 +977,7 @@ export function nemesisSlain(run, uid) {
 /** Juwel-Drop (dauerhaft). */
 export function dropJewel(run, chance = 1) {
   if (Math.random() > chance) return null;
-  const level = run.mode === 'abyss' ? 10 + run.floor * 3 : 8 + run.act * 14 + run.asc * 5 + (run.act >= 3 && run.atlas ? getAtlas().regions[run.atlas].tier * 4 : 0);
+  const level = run.mode === 'abyss' ? 10 + run.floor * 3 : 8 + effAct(run) * 14 + run.asc * 5 + (run.mode === 'normal' && run.act >= 3 && run.atlas ? getAtlas().regions[run.atlas].tier * 4 : 0);
   const j = makeJewel(level, snapshot(run).P.luck);
   save.jewels = save.jewels || [];
   save.jewels.push(j);
