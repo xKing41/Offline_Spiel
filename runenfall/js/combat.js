@@ -4,6 +4,7 @@ import { ENEMIES, BOSSES, ELITE_AFFIXES, ELITE_IDS, ascHas } from './data/conten
 import { ELEM } from './data/stats.js';
 import { sfx, buzz } from './audio.js';
 import { save } from './save.js';
+import { bossLine } from './data/factions.js';
 import {
   BIOME_FX, floorTile, soft, shadowSprite, enemySprite, bossSprite, tinted, isDirectional, isBlobby, runeCircle, playerSprite,
   makeAmbient, drawAmbient, vignette, nebulaBg, shade, setSpriteRes,
@@ -228,6 +229,7 @@ export class Combat {
     this.updateOrbs(dt);
     this.updateFx(dt);
     this.enemies = this.enemies.filter((e) => !e.dead);
+    if (this.bossLineT > 0) this.bossLineT -= dt;
     this.checkEnd();
   }
 
@@ -494,6 +496,7 @@ export class Combat {
     this.ring(e.x, e.y, 160, b.color, 0.8);
     sfx.boss();
     buzz(120);
+    this.bossLine = bossLine(c.bossId); this.bossLineT = this.bossLine ? 4.5 : 0;
     this.cb.onBoss(e);
   }
 
@@ -1730,7 +1733,7 @@ export class Combat {
     if (this.over) return;
     const c = this.cfg;
     if (c.kind === 'boss') {
-      this.objective = this.bossSpawned ? (this.boss && this.boss.shieldUp ? 'Zerstöre die Schildkristalle!' : this.enemies.some((o) => !o.dead && o.anchorOf) ? 'Vernichte die Seelenanker!' : '') : 'Etwas nähert sich …';
+      this.objective = this.bossSpawned ? (this.boss && this.boss.shieldUp ? 'Zerstöre die Schildkristalle!' : this.enemies.some((o) => !o.dead && o.anchorOf) ? 'Vernichte die Seelenanker!' : this.bossLineT > 0 ? `„${this.bossLine}“` : '') : 'Etwas nähert sich …';
       if (this.bossSpawned && this.boss.dead) this.win();
     } else if (this.t >= c.duration) {
       const elites = this.enemies.some((e) => e.elite && !e.dead) || this.eliteTimes.length;

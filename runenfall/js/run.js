@@ -17,6 +17,7 @@ import {
   genHunt, huntPower, huntAct, huntDist, ensureBoss,
 } from './data/modes.js';
 import { weekKey } from './data/systems.js';
+import { FACTIONS, FACTION_IDS, repRank, factionBonus, CONTRACTS, contractReward, OFFERS, FACTION_EVENTS, STORY } from './data/factions.js';
 import { clock } from './util.js';
 
 // ---------------------------------------------------------------- Sternwarte-Helfer
@@ -116,6 +117,7 @@ export function newRun({ cls, asc = 0, mode = 'normal', ascend = null, mutators 
   else if (mode === 'rush') { run.rush = { order: rushOrder(run.seed), idx: 0, time: 0 }; rushKit(run); }
   else if (mode === 'hunt') { run.hunt = genHunt(run.seed, Math.max(1, Math.min(tier, (save.hunt && save.hunt.tier) || 1))); }
   else run.map = genMap(run, 0);
+  applyGifts(run);
   run.hp = snapshot(run).P.maxLife;
   return run;
 }
@@ -169,7 +171,7 @@ export function buildSets(run, opts = {}) {
     for (const c of run.cards || []) if (CARDS[c] && save.cards && save.cards[c]) extra.addAll(cardMods(c, save.cards[c]));
     sets.push(extra);
   }
-  sets.push(new ModSet([...jewelSocketMods(run ? run.cls : opts.cls), ...paragonMods()]));
+  sets.push(new ModSet([...jewelSocketMods(run ? run.cls : opts.cls), ...paragonMods(), ...factionBonus(save.factions)]));
   return sets;
 }
 
@@ -208,6 +210,123 @@ export function atlasUnlocked(id) {
 export const atlasRegion = (run) => (run && run.atlas ? getAtlas().regions[run.atlas] : null);
 
 /** Freigeschaltete Stufen einer Aufstiegsklasse. */
+/** Gaben der Häuser (im Händler gekauft) gelten für genau einen Run. */
+function applyGifts(run) {
+  const gifts = save.gifts || [];
+  for (const g of gifts) {
+    if (g.weapon) run.eq.weapon = makeItem({ ilvl: 8, slot: 'weapon', rarity: 'rare', luck: 50 });
+    if (g.runeLvl) run.skills[0].lvl = Math.min(MAX_SKILL_LVL, run.skills[0].lvl + g.runeLvl);
+    if (g.mods) run.runMods.push(...g.mods);
+    if (g.forge) run.forgeDisc = Math.min(run.forgeDisc || 1, g.forge);
+    if (g.glyphs) for (let i = 0; i < g.glyphs; i++) run.glyphs.push(randomGlyph(run));
+    if (g.rune && run.skills.length < MAX_SKILLS) { const id = newSkillChoice(run); if (id) applyChoice(run, { kind: 'newSkill', id, traits: rollRuneTraits(run, id) }); }
+    if (g.lvls) { run.lvl += g.lvls; run.pendingLvl += g.lvls; }
+    if (g.gold) run.gold += g.gold;
+    if (g.pact) { if (!run.mutators.includes('brutal')) run.mutators.push('brutal'); run.leagueBonus = (run.leagueBonus || 0) + 30; }
+  }
+  run.gifts = gifts.map((g) => g.name);
+  save.gifts = [];
+}
+
+// ---------------------------------------------------------------- Fraktionen
+export function factionState(id) {
+  save.factions = save.factions || {};
+  if (!save.factions[id]) save.factions[id] = { rep: 0, favor: 0, contract: null, bought: {} };
+  return save.factions[id];
+}
+/** Ruf ändern. Gunst (Währung) gibt es nur für Zuwachs. Gibt die neue Stufe zurück, falls aufgestiegen. */
+export function addRep(id, v) {
+  const F = factionState(id);
+  const before = repRank(F.rep);
+  F.rep = Math.max(0, F.rep + v);
+  if (v > 0) F.favor += v;
+  const after = repRank(F.rep);
+  return after > before ? after : null;
+}
+export function ensureContracts() {
+  const lvl = accountLevel().level;
+  for (const id of FACTION_IDS) {
+    const F = factionState(id);
+    if (F.contract && CONTRACTS[id].some((t) => t.id === F.contract.tpl)) continue;
+    const pool = CONTRACTS[id].filter((t) => (t.minLvl || 0) <= lvl && (!t.need || t.need(save)) && (!F.contract || t.id !== F.contract.tpl));
+    const t = pick(pool.length ? pool : CONTRACTS[id]);
+    F.contract = { tpl: t.id, target: t.target(lvl), rep: contractReward(lvl) };
+  }
+}
+export const contractText = (id, c) => CONTRACTS[id].find((t) => t.id === c.tpl).text(c.target);
+/** Einen Auftrag gegen einen neuen tauschen (einmal täglich für alle Häuser zusammen). */
+export function rerollContract(id) {
+  const today = new Date().toDateString();
+  if (save.contractReroll === today) return false;
+  save.contractReroll = today;
+  const F = factionState(id);
+  const old = F.contract;
+  F.contract = null;
+  ensureContracts();
+  if (old && F.contract.tpl === old.tpl) ensureContracts();
+  return true;
+}
+/** Kauf beim Händler eines Hauses. Gibt Text zurück oder null. */
+export function buyOffer(fid, oid) {
+  const F = factionState(fid), o = OFFERS[fid].find((x) => x.id === oid);
+  if (!o || repRank(F.rep) < o.rank || F.favor < o.cost) return null;
+  if (o.gift && (save.gifts || []).length >= 4) return 'Du kannst höchstens 4 Gaben für den nächsten Run vorbereiten.';
+  F.favor -= o.cost;
+  F.bought[oid] = (F.bought[oid] || 0) + 1;
+  save.stats.favorSpent = (save.stats.favorSpent || 0) + o.cost;
+  if (o.gift) { save.gifts = save.gifts || []; save.gifts.push({ ...o.gift, name: o.name, fid }); return `${o.name} liegt für deinen nächsten Run bereit.`; }
+  const n = o.now;
+  if (n.relic) { const r = makeRelic(20 + 10 * repRank(F.rep) + accountLevel().level, 80); save.relics.push(r); return `Relikt erhalten: ${r.title}`; }
+  if (n.mythic) { save.pendingMythic = (save.pendingMythic || 0) + 1; return 'Ein mythischer Gegenstand wartet in deinem nächsten Run.'; }
+  if (n.jewel) { const j = makeJewel(20 + accountLevel().level * 2, 60); save.jewels = save.jewels || []; save.jewels.push(j); return `Juwel erhalten: ${j.title}`; }
+  if (n.atlas) { save.atlas.points = (save.atlas.points || 0) + 1; return '+1 Atlaspunkt.'; }
+  if (n.pack) { const got = openPack(4); save.cards = save.cards || {}; for (const c of got) save.cards[c] = Math.min(5, (save.cards[c] || 0) + 1); save.stats.packsOpened = (save.stats.packsOpened || 0) + 1; return `Kartenpack geöffnet: ${got.map((c) => CARDS[c].name).join(', ')}`; }
+  if (n.egg) { const h = hatchEgg(); return `Ein Gefährte schlüpft: ${PETS[h.id].name}${h.isNew ? ' (neu!)' : ` (Stufe ${h.lvl})`}`; }
+  if (n.learn) {
+    const pool = [...Object.keys(SKILLS).filter((k) => !save.codex.skills.includes(k) && !k.startsWith('pet_')).map((k) => ['skills', k]), ...Object.keys(SUPPORTS).filter((k) => !save.codex.supports.includes(k)).map((k) => ['supports', k])];
+    if (!pool.length) { save.dust += 300; return 'Du kennst bereits alles – der Zirkel schenkt dir ✦ 300.'; }
+    const [kind, k] = pick(pool);
+    save.codex[kind].push(k);
+    return `${kind === 'skills' ? 'Rune' : 'Glyphe'} „${(kind === 'skills' ? SKILLS : SUPPORTS)[k].name}“ ist jetzt im Kodex.`;
+  }
+  return o.name;
+}
+/** Neu freigeschaltete Kapitel der Sage (noch nicht gesehen). */
+export function newChapters() {
+  save.story = save.story || { seen: [] };
+  return STORY.filter((c) => c.when(save) && !save.story.seen.includes(c.id));
+}
+/** Ruf am Ende eines Runs: Aufträge und Gesinnung. */
+function factionEnd(run, outcome) {
+  if (!save.stats.runs) return { lines: [], done: [] };
+  const m = questMetrics(run, outcome);
+  const gain = {};
+  const done = [];
+  for (const id of FACTION_IDS) {
+    const F = factionState(id), c = F.contract;
+    const t = c && CONTRACTS[id].find((x) => x.id === c.tpl);
+    if (t && (m[t.key] || 0) >= c.target) {
+      gain[id] = (gain[id] || 0) + c.rep;
+      done.push({ fid: id, text: contractText(id, c), rep: c.rep });
+      save.stats.contracts = (save.stats.contracts || 0) + 1;
+      F.contract = null;
+    }
+  }
+  // Gesinnung: jedes Haus achtet auf andere Taten
+  const s = run.stats;
+  gain.glut = (gain.glut || 0) + Math.min(30, s.elites + s.bosses * 5);
+  gain.seher = (gain.seher || 0) + Math.min(30, run.skills.length * 2 + m.runGlyphs + m.runEvo * 8);
+  gain.leere = (gain.leere || 0) + Math.min(30, (run.mutators || []).length * 6 + m.runNemesis * 10 + (run.mode === 'abyss' ? run.floor : 0));
+  const lines = [];
+  for (const id of FACTION_IDS) {
+    if (!gain[id]) continue;
+    const up = addRep(id, gain[id]);
+    lines.push({ fid: id, v: gain[id], up });
+  }
+  ensureContracts();
+  return { lines, done };
+}
+
 /** Boss-Rush: Startausrüstung, damit es direkt mit Bossen losgehen kann. */
 function rushKit(run) {
   run.lvl += 7; run.pendingLvl += 7;
@@ -529,7 +648,7 @@ export function genShop(run) {
 }
 
 export const forgeCost = (run, op, item) => {
-  const pm = priceMult(run) * (1 + item.ilvl / 40) * (atlasHas('aForge') ? 0.75 : 1) * (1 - 0.05 * baseLvl('forge'));
+  const pm = priceMult(run) * (1 + item.ilvl / 40) * (atlasHas('aForge') ? 0.75 : 1) * (1 - 0.05 * baseLvl('forge')) * (run.forgeDisc || 1);
   const base = { reroll: 25, add: 45, upgrade: 60, lock: 70, fuse: 80, corrupt: 90, unique: 140 * ((item.uqLvl || 0) + 1) }[op];
   return Math.round(base * pm);
 };
@@ -587,8 +706,10 @@ export const sellValue = (run, item) => Math.round(itemValue(item) * 0.4 * price
 
 // ---------------------------------------------------------------- Ereignisse
 export function pickEvent(run) {
-  return pick(EVENTS.filter((e) => e.id !== run.lastEvent));
+  const pool = save.stats.runs >= 1 && Math.random() < 0.35 ? FACTION_EVENTS : EVENTS;
+  return pick(pool.filter((e) => e.id !== run.lastEvent));
 }
+export const eventById = (id) => EVENTS.find((e) => e.id === id) || FACTION_EVENTS.find((e) => e.id === id);
 
 /** Wendet ein Ereignis an. Gibt Text für die Anzeige zurück. */
 export function applyEvent(run, fx) {
@@ -600,6 +721,12 @@ export function applyEvent(run, fx) {
     run.gold -= cost;
   }
   if (fx.boon) { run.runMods.push(...fx.boon); msgs.push('Du spürst eine Veränderung.'); }
+  if (fx.rep) {
+    for (const [id, v] of Object.entries(fx.rep)) {
+      const up = addRep(id, v);
+      msgs.push(`Ruf ${FACTIONS[id].dat}: ${v > 0 ? '+' : '−'}${Math.abs(v)}${up !== null ? ' – neue Stufe!' : ''}`);
+    }
+  }
   if (fx.hpPct) {
     run.hp = clamp(run.hp + (P.maxLife * fx.hpPct) / 100, 1, P.maxLife);
     msgs.push(fx.hpPct > 0 ? 'Du fühlst dich erfrischt.' : 'Es schmerzt.');
@@ -768,6 +895,7 @@ export function endRun(run, outcome) {
   st.enemyKills = st.enemyKills || {};
   for (const [k, v] of Object.entries(run.stats.byType || {})) st.enemyKills[k] = (st.enemyKills[k] || 0) + v;
   const quests = checkQuests(run, outcome);
+  const fac = factionEnd(run, outcome);
   st.lastCls = run.cls;
   st.maxSet = Math.max(st.maxSet || 0, run.stats.maxSet || 0);
   if (campaignWin && !run.usedRevive) st.cleanAscWin = Math.max(st.cleanAscWin ?? -1, run.asc);
@@ -809,7 +937,7 @@ export function endRun(run, outcome) {
     time: Math.round((Date.now() - run.started) / 1000),
     quests, prophBonus, dailyBonus, mutators: run.mutators || [], ascend: run.ascend, hatched, atlasDone: run.atlasDone || null,
     nemesis, mats, sxp, packs, nemesisSlain: run.nemesisSlain || [], cards: run.cards || [], league: run.league,
-    tier: run.hunt ? run.hunt.tier : null, modeLines: modeRes.lines, towerRank: modeRes.rank || null,
+    tier: run.hunt ? run.hunt.tier : null, modeLines: modeRes.lines, towerRank: modeRes.rank || null, faction: fac, gifts: run.gifts || [],
   };
   const score = depth * 1000 + run.asc * 5000 + s.kills;
   if (['normal', 'abyss', 'tower'].includes(run.mode) && (!st.bestRun || score > st.bestRun.score)) st.bestRun = { score, ...result, date: Date.now() };
@@ -871,6 +999,8 @@ export function questMetrics(run, outcome) {
     runMaxHit: run.stats.maxHit, runWin: outcome === 'win' && run.mode === 'normal' ? 1 : 0, runGold: run.stats.gold || 0,
     runAct: run.mode !== 'normal' ? 0 : outcome === 'win' ? 4 : run.act + 1,
     runTower: run.mode === 'tower' ? run.floor - 1 : 0, runRush: run.mode === 'rush' ? run.rush.idx : 0, runHunt: run.mode === 'hunt' && outcome === 'win' ? 1 : 0,
+    runSkills: run.skills.length, runGlyphs: run.skills.reduce((a, s) => a + s.sup.filter(Boolean).length, 0), runEvo: run.skills.filter((s) => s.evo).length,
+    runNemesis: (run.nemesisSlain || []).length, runFlawless: run.stats.flawless || 0,
     runAbyss: run.mode === 'abyss' ? run.floor : 0, runProph: (run.mutators || []).length,
     runNewClass: save.stats.lastCls && save.stats.lastCls !== run.cls ? 1 : 0,
   };

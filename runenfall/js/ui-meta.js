@@ -16,6 +16,7 @@ import { sfx } from './audio.js';
 import { jewelsTab, jewelSocketPanel, paragonPanel } from './ui-endgame.js';
 import { modeGrid, modePanel, modeTiles, towerClaimPanel, modeWhere, resWhere } from './ui-modes.js';
 import { modeLock } from './data/modes.js';
+import { factionTiles, storyPanel, giftsPanel } from './ui-factions.js';
 import { PETS, SETS, getAtlas } from './data/endgame.js';
 
 on('nav', (d) => app.nav(d.to));
@@ -41,6 +42,7 @@ export function showHub() {
       : `<button class="btn primary big" data-a="nav" data-to="setup">NEUER RUN</button>`}
       ${run ? '' : dailyTile()}
       ${towerClaimPanel()}
+      ${storyPanel()}
       ${questPanel()}
       <div class="grid2">
         <button class="tile" data-a="nav" data-to="tree"><span class="ti">✶</span>Sternenkarte${unspent ? '<i class="dot"></i>' : ''}<small>${pts} Punkte</small></button>
@@ -53,6 +55,7 @@ export function showHub() {
         <button class="tile" data-a="nav" data-to="pets"><span class="ti">🐾</span>Gefährten<small>${Object.keys(save.pets || {}).length}/12 gesammelt</small></button>
         ${systemTiles()}
         ${modeTiles()}
+        ${factionTiles()}
       </div>
       <button class="btn small ghost" data-a="nav" data-to="settings">⚙ Einstellungen</button>
       ${save.treeReset ? '<p class="note">Die Sternenkarte wurde überarbeitet – deine Punkte wurden zurückerstattet.</p>' : ''}
@@ -127,6 +130,7 @@ export function showSetup() {
         ${asc ? `<ul class="asclist">${asc}</ul>` : ''}
       </div>
       ${modePanel(setup)}
+      ${giftsPanel()}
       ${ascendPanel()}
       ${petPanel()}
       ${atlasPanel()}

@@ -18,7 +18,9 @@ import { RUNE_TRAITS } from './data/systems.js';
 import { runeName } from './calc.js';
 import { grindPanel, systemsSummary } from './ui-systems.js';
 import { EVOLUTIONS, evolvedDef, evoOf } from './data/evolutions.js';
-import { pendingEvolution, evolveRune } from './run.js';
+import { pendingEvolution, evolveRune, eventById } from './run.js';
+import { FACTIONS, facIcon } from './data/factions.js';
+import { factionSummary } from './ui-factions.js';
 import { showTowerRun, showRushRun, showHuntRun, modeWhere, resWhere } from './ui-modes.js';
 import { huntTile } from './data/modes.js';
 
@@ -532,21 +534,20 @@ on('fFuse', (d) => {
 export function showEvent() {
   const run = R();
   if (!run.event) { run.event = pickEvent(run).id; run.lastEvent = run.event; persist(); }
-  import('./data/content.js').then(({ EVENTS }) => {
-    const ev = EVENTS.find((e) => e.id === run.event);
-    modal(`<h2 class="evt">${esc(ev.title)}</h2><p class="center">${esc(ev.text)}</p><div class="col">
-      ${ev.options.map((o, i) => `<button class="btn opt" data-a="evOpt" data-i="${i}"><b>${esc(o.label)}</b><small>${esc(o.desc)}</small></button>`).join('')}</div>`, 'event');
-  });
+  const ev = eventById(run.event);
+  if (!ev) { run.event = null; return finishNode(); }
+  modal(`${facBadge(ev)}<h2 class="evt">${esc(ev.title)}</h2><p class="center">${esc(ev.text)}</p><div class="col">
+    ${ev.options.map((o, i) => `<button class="btn opt" data-a="evOpt" data-i="${i}"><b>${esc(o.label)}</b><small>${esc(o.desc)}</small></button>`).join('')}</div>`, 'event');
 }
-on('evOpt', async (d) => {
+const facBadge = (ev) => (ev.faction ? `<div class="facbadge" style="--fc:${FACTIONS[ev.faction].color}">${facIcon(ev.faction)} ${esc(FACTIONS[ev.faction].name)}</div>` : '');
+on('evOpt', (d) => {
   const run = R();
-  const { EVENTS } = await import('./data/content.js');
-  const ev = EVENTS.find((e) => e.id === run.event);
+  const ev = eventById(run.event);
   const msgs = applyEvent(run, ev.options[Number(d.i)].fx);
   persist();
   const arena = run.arenaPending;
   if (arena) { run.arenaPending = false; persist(); }
-  modal(`<h2 class="evt">${esc(ev.title)}</h2>${msgs.map((m) => `<p class="center">${esc(m)}</p>`).join('')}
+  modal(`${facBadge(ev)}<h2 class="evt">${esc(ev.title)}</h2>${msgs.map((m) => `<p class="center">${esc(m)}</p>`).join('')}
     ${arena ? '<button class="btn primary" data-a="arenaFight">⚔ Kämpfen</button>' : '<button class="btn primary" data-a="leave">Weiter</button>'}`, 'event');
 });
 on('arenaFight', () => {
@@ -649,5 +650,5 @@ export function showSummary(res, relics) {
     ${extra}${modeRows}${acc.level > accBefore ? `<p class="up">Kontostufe ${accBefore} → ${acc.level}! +${acc.level - accBefore} Sternpunkt${acc.level - accBefore > 1 ? 'e' : ''}</p>` : ''}
     ${bar(acc.cur, acc.need, 'xp')}</div>
     ${res.win && res.mode === 'normal' ? `<p class="up">Sternenhöhe ${res.asc + 1} freigeschaltet!</p>` : ''}
-    ${systemsSummary(res)}${atlas}${pets}${quests}${relicHtml}${jewelHtml}${ach}<button class="btn primary big" data-a="nav" data-to="hub">Zur Sternwarte</button></div>`);
+    ${systemsSummary(res)}${factionSummary(res)}${atlas}${pets}${quests}${relicHtml}${jewelHtml}${ach}<button class="btn primary big" data-a="nav" data-to="hub">Zur Sternwarte</button></div>`);
 }

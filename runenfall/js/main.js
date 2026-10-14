@@ -17,6 +17,7 @@ import { showBase, showCards, showNemesis, showSeason } from './ui-systems.js';
 import { showMap, showBuild, showLevelUp, showRewards, showShop, showForge, showEvent, showRest, showSummary } from './ui-run.js';
 import { sfx, buzz } from './audio.js';
 import { towerCampAfter, RUSH_LEN, rushCampAfter, huntTile } from './data/modes.js';
+import { showFactions, showStory } from './ui-factions.js';
 
 const combat = new Combat($('#cv'));
 const treeView = new TreeView($('#tree'));
@@ -28,7 +29,7 @@ app.treeView = treeView;
 const SCREENS = {
   hub: showHub, setup: showSetup, tree: showTree, codex: showCodex, altar: showAltar, relics: showRelics,
   ach: showAch, stats: showStats, settings: showSettings, map: () => showMap(), atlas: showAtlas, pets: showPets,
-  base: showBase, cards: showCards, nemesis: showNemesis, season: showSeason,
+  base: showBase, cards: showCards, nemesis: showNemesis, season: showSeason, factions: showFactions, story: showStory,
 };
 app.nav = (to) => {
   closeModal();
@@ -150,7 +151,7 @@ function fightWon(node, cfg) {
   if (run.shrine && run.shrine.fights > 0) { run.shrine.fights--; if (run.shrine.fights <= 0) run.shrine = null; }
   if (boss) {
     run.stats.bosses++;
-    if (combat.stats.hitsTaken === 0) save.stats.flawless = (save.stats.flawless || 0) + 1;
+    if (combat.stats.hitsTaken === 0) { save.stats.flawless = (save.stats.flawless || 0) + 1; run.stats.flawless = (run.stats.flawless || 0) + 1; }
     if (dropJewel(run, node.lair ? 1 : 0.25 + (atlasHas('aJewel') ? 0.2 : 0))) toast('⬢ Juwel gefunden!');
     if (Math.random() < 0.08 + (atlasHas('aEgg') ? 0.1 : 0)) { run.eggs = (run.eggs || 0) + 1; toast('🥚 Ein Gefährten-Ei!'); }
     if (run.mode === 'normal' && run.act >= 3 && run.atlas) completeAtlas(run);

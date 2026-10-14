@@ -808,6 +808,13 @@ export const ACHIEVEMENTS = [
   { id: 'hunt1', name: 'Fährtenleserin', desc: 'Erlege eine Bestie in der Sternenjagd', reward: { points: 1 }, check: (s) => (s.stats.huntWins || 0) >= 1 },
   { id: 'hunt2', name: 'Meisterjäger', desc: 'Erlege eine Bestie auf Jagdstufe 5', reward: { points: 2 }, check: (s) => (s.stats.maxHunt || 0) >= 5 },
   { id: 'hunt3', name: 'Legende der Jagd', desc: 'Erlege eine Bestie auf Jagdstufe 10', reward: { points: 3 }, check: (s) => (s.stats.maxHunt || 0) >= 10 },
+  // ---- Häuser & Sage
+  { id: 'fac1', name: 'Verbündeter', desc: 'Werde bei einem Haus „Verbündet“', reward: { points: 1 }, check: (s) => Object.values(s.factions || {}).some((f) => f.rep >= 700) },
+  { id: 'fac2', name: 'Diener dreier Herren', desc: 'Werde bei allen drei Häusern „Verbündet“', reward: { points: 3 }, check: (s) => ['glut', 'seher', 'leere'].every((k) => ((s.factions || {})[k] || { rep: 0 }).rep >= 700) },
+  { id: 'fac3', name: 'Erhaben', desc: 'Erreiche bei einem Haus den höchsten Rang', reward: { points: 2 }, check: (s) => Object.values(s.factions || {}).some((f) => f.rep >= 2500) },
+  { id: 'fac4', name: 'Auftragsbuch', desc: 'Erfülle 25 Aufträge der Häuser', reward: { points: 1 }, check: (s) => (s.stats.contracts || 0) >= 25 },
+  { id: 'story1', name: 'Chronist', desc: 'Schalte 10 Kapitel der Sage frei', reward: { points: 1 }, check: (s) => ((s.story && s.story.seen) || []).length >= 10 },
+  { id: 'story2', name: 'Die Feder liegt bei dir', desc: 'Schalte alle Kapitel der Sage frei', reward: { points: 3 }, check: (s) => ((s.story && s.story.seen) || []).length >= 20 },
   { id: 'evo1', name: 'Erwachen', desc: 'Lass eine Rune zur Evolution erwachen', reward: { dust: 300 }, check: (s) => (s.stats.evolutions || 0) >= 1 },
   { id: 'evo2', name: 'Formwandler', desc: 'Entdecke 20 verschiedene Evolutionen', reward: { points: 1 }, check: (s) => (s.codex.evos || []).length >= 20 },
   { id: 'evo3', name: 'Meister der Wandlung', desc: 'Entdecke alle 92 Evolutionen', reward: { points: 3 }, check: (s) => (s.codex.evos || []).length >= 92 },
