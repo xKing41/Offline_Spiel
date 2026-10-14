@@ -1,16 +1,18 @@
 // Gegenstände: Basen, Affixe mit Stufen, Unikate, Relikte (dauerhafte Meta-Beute).
 import { pick, weighted, uid, clamp } from '../util.js';
 import { modText } from './stats.js';
+import { SETS, JEWEL_AFFIX, jewelMods } from './endgame.js';
 
 export const SLOTS = ['weapon', 'armor', 'helm', 'gloves', 'boots', 'belt', 'amulet', 'ring'];
 export const SLOT_NAME = {
-  weapon: 'Waffe', armor: 'Rüstung', helm: 'Helm', gloves: 'Handschuhe', belt: 'Gürtel', boots: 'Stiefel', amulet: 'Amulett', ring: 'Ring', relic: 'Relikt',
+  weapon: 'Waffe', armor: 'Rüstung', helm: 'Helm', gloves: 'Handschuhe', belt: 'Gürtel', boots: 'Stiefel', jewel: 'Juwel', amulet: 'Amulett', ring: 'Ring', relic: 'Relikt',
 };
 export const RARITY = {
   normal: { name: 'Normal', color: '#c9c3b5' },
   magic: { name: 'Magisch', color: '#7aa8ff' },
   rare: { name: 'Selten', color: '#ffd84d' },
   unique: { name: 'Einzigartig', color: '#ff8a3d' },
+  set: { name: 'Set', color: '#5cff8a' },
   legend: { name: 'Legendär', color: '#d77bff' },
   mythic: { name: 'Mythisch', color: '#ff4d7e' },
 };
@@ -50,6 +52,7 @@ export const BASES = {
   chainbelt: { slot: 'belt', name: 'Kettengürtel', g: 'm', imp: [{ s: 'barrier', v: 15 }] },
   sash: { slot: 'belt', name: 'Seidenschärpe', g: 'f', imp: [{ s: 'dur', t: 'inc', v: 10 }] },
   shard: { slot: 'relic', name: 'Sternensplitter', g: 'm', imp: [] },
+  jewel: { slot: 'jewel', name: 'Juwel', g: 'n', imp: [] },
 };
 
 // Ab welcher Gegenstandsstufe welche Affix-Stufe (Tier) möglich ist.
@@ -412,6 +415,156 @@ export const UNIQUES = {
     mods: [{ s: 'spec_stillness', v: 1 }, { s: 'barrier', v: 40 }, { s: 'dmg_aura', t: 'inc', v: 30 }],
     flavor: 'Bewegungslos wie ein Stern.',
   },
+  mirrorshield: {
+    base: 'plate', name: 'Spiegelpanzer',
+    mods: [{ s: 'armor', v: 120 }, { s: 'spec_thorns', v: 50 }, { s: 'res_elem', v: 15 }],
+    flavor: 'Was du austeilst, kommt zurück.',
+  },
+  frostfang: {
+    base: 'dagger', name: 'Frostzahn',
+    mods: [{ s: 'add_cold', v: 14 }, { s: 'conv_phys_cold', v: 50 }, { s: 'freezeChance', v: 15 }],
+    flavor: 'Ein Biss, der niemals taut.',
+  },
+  thunderhammer: {
+    base: 'axe', name: 'Donnerhammer',
+    mods: [{ s: 'add_light', v: 16 }, { s: 'shockChance', v: 30 }, { s: 'area_melee', t: 'inc', v: 30 }],
+    flavor: 'Jeder Schlag ein Gewitter.',
+  },
+  beastmaw: {
+    base: 'totem', name: 'Bestienrachen',
+    mods: [{ s: 'dmg_minion', t: 'inc', v: 45 }, { s: 'bleedChance', v: 20 }, { s: 'speed_minion', t: 'inc', v: 20 }],
+    flavor: 'Er knurrt im Schlaf.',
+  },
+  soulharvest: {
+    base: 'scepter', name: 'Seelenernte',
+    mods: [{ s: 'lifeOnKill', v: 8 }, { s: 'spec_killExplode', v: 6 }, { s: 'dmg_chaos', t: 'inc', v: 30 }],
+    flavor: 'Jede Seele nährt die nächste Ernte.',
+  },
+  quiver: {
+    base: 'bow', name: 'Unendlicher Köcher',
+    mods: [{ s: 'proj', v: 3 }, { s: 'dmg_proj', t: 'more', v: -15 }, { s: 'speed_attack', t: 'inc', v: 15 }],
+    flavor: 'Er wird nie leer.',
+  },
+  runecrown: {
+    base: 'diadem', name: 'Runenkrone',
+    mods: [{ s: 'lvl_spell', v: 1 }, { s: 'barrier', v: 60 }, { s: 'speed_spell', t: 'inc', v: 10 }],
+    flavor: 'Gekrönt von uraltem Wissen.',
+  },
+  hunterhood: {
+    base: 'hood', name: 'Kapuze des Jägers',
+    mods: [{ s: 'dmgVsBoss', t: 'inc', v: 40 }, { s: 'crit', t: 'inc', v: 40 }, { s: 'evasion', v: 60 }],
+    flavor: 'Sie sieht nur das Ziel.',
+  },
+  stormboots: {
+    base: 'walkers', name: 'Blitzsohlen',
+    mods: [{ s: 'move', t: 'inc', v: 25 }, { s: 'spec_moveStrike', v: 1 }, { s: 'life', v: -20 }],
+    flavor: 'Schneller als der Donner.',
+  },
+  anchorboots: {
+    base: 'greaves', name: 'Ankerstiefel',
+    mods: [{ s: 'spec_stillness', v: 1 }, { s: 'armor', v: 80 }, { s: 'move', t: 'inc', v: -15 }],
+    flavor: 'Hier stehe ich.',
+  },
+  ironfist: {
+    base: 'gauntlets', name: 'Eiserne Faust',
+    mods: [{ s: 'add_phys', v: 12 }, { s: 'spec_ruthless', v: 100 }, { s: 'armor', v: 40 }],
+    flavor: 'Jeder dritte Schlag bricht Knochen.',
+  },
+  spellweave: {
+    base: 'silkgloves', name: 'Zauberweber',
+    mods: [{ s: 'spec_echoAll', v: 1 }, { s: 'speed_spell', t: 'more', v: -10 }, { s: 'dmg_spell', t: 'inc', v: 20 }],
+    flavor: 'Zwei Hände, zwei Zauber.',
+  },
+  trapper: {
+    base: 'runegloves', name: 'Fallenstellerhände',
+    mods: [{ s: 'spec_trapMax', v: 4 }, { s: 'dmg_trap', t: 'inc', v: 50 }, { s: 'speed_trap', t: 'inc', v: 20 }],
+    flavor: 'Geduld ist eine Waffe.',
+  },
+  vampbelt: {
+    base: 'leatherbelt', name: 'Gurt des Vampirs',
+    mods: [{ s: 'leech', v: 2 }, { s: 'life', v: 50 }, { s: 'spec_leechMult', v: 2 }],
+    flavor: 'Er dürstet für dich.',
+  },
+  mageband: {
+    base: 'sash', name: 'Band des Erzmagiers',
+    mods: [{ s: 'lvl', v: 1 }, { s: 'barrier', v: 40 }, { s: 'life', t: 'inc', v: -10 }],
+    flavor: 'Macht hat ihren Preis.',
+  },
+  everflame: {
+    base: 'chainbelt', name: 'Ewige Flamme',
+    mods: [{ s: 'burn', t: 'more', v: 30 }, { s: 'ailDur', t: 'inc', v: 40 }, { s: 'res_fire', v: 30 }],
+    flavor: 'Sie brennt seit dem ersten Stern.',
+  },
+  chaosheart: {
+    base: 'jade', name: 'Herz des Chaos',
+    mods: [{ s: 'conv_fire_chaos', v: 50 }, { s: 'conv_cold_chaos', v: 50 }, { s: 'conv_light_chaos', v: 50 }, { s: 'dmg_chaos', t: 'inc', v: 40 }],
+    flavor: 'Ordnung ist eine Illusion.',
+  },
+  balanceamulet: {
+    base: 'amber', name: 'Amulett des Gleichgewichts',
+    mods: [{ s: 'res_elem', v: 20 }, { s: 'res_chaos', v: 20 }, { s: 'resMax', v: 3 }],
+    flavor: 'Weder heiß noch kalt.',
+  },
+  critring: {
+    base: 'ruby', name: 'Ring der Schärfe',
+    mods: [{ s: 'critBase', v: 2 }, { s: 'critMulti', v: 35 }, { s: 'crit', t: 'inc', v: 30 }],
+    flavor: 'Ein Funke, und alles ist vorbei.',
+  },
+  stormring: {
+    base: 'topaz', name: 'Ring des Sturms',
+    mods: [{ s: 'chain', v: 2 }, { s: 'dmg_light', t: 'inc', v: 30 }, { s: 'shockEffect', t: 'inc', v: 30 }],
+    flavor: 'Er knistert an deinem Finger.',
+  },
+  frostring: {
+    base: 'sapphire', name: 'Ring des ewigen Eises',
+    mods: [{ s: 'spec_chillAura', v: 1 }, { s: 'chillEffect', t: 'inc', v: 50 }, { s: 'dmg_cold', t: 'inc', v: 20 }],
+    flavor: 'Dein Atem gefriert.',
+  },
+  gamblering: {
+    base: 'goldring', name: 'Glücksspielerring',
+    mods: [{ s: 'luck', t: 'inc', v: 60 }, { s: 'gold', t: 'inc', v: 60 }, { s: 'dmg', t: 'inc', v: -10 }],
+    flavor: 'Alles oder nichts.',
+  },
+  bloodtitan: {
+    base: 'chain', name: 'Blut des Titanen',
+    mods: [{ s: 'life', t: 'inc', v: 30 }, { s: 'lifeRegenPct', v: 1.5 }, { s: 'spec_berserk', v: 1 }],
+    flavor: 'Sein Herz schlägt wie eine Trommel.',
+  },
+  shadowcloak: {
+    base: 'leather', name: 'Schattenmantel',
+    mods: [{ s: 'dodge', v: 18 }, { s: 'evasion', t: 'inc', v: 50 }, { s: 'dmgVsLow', t: 'inc', v: 30 }],
+    flavor: 'Wer dich sieht, ist schon zu spät.',
+  },
+  orbitcrown: {
+    base: 'ironhelm', name: 'Krone der Kreise',
+    mods: [{ s: 'dmg_orbit', t: 'inc', v: 50 }, { s: 'proj', v: 1 }, { s: 'speed_orbit', t: 'inc', v: 25 }],
+    flavor: 'Alles dreht sich um dich.',
+  },
+  meteorstaff: {
+    base: 'wand', name: 'Himmelssturz',
+    mods: [{ s: 'area', t: 'inc', v: 40 }, { s: 'dmg_area', t: 'more', v: 25 }, { s: 'speed', t: 'more', v: -15 }],
+    flavor: 'Langsam, aber gewaltig.',
+  },
+  poisonblade: {
+    base: 'dagger', name: 'Natternzahn',
+    mods: [{ s: 'poisonChance', v: 50 }, { s: 'poison', t: 'more', v: 30 }, { s: 'add_chaos', v: 8 }],
+    flavor: 'Ein Kratzer genügt.',
+  },
+  echoaxe: {
+    base: 'axe', name: 'Echo der Klinge',
+    mods: [{ s: 'spec_echo', v: 1 }, { s: 'dmg_melee', t: 'inc', v: 30 }, { s: 'speed_attack', t: 'more', v: -15 }],
+    flavor: 'Jeder Schlag hallt nach.',
+  },
+  runebelt: {
+    base: 'heavybelt', name: 'Runengürtel',
+    mods: [{ s: 'dmg_aura', t: 'inc', v: 40 }, { s: 'area_aura', t: 'inc', v: 30 }, { s: 'life', v: 40 }],
+    flavor: 'Die Runen glühen bei jedem Schritt.',
+  },
+  starheart: {
+    base: 'lapis', name: 'Sternenherz',
+    mods: [{ s: 'dmg', t: 'more', v: 15 }, { s: 'speed', t: 'inc', v: 10 }, { s: 'life', t: 'inc', v: 10 }],
+    flavor: 'Das Herz eines gefallenen Sterns.',
+  },
 
   hunterbow: {
     base: 'bow', name: 'Jägermond',
@@ -455,6 +608,8 @@ function rollAffix(slot, ilvl, existing) {
 
 export function itemMods(item) {
   if (item.rarity === 'unique') return UNIQUES[item.uq].mods;
+  if (item.rarity === 'set') return SETS[item.set].pieces[item.piece].mods;
+  if (item.slot === 'jewel') return jewelMods(item);
   const out = [...(BASES[item.base].imp || [])];
   for (const af of item.affixes) {
     const d = item.slot === 'relic' ? RELIC_AFFIX[af.id] : AFFIX[af.id];
@@ -466,6 +621,8 @@ export function itemMods(item) {
 export function itemName(item) {
   const base = BASES[item.base];
   if (item.rarity === 'unique') return UNIQUES[item.uq].name;
+  if (item.rarity === 'set') return SETS[item.set].pieces[item.piece].name;
+  if (item.slot === 'jewel') return item.title || 'Juwel';
   if (item.rarity === 'rare' || item.slot === 'relic') return item.title || base.name;
   if (item.rarity === 'magic') {
     const p = item.affixes.map((x) => AFFIX[x.id]).find((a) => a && a.k === 'pre');
@@ -477,15 +634,27 @@ export function itemName(item) {
 
 export function rareTitle() { return pick(RARE_A) + pick(RARE_B); }
 
-export function makeItem({ ilvl = 1, slot, rarity, luck = 0, allowUnique = true, uniquePool }) {
+/** Set-Teil erzeugen (bevorzugt für den gewünschten Platz). */
+export function makeSetItem(slot) {
+  const all = [];
+  for (const [sid, st] of Object.entries(SETS)) st.pieces.forEach((p, i) => all.push({ sid, i, slot: BASES[p.base].slot }));
+  const fit = all.filter((x) => x.slot === slot);
+  const c = pick(fit.length ? fit : all);
+  const piece = SETS[c.sid].pieces[c.i];
+  return { uid: uid(), slot: BASES[piece.base].slot, base: piece.base, rarity: 'set', set: c.sid, piece: c.i, ilvl: 1, affixes: [] };
+}
+
+export function makeItem({ ilvl = 1, slot, rarity, luck = 0, allowUnique = true, uniquePool, uniqueMult = 1, setMult = 1 }) {
   slot = slot || pick(SLOTS);
   if (!rarity) {
     const l = 1 + luck / 100;
     rarity = weighted([
       { r: 'normal', w: 28 }, { r: 'magic', w: 52 }, { r: 'rare', w: 18 * l },
-      { r: 'unique', w: allowUnique ? 1.6 * l : 0 },
+      { r: 'unique', w: allowUnique ? 1.6 * l * (uniqueMult || 1) : 0 },
+      { r: 'set', w: allowUnique ? 0.9 * l * (setMult || 1) : 0 },
     ]).r;
   }
+  if (rarity === 'set') return makeSetItem(slot);
   if (rarity === 'unique') {
     const all = uniquePool || Object.keys(UNIQUES);
     const bySlot = all.filter((k) => BASES[UNIQUES[k].base].slot === slot);
@@ -532,7 +701,7 @@ export function craftUpgrade(item) {
   return true;
 }
 export function canCraft(item) {
-  return item.rarity !== 'unique' && item.slot !== 'relic';
+  return item.rarity !== 'unique' && item.rarity !== 'set' && item.slot !== 'relic' && item.slot !== 'jewel';
 }
 
 // ---------- Relikte ----------
@@ -564,8 +733,8 @@ export const relicSalvage = (relic) => Math.round(12 * relic.affixes.reduce((s, 
   ({ magic: 1, rare: 1.4, legend: 2, mythic: 3 }[relic.rarity] || 1));
 
 export function affixLine(item, af) {
-  const d = item.slot === 'relic' ? RELIC_AFFIX[af.id] : AFFIX[af.id];
+  const d = item.slot === 'relic' ? RELIC_AFFIX[af.id] : item.slot === 'jewel' ? JEWEL_AFFIX[af.id] : AFFIX[af.id];
   return { text: modText({ s: d.s, t: d.t, v: af.v }), tier: af.tier + 1 };
 }
 
-export const itemValue = (item) => Math.round((item.rarity === 'unique' ? 60 : item.rarity === 'rare' ? 30 : item.rarity === 'magic' ? 14 : 6) * (1 + item.ilvl / 20));
+export const itemValue = (item) => Math.round((item.rarity === 'unique' || item.rarity === 'set' ? 60 : item.rarity === 'rare' ? 30 : item.rarity === 'magic' ? 14 : 6) * (1 + item.ilvl / 20));

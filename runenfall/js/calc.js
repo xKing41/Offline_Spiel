@@ -107,14 +107,14 @@ export function computePlayer(sets, runLvl = 1) {
 
 // ---------------------------------------------------------------------------
 export function skillLevel(inst, sets) {
-  const def = SKILLS[inst.id];
+  const def = inst.def || SKILLS[inst.id];
   let lvl = inst.lvl + flatSum(sets, 'lvl');
   for (const t of def.tags) lvl += flatSum(sets, 'lvl_' + t);
   return Math.max(1, Math.round(lvl));
 }
 
 export function computeSkill(inst, gsets) {
-  const def = SKILLS[inst.id];
+  const def = inst.def || SKILLS[inst.id];
   const local = new ModSet();
   for (const sid of inst.sup || []) {
     if (!sid) continue;

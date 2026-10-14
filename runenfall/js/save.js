@@ -4,6 +4,7 @@ import { SKILLS, SUPPORTS } from './data/skills.js';
 import { CLASSES, ACHIEVEMENTS, ALTAR } from './data/content.js';
 import { UNIQUES } from './data/items.js';
 import { ENEMIES } from './data/content.js';
+import { getAtlas, PET_IDS, SET_PIECES, paragonPoints } from './data/endgame.js';
 import { TREE_VERSION, getTree } from './data/tree.js';
 
 const KEY = 'runenfall.save.v1';
@@ -22,9 +23,15 @@ function defaults() {
       skills: Object.keys(SKILLS).filter((k) => !SKILLS[k].cost),
       supports: Object.keys(SUPPORTS).filter((k) => !SUPPORTS[k].cost),
       uniques: [],
+      sets: [],
     },
     altar: {},
     ascend: {},
+    pets: {},
+    jewels: [],
+    jewelSock: {},
+    atlas: { done: {}, points: 0, passives: {}, target: null },
+    paragon: {},
     quests: [],
     dailyDone: null,
     relics: [],
@@ -109,6 +116,7 @@ export const totalPoints = () => accountLevel().level - 1 + START_POINTS + achie
 export const spentPoints = (cls) => save.alloc[cls].length - 1;
 
 export const altarLvl = (id) => save.altar[id] || 0;
+export const paragonFree = () => paragonPoints(accountLevel().level) - Object.values(save.paragon || {}).reduce((a, b) => a + b, 0);
 export const relicSlots = () => 3 + altarLvl('relic');
 
 export function checkAchievements() {
@@ -119,6 +127,7 @@ export function checkAchievements() {
     altarMaxed: ALTAR.filter((a) => (save.altar[a.id] || 0) >= a.max).length,
     bestiary: Object.keys(ENEMIES).filter((k) => (save.stats.enemyKills || {})[k] > 0).length,
     enemyTypes: Object.keys(ENEMIES).length,
+    atlasRegions: Object.keys(getAtlas().regions).length, pets: PET_IDS.length, setPieces: SET_PIECES.length,
   };
   for (const a of ACHIEVEMENTS) {
     if (save.ach[a.id]) continue;

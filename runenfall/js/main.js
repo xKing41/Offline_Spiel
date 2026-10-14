@@ -9,8 +9,10 @@ import { BOSSES } from './data/content.js';
 import { RARITY } from './data/items.js';
 import {
   newRun, snapshot, combatCfg, gainXp, xpNeed, rollRewards, healAfterFight, advanceAct, endRun, dropRelic, genAbyssChoices, priceMult,
+  dropJewel, completeAtlas, atlasHas, setCountMax,
 } from './run.js';
 import { showHub, showSetup, showTree, showCodex, showAltar, showRelics, showAch, showStats, showSettings } from './ui-meta.js';
+import { showAtlas, showPets } from './ui-endgame.js';
 import { showMap, showBuild, showLevelUp, showRewards, showShop, showForge, showEvent, showRest, showSummary } from './ui-run.js';
 import { sfx, buzz } from './audio.js';
 
@@ -23,7 +25,7 @@ app.treeView = treeView;
 // ===================================================================== Navigation
 const SCREENS = {
   hub: showHub, setup: showSetup, tree: showTree, codex: showCodex, altar: showAltar, relics: showRelics,
-  ach: showAch, stats: showStats, settings: showSettings, map: () => showMap(),
+  ach: showAch, stats: showStats, settings: showSettings, map: () => showMap(), atlas: showAtlas, pets: showPets,
 };
 app.nav = (to) => {
   closeModal();
@@ -91,8 +93,10 @@ app.startCombat = (node) => {
     onGold(v) { const g = Math.round(v * combat.P.goldMult); run.gold += g; run.stats.gold = (run.stats.gold || 0) + g; },
     onEliteKill() {
       run.stats.elites++;
-      const r = dropRelic(run, 0.06 + 0.04 * altarLvl('relicfind'));
+      const r = dropRelic(run, 0.06 + 0.04 * altarLvl('relicfind') + (atlasHas('aRelic') ? 0.05 : 0));
       if (r) { fightRelics.push(r); toast(`<b style="color:${RARITY[r.rarity].color}">◈ Relikt gefunden!</b>`); sfx.loot(); }
+      const j = dropJewel(run, 0.03 + (atlasHas('aJewel') ? 0.04 : 0));
+      if (j) { toast(`<b style="color:${RARITY[j.rarity].color}">⬢ Juwel gefunden!</b>`); sfx.loot(); }
     },
     onBoss(e) {
       $('#hBoss').classList.remove('hidden');
@@ -101,6 +105,7 @@ app.startCombat = (node) => {
     onDeath() {
       if (run.revive) {
         run.revive = false;
+        run.usedRevive = true;
         combat.player.hp = combat.P.maxLife * 0.5;
         return true;
       }
@@ -123,6 +128,7 @@ function addStats(st) {
   run.stats.kills += st.kills;
   run.stats.maxHit = Math.max(run.stats.maxHit, st.maxHit);
   run.stats.dmg += st.dmgDone;
+  run.stats.maxSet = Math.max(run.stats.maxSet || 0, setCountMax(run));
   run.stats.byType = run.stats.byType || {};
   for (const [k, v] of Object.entries(st.byType || {})) run.stats.byType[k] = (run.stats.byType[k] || 0) + v;
   run.hp = Math.max(1, combat.player.hp);
@@ -138,6 +144,9 @@ function fightWon(node, cfg) {
   if (boss) {
     run.stats.bosses++;
     if (combat.stats.hitsTaken === 0) save.stats.flawless = (save.stats.flawless || 0) + 1;
+    if (dropJewel(run, 0.25 + (atlasHas('aJewel') ? 0.2 : 0))) toast('⬢ Juwel gefunden!');
+    if (Math.random() < 0.08 + (atlasHas('aEgg') ? 0.1 : 0)) { run.eggs = (run.eggs || 0) + 1; toast('🥚 Ein Gefährten-Ei!'); }
+    if (run.mode === 'normal' && run.act >= 3 && run.atlas) completeAtlas(run);
     save.stats.bossKills[cfg.bossId] = (save.stats.bossKills[cfg.bossId] || 0) + 1;
     const r = dropRelic(run, 1);
     if (r) fightRelics.push(r);
@@ -171,8 +180,10 @@ function fightWon(node, cfg) {
 
 function finishRun(outcome) {
   const run = save.run;
-  const relics = run.stats.relics.map((u) => save.relics.find((r) => r.uid === u)).filter(Boolean);
+  const jewelIds = run.stats.jewels || [];
   const res = endRun(run, outcome);
+  const relics = run.stats.relics.map((u) => save.relics.find((r) => r.uid === u)).filter(Boolean);
+  res.jewelList = jewelIds.map((u) => (save.jewels || []).find((j) => j.uid === u)).filter(Boolean);
   if (outcome === 'win') sfx.win();
   showSummary(res, relics);
 }

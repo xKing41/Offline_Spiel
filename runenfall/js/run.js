@@ -5,19 +5,24 @@ import { SKILLS, SUPPORTS, supportFits, MAX_SKILLS, SOCKETS, MAX_SKILL_LVL } fro
 import { ACTS, ABYSS, BIOMES, BOSS_IDS, BOONS, BOON_RARITY, EVENTS, ALTAR, CLASSES, ASCENDANCIES, MUTATORS, QUEST_TEMPLATES, ENEMIES, ascHas, ascHpMult, ascDmgMult } from './data/content.js';
 import { makeItem, makeRelic, SLOTS, itemMods, UNIQUES, craftReroll, craftAdd, craftUpgrade, canCraft, itemValue } from './data/items.js';
 import { getTree, treeMods } from './data/tree.js';
+import { PETS, PET_IDS, PET_MAX, petSkillDef, SETS, getAtlas, atlasPower, ATLAS_PASSIVES, PARAGON, makeJewel, jewelMods } from './data/endgame.js';
 import { ModSet, computePlayer, computeSkill, flatSum } from './calc.js';
 import { save, persist, altarLvl, checkAchievements, accountLevel } from './save.js';
 
 export const LAYERS = 8;
-const START_WEAPON = { pyro: 'wand', storm: 'scepter', ranger: 'bow', plague: 'dagger', warden: 'axe', binder: 'totem' };
+const START_WEAPON = { pyro: 'wand', storm: 'scepter', ranger: 'bow', plague: 'dagger', warden: 'axe', binder: 'totem', monk: 'axe', hunter: 'bow', chrono: 'scepter' };
+export const atlasHas = (id) => !!(save.atlas && save.atlas.passives && save.atlas.passives[id]);
 export const xpNeed = (l) => Math.round(12 + 7 * l + 0.55 * l * l);
 
 // ---------------------------------------------------------------- Neuer Run
-export function newRun({ cls, asc = 0, mode = 'normal', ascend = null, mutators = [], daily = null, seed = null }) {
+export function newRun({ cls, asc = 0, mode = 'normal', ascend = null, mutators = [], daily = null, seed = null, pet = null, atlas = null }) {
   const run = {
     v: 1, cls, asc, mode, seed: seed ?? Math.floor(Math.random() * 1e9), started: Date.now(),
     ascend: ascend && ASCENDANCIES[ascend] && ASCENDANCIES[ascend].cls === cls ? ascend : null,
     mutators: mutators.filter((m) => MUTATORS[m]), daily, shrine: null, bonusDust: 0,
+    pet: pet && save.pets && save.pets[pet] ? pet : null,
+    atlas: mode === 'normal' && !daily && atlas && atlasUnlocked(atlas) ? atlas : null,
+    eggs: 0, atlasBonus: 0,
     act: 0, floor: 0, map: null, pos: null, done: [],
     lvl: 1, xp: 0, gold: 0, hp: null,
     skills: [{ id: CLASSES[cls].start, lvl: 1, sup: [null, null, null] }],
@@ -31,6 +36,8 @@ export function newRun({ cls, asc = 0, mode = 'normal', ascend = null, mutators 
   if (run.mutators.includes('glass')) run.runMods.push({ s: 'life', t: 'more', v: -30 });
   if (run.mutators.includes('poor')) run.runMods.push({ s: 'gold', t: 'more', v: -50 });
   run.skills[0].lvl += altarLvl('runelvl');
+  if (atlasHas('aReroll')) run.rerolls += 2;
+  if (atlasHas('aStart')) { run.lvl += 2; run.pendingLvl += 2; }
   const sets = buildSets(run);
   run.gold = Math.round(flatSum(sets, 'startGold'));
   for (let i = 0; i < altarLvl('start'); i++) run.glyphs.push(randomGlyph(run));
@@ -78,11 +85,55 @@ export function buildSets(run, opts = {}) {
     for (const b of run.boons) boons.addAll(boonMods(b));
     boons.addAll(run.runMods);
     if (run.shrine && run.shrine.fights > 0) boons.addAll(run.shrine.mods);
+    if (run.mode === 'normal' && run.act >= 3) {
+      if (atlasHas('aPower')) boons.add({ s: 'dmg', t: 'more', v: 15 });
+      if (atlasHas('aGuard')) boons.add({ s: 'life', t: 'more', v: 15 });
+    }
+    // Set-Boni
+    const setCount = {};
+    for (const s of SLOTS) { const it = run.eq[s]; if (it && it.rarity === 'set') setCount[it.set] = (setCount[it.set] || 0) + 1; }
+    for (const [sid, n] of Object.entries(setCount)) for (const [k, mods] of Object.entries(SETS[sid].bonus)) if (n >= Number(k)) boons.addAll(mods);
     sets.push(boons);
     sets.push(new ModSet(ascendMods(run.ascend)));
+    if (run.pet && save.pets[run.pet]) sets.push(new ModSet(PETS[run.pet].passive(save.pets[run.pet].lvl)));
   }
+  sets.push(new ModSet([...jewelSocketMods(run ? run.cls : opts.cls), ...paragonMods()]));
   return sets;
 }
+
+/** Juwelen, die in zugewiesene Sockel der Klasse eingesetzt sind. */
+export function jewelSocketMods(cls) {
+  const sock = (save.jewelSock || {})[cls] || {};
+  const alloc = new Set(save.alloc[cls] || []);
+  const out = [];
+  for (const [node, juid] of Object.entries(sock)) {
+    if (!alloc.has(node)) continue;
+    const j = (save.jewels || []).find((x) => x.uid === juid);
+    if (j) out.push(...jewelMods(j));
+  }
+  return out;
+}
+export function paragonMods() {
+  const out = [];
+  for (const p of PARAGON) { const n = (save.paragon || {})[p.id] || 0; if (n) out.push(...p.per(n)); }
+  return out;
+}
+export function setCountMax(run) {
+  const c = {};
+  for (const s of SLOTS) { const it = run.eq[s]; if (it && it.rarity === 'set') c[it.set] = (c[it.set] || 0) + 1; }
+  return Math.max(0, ...Object.values(c));
+}
+
+// ---------------------------------------------------------------- Atlas
+export function atlasUnlocked(id) {
+  const reg = getAtlas().regions[id];
+  if (!reg) return false;
+  const done = (save.atlas && save.atlas.done) || {};
+  if (done[id] !== undefined) return true;
+  if (reg.c === 0) return true;
+  return reg.adj.some((k) => done[k] !== undefined);
+}
+export const atlasRegion = (run) => (run && run.atlas ? getAtlas().regions[run.atlas] : null);
 
 /** Freigeschaltete Stufen einer Aufstiegsklasse. */
 export function ascendMods(id) {
@@ -99,6 +150,11 @@ export function actInfo(run) {
     const b = BIOMES[ids[(run.floor - 1) % ids.length]];
     return { ...ABYSS, tint: b.tint, floor: b.floor, hazard: run.floor > 10 ? b.hazard : null, biomeName: b.name, power: abyssPower(run.floor) };
   }
+  if (run.act >= ACTS.length && run.atlas) {
+    const reg = getAtlas().regions[run.atlas];
+    const b = BIOMES[reg.biome];
+    return { ...b, name: reg.name, sub: 'Akt IV', power: atlasPower(reg.tier) * (1 + 0.08 * run.asc), boss: reg.boss, regionMods: reg.mods, tier: reg.tier };
+  }
   const A = ACTS[Math.min(run.act, ACTS.length - 1)];
   const b = BIOMES[(run.biomes && run.biomes[run.act]) || A.biomes[0]];
   return { ...b, sub: A.sub, power: A.power };
@@ -108,6 +164,12 @@ export function snapshot(run) {
   const sets = buildSets(run);
   const P = computePlayer(sets, run.lvl);
   const skills = run.skills.map((s) => computeSkill(s, sets));
+  if (run.pet && save.pets && save.pets[run.pet]) {
+    const S = computeSkill({ id: 'pet_' + run.pet, def: petSkillDef(run.pet), lvl: save.pets[run.pet].lvl, sup: [] }, sets);
+    if (atlasHas('aPet')) { for (const t in S.dmg) S.dmg[t] = S.dmg[t].map((v) => v * 1.4); S.dps *= 1.4; }
+    S.isPet = true;
+    skills.push(S);
+  }
   return { P, skills, sets };
 }
 
@@ -140,7 +202,7 @@ export function genMap(run, act) {
       else type = rng.weighted([
         { t: 'fight', w: 46 }, { t: 'elite', w: l >= 2 ? 16 : 0 }, { t: 'event', w: 16 },
         { t: 'shop', w: l >= 2 ? 9 : 0 }, { t: 'forge', w: l >= 2 ? 7 : 0 }, { t: 'rest', w: l >= 3 ? 6 : 0 },
-        { t: 'treasure', w: 5 }, { t: 'shrine', w: 6 }, { t: 'trial', w: l >= 3 ? 5 : 0 },
+        { t: 'treasure', w: atlasHas('aTreasure') ? 10 : 5 }, { t: 'shrine', w: 6 }, { t: 'trial', w: l >= 3 ? 5 : 0 },
       ]).t;
       row.push({ type, lane: n === 1 ? 1 : i });
     }
@@ -191,7 +253,7 @@ export function combatCfg(run, node) {
     const layer = run.map.pos ? run.map.pos[0] : 0;
     power = A.power * (1 + 0.14 * layer);
   }
-  const mu = (k) => run.mutators && run.mutators.includes(k);
+  const mu = (k) => (run.mutators && run.mutators.includes(k)) || (A.regionMods && A.regionMods.includes(k));
   const trial = node.type === 'trial' || node.arena;
   const kind = node.type === 'boss' ? 'boss' : node.type === 'elite' || trial ? 'elite' : 'fight';
   return {
@@ -208,10 +270,10 @@ export function combatCfg(run, node) {
     allElite: mu('elites'),
     enemySpeed: mu('swift') ? 1.25 : 1,
     bossRage: mu('bossrage'), bossHpMult: mu('bossrage') ? 1.5 : 1,
-    volatileCorpses: mu('volatile'), meteors: mu('hazards'), hazard: A.hazard || null,
+    volatileCorpses: mu('volatile'), meteors: mu('hazards'), hazard: A.hazard || null, eliteLoot: atlasHas('aElite'),
     xpMult: 1 + (act - 1) * 0.35,
     tint: A.tint, floorColor: A.floor,
-    label: run.mode === 'abyss' ? `Abgrund · Ebene ${run.floor} · ${A.biomeName}` : `${A.sub} · ${A.name}`,
+    label: run.mode === 'abyss' ? `Abgrund · Ebene ${run.floor} · ${A.biomeName}` : `${A.sub} · ${A.name}${A.tier ? ` · Stufe ${A.tier}` : ''}`,
   };
 }
 
@@ -282,6 +344,11 @@ export function noteUnique(item) {
     save.codex.uniques.push(item.uq);
     return true;
   }
+  if (item && item.rarity === 'set') {
+    save.codex.sets = save.codex.sets || [];
+    const k = `${item.set}:${item.piece}`;
+    if (!save.codex.sets.includes(k)) { save.codex.sets.push(k); return true; }
+  }
   return false;
 }
 
@@ -289,26 +356,29 @@ export function rollRewards(run, kind) {
   const ilvl = itemLevel(run);
   const luck = snapshot(run).P.luck;
   const out = [];
+  const um = atlasHas('aUnique') ? 1.5 : 1, sm = atlasHas('aSet') ? 2 : 1;
+  const mk = (o) => makeItem({ uniqueMult: um, setMult: sm, ...o });
   if (kind === 'arena') {
-    out.push({ kind: 'item', item: makeItem({ ilvl, rarity: 'unique', luck }) });
-    out.push({ kind: 'item', item: makeItem({ ilvl, rarity: 'rare', luck }) });
+    out.push({ kind: 'item', item: mk({ ilvl, rarity: 'unique', luck }) });
+    out.push({ kind: 'item', item: mk({ ilvl, rarity: 'rare', luck }) });
   } else if (kind === 'trial') {
-    out.push({ kind: 'item', item: makeItem({ ilvl: ilvl + 5, rarity: Math.random() < 0.35 ? 'unique' : 'rare', luck }) });
+    out.push({ kind: 'item', item: mk({ ilvl: ilvl + 5, rarity: Math.random() < 0.35 ? 'unique' : 'rare', luck }) });
     out.push({ kind: 'glyph', id: randomGlyph(run) });
   } else if (kind === 'boss') {
-    out.push({ kind: 'item', item: makeItem({ ilvl, rarity: Math.random() < 0.45 ? 'unique' : 'rare', luck }) });
-    out.push({ kind: 'item', item: makeItem({ ilvl, rarity: 'rare', luck }) });
+    out.push({ kind: 'item', item: mk({ ilvl, rarity: Math.random() < 0.45 ? 'unique' : 'rare', luck }) });
+    if (run.act >= ACTS.length && atlasHas('aBoss')) out.push({ kind: 'item', item: mk({ ilvl, rarity: 'unique', luck }) });
+    out.push({ kind: 'item', item: mk({ ilvl, rarity: 'rare', luck }) });
   } else if (kind === 'elite') {
-    out.push({ kind: 'item', item: makeItem({ ilvl, rarity: Math.random() < 0.12 ? 'unique' : 'rare', luck }) });
+    out.push({ kind: 'item', item: mk({ ilvl, rarity: Math.random() < 0.12 ? 'unique' : 'rare', luck }) });
   } else {
-    out.push({ kind: 'item', item: makeItem({ ilvl, luck }) });
+    out.push({ kind: 'item', item: mk({ ilvl, luck }) });
   }
   const opts = [];
   if (run.skills.length < MAX_SKILLS) { const id = newSkillChoice(run); if (id) opts.push({ kind: 'newSkill', id }); }
   opts.push({ kind: 'glyph', id: randomGlyph(run) });
   const up = run.skills.filter((s) => s.lvl < MAX_SKILL_LVL);
   if (up.length) opts.push({ kind: 'skillLvl', idx: run.skills.indexOf(pick(up)) });
-  opts.push({ kind: 'item', item: makeItem({ ilvl, luck }) });
+  opts.push({ kind: 'item', item: mk({ ilvl, luck }) });
   shuffle(opts);
   while (out.length < 3 && opts.length) out.push(opts.shift());
   return out;
@@ -325,7 +395,7 @@ export const priceMult = (run) => (run.mode === 'abyss' ? 1 + run.floor * 0.12 :
 export function genShop(run) {
   const ilvl = itemLevel(run), pm = priceMult(run), luck = snapshot(run).P.luck;
   const offers = [];
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 4 + (atlasHas('aShop') ? 2 : 0); i++) {
     const item = makeItem({ ilvl, rarity: weighted([{ r: 'magic', w: 50 }, { r: 'rare', w: 45 }, { r: 'unique', w: 5 }]).r, luck });
     offers.push({ kind: 'item', item, price: Math.round(itemValue(item) * 1.6 * pm) });
   }
@@ -338,7 +408,7 @@ export function genShop(run) {
 }
 
 export const forgeCost = (run, op, item) => {
-  const pm = priceMult(run) * (1 + item.ilvl / 40);
+  const pm = priceMult(run) * (1 + item.ilvl / 40) * (atlasHas('aForge') ? 0.75 : 1);
   return Math.round({ reroll: 25, add: 45, upgrade: 60 }[op] * pm);
 };
 export function forge(run, op, item) {
@@ -434,6 +504,21 @@ export function applyEvent(run, fx) {
     else { run.hp = Math.max(1, run.hp - P.maxLife * 0.2); msgs.push('Der Krieger erwacht und schlägt zu!'); }
   }
   if (fx.arena) { run.arenaPending = true; msgs.push('Der Champion tritt vor …'); }
+  if (fx.item2) { addItem(run, makeItem({ ilvl: itemLevel(run), rarity: fx.item2, luck: P.luck })); msgs.push('Noch ein Gegenstand.'); }
+  if (fx.egg) {
+    if (Math.random() < fx.egg) { run.eggs = (run.eggs || 0) + 1; msgs.push('Das Ei bewegt sich! Es schlüpft am Ende des Runs.'); }
+    else msgs.push('Das Ei ist leider leer.');
+  }
+  if (fx.jewel) {
+    if (Math.random() < fx.jewel) { const j = dropJewel(run, 1); msgs.push(`Juwel gefunden: ${j.title}!`); }
+    else { run.hp = Math.max(1, run.hp - P.maxLife * 0.2); msgs.push('Steinschlag! Du wirst getroffen.'); }
+  }
+  if (fx.atlasPoint) { run.atlasBonus = (run.atlasBonus || 0) + fx.atlasPoint; msgs.push(`+${fx.atlasPoint} Atlaspunkt am Ende des Runs.`); }
+  if (fx.gambleLife) {
+    if (Math.random() < 0.6) { run.runMods.push({ s: 'life', t: 'inc', v: 20 }); msgs.push('Neue Kraft durchströmt dich! +20% Leben.'); }
+    else { run.runMods.push({ s: 'life', t: 'inc', v: -10 }); msgs.push('Dir wird schwindelig. −10% Leben.'); }
+  }
+  if (fx.setItem) { const it = makeItem({ ilvl: itemLevel(run), rarity: 'set' }); addItem(run, it); msgs.push('Ein Set-Teil liegt im Beutel!'); }
   if (fx.rerolls) { run.rerolls += fx.rerolls; msgs.push(`+${fx.rerolls} Neu würfeln.`); }
   if (fx.tomb) {
     if (Math.random() < 0.6) {
@@ -460,6 +545,11 @@ export function healAfterFight(run) {
 /** Nach einem gewonnenen Boss: nächster Akt oder Sieg. */
 export function advanceAct(run) {
   run.act++;
+  if (run.act === ACTS.length && run.atlas && !run.atlasDone) {
+    run.map = genMap(run, run.act);
+    run.hp = snapshot(run).P.maxLife;
+    return false;
+  }
   if (run.act >= ACTS.length) return true;
   run.map = genMap(run, run.act);
   run.hp = snapshot(run).P.maxLife;
@@ -477,14 +567,15 @@ export function endRun(run, outcome) {
   let axp = (s.kills * 0.6 + s.nodes * 35 + s.elites * 40 + s.bosses * 220 + (win ? 600 : 0)) * ascF;
   let dust = (s.nodes * 5 + s.elites * 12 + s.bosses * 70 + (win ? 200 : 0)) * (1 + run.asc * 0.25);
   if (run.mode === 'abyss') { dust *= 1 + run.floor * 0.04; axp *= 1 + run.floor * 0.03; }
-  const prophBonus = (run.mutators || []).reduce((sum, m) => sum + MUTATORS[m].reward, 0);
+  const prophBonus = Math.round((run.mutators || []).reduce((sum, m) => sum + MUTATORS[m].reward, 0) * (atlasHas('aProph') ? 1.25 : 1));
   dust *= 1 + prophBonus / 100;
   axp *= 1 + prophBonus / 200;
   dust += run.bonusDust || 0;
   let dailyBonus = false;
   if (run.daily && save.dailyDone !== run.daily) { dust *= 2; dailyBonus = true; save.dailyDone = run.daily; if (win) save.stats.dailies = (save.stats.dailies || 0) + 1; }
-  axp = Math.round(axp * statMul(sets, 'axp'));
-  dust = Math.round(dust * statMul(sets, 'dust'));
+  axp = Math.round(axp * statMul(sets, 'axp') * (atlasHas('aXp') ? 1.2 : 1));
+  dust = Math.round(dust * statMul(sets, 'dust') * (atlasHas('aDust') ? 1.2 : 1));
+  save.stats.dustTotal = (save.stats.dustTotal || 0) + dust;
   const lvlBefore = accountLevel().level;
   save.axp += axp;
   save.dust += dust;
@@ -511,12 +602,19 @@ export function endRun(run, outcome) {
   for (const [k, v] of Object.entries(run.stats.byType || {})) st.enemyKills[k] = (st.enemyKills[k] || 0) + v;
   const quests = checkQuests(run, outcome);
   st.lastCls = run.cls;
+  st.maxSet = Math.max(st.maxSet || 0, run.stats.maxSet || 0);
+  if (win && !run.usedRevive) st.cleanAscWin = Math.max(st.cleanAscWin ?? -1, run.asc);
+  // Gefährten-Eier schlüpfen
+  const hatched = [];
+  for (let i = 0; i < (run.eggs || 0); i++) hatched.push(hatchEgg());
+  // Atlaspunkte aus Ereignissen
+  if (run.atlasBonus) { save.atlas.points = (save.atlas.points || 0) + run.atlasBonus; }
   // Klassen automatisch freischalten, wenn genug Staub gesammelt wurde? Nein: im Kodex kaufen.
   const result = {
     outcome, win, axp, dust, lvlBefore, lvlAfter, depth, relics: s.relics, cls: run.cls, asc: run.asc,
     mode: run.mode, floor: run.floor, lvl: run.lvl, kills: s.kills, maxHit: s.maxHit, bosses: s.bosses,
     time: Math.round((Date.now() - run.started) / 1000),
-    quests, prophBonus, dailyBonus, mutators: run.mutators || [], ascend: run.ascend,
+    quests, prophBonus, dailyBonus, mutators: run.mutators || [], ascend: run.ascend, hatched, atlasDone: run.atlasDone || null,
   };
   const score = depth * 1000 + run.asc * 5000 + s.kills;
   if (!st.bestRun || score > st.bestRun.score) st.bestRun = { score, ...result, date: Date.now() };
@@ -596,6 +694,49 @@ export function dropRelic(run, chanceMult = 1) {
   if (r.rarity === 'mythic') save.stats.mythic++;
   run.stats.relics.push(r.uid);
   return r;
+}
+
+/** Juwel-Drop (dauerhaft). */
+export function dropJewel(run, chance = 1) {
+  if (Math.random() > chance) return null;
+  const level = run.mode === 'abyss' ? 10 + run.floor * 3 : 8 + run.act * 14 + run.asc * 5 + (run.act >= 3 && run.atlas ? getAtlas().regions[run.atlas].tier * 4 : 0);
+  const j = makeJewel(level, snapshot(run).P.luck);
+  save.jewels = save.jewels || [];
+  save.jewels.push(j);
+  if (save.jewels.length > 60) {
+    const used = new Set(Object.values(save.jewelSock || {}).flatMap((m) => Object.values(m)));
+    const i = save.jewels.findIndex((x) => !used.has(x.uid));
+    if (i >= 0) save.jewels.splice(i, 1);
+  }
+  if (j.rarity === 'mythic') save.stats.mythicJewel = (save.stats.mythicJewel || 0) + 1;
+  run.stats.jewels = run.stats.jewels || [];
+  run.stats.jewels.push(j.uid);
+  return j;
+}
+
+/** Ein Gefährten-Ei schlüpfen lassen: neuer Gefährte oder Stufenaufstieg eines vorhandenen. */
+export function hatchEgg() {
+  save.pets = save.pets || {};
+  const id = PET_IDS[Math.floor(Math.random() * PET_IDS.length)];
+  if (!save.pets[id]) { save.pets[id] = { lvl: 1 }; return { id, lvl: 1, isNew: true }; }
+  save.pets[id].lvl = Math.min(PET_MAX, save.pets[id].lvl + 1);
+  return { id, lvl: save.pets[id].lvl, isNew: false };
+}
+
+/** Akt IV im Atlas abgeschlossen. */
+export function completeAtlas(run) {
+  const reg = getAtlas().regions[run.atlas];
+  save.atlas = save.atlas || { done: {}, points: 0, passives: {} };
+  const prev = save.atlas.done[reg.id];
+  save.atlas.done[reg.id] = Math.max(prev || 0, reg.tier + run.asc);
+  const pts = (prev === undefined ? 1 : 0) + (atlasHas('aPoint') && prev === undefined ? 1 : 0);
+  save.atlas.points = (save.atlas.points || 0) + pts;
+  run.bonusDust += 150 + reg.tier * 60;
+  const relic = dropRelic(run, 1);
+  const jewel = dropJewel(run, 1);
+  if (Math.random() < 0.25 + (atlasHas('aEgg') ? 0.1 : 0)) run.eggs = (run.eggs || 0) + 1;
+  run.atlasDone = { name: reg.name, tier: reg.tier, points: pts, relic, jewel };
+  return run.atlasDone;
 }
 
 // ---------------------------------------------------------------- Glyphen & Ausrüstung

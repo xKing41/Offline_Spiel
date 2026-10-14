@@ -219,6 +219,85 @@ export const SKILLS = {
     lvl3: [{ s: 'area', t: 'inc', v: 15 }], lvl5: [{ s: 'speed', t: 'inc', v: 20 }],
     desc: 'Du wirbelst unaufhörlich mit deinen Klingen um dich.', cost: 250,
   },
+  // ---------- Erweiterung 2 ----------
+  voidrift: {
+    name: 'Leerenriss', tags: ['spell', 'area', 'dot', 'dur', 'chaos'], beh: 'zone',
+    cd: 2.4, dps: { chaos: 14 }, eff: 0.6, area: 75, dur: 3, pull: true,
+    lvl3: [{ s: 'area', t: 'inc', v: 20 }], lvl5: [{ s: 'dur', t: 'inc', v: 30 }],
+    desc: 'Ein Riss, der Gegner in sein Zentrum zieht und zersetzt.', cost: 350,
+  },
+  starfall: {
+    name: 'Sternenfall', tags: ['spell', 'area', 'hit', 'phys', 'fire'], beh: 'strikes',
+    cd: 1.6, dmg: { phys: [6, 10], fire: [6, 10] }, crit: 6, eff: 0.9, area: 38, count: 4,
+    lvl3: [{ s: 'proj', v: 1 }], lvl5: [{ s: 'proj', v: 2 }],
+    desc: 'Kleine Sterne regnen auf Gegner in deiner Nähe herab.', cost: 350,
+  },
+  spectral: {
+    name: 'Geisterklinge', tags: ['spell', 'proj', 'hit', 'phys'], beh: 'proj',
+    cd: 0.8, dmg: { phys: [7, 12] }, crit: 7, eff: 0.9, count: 2, speed: 380, spread: 0.5, homing: 2.2, pierce: 2, size: 7, range: 520,
+    lvl3: [{ s: 'proj', v: 1 }], lvl5: [{ s: 'pierce', v: 2 }],
+    desc: 'Suchende Geisterklingen, die mehrere Gegner durchdringen.', cost: 250,
+  },
+  arcticbreath: {
+    name: 'Eisatem', tags: ['spell', 'area', 'hit', 'cold'], beh: 'line',
+    cd: 1.4, dmg: { cold: [10, 16] }, crit: 5, eff: 1.0, area: 44, steps: 4, frz: 15,
+    lvl3: [{ s: 'spec_steps', v: 1 }], lvl5: [{ s: 'freezeChance', v: 15 }],
+    desc: 'Ein eisiger Atemstoß, der in einer Linie gefriert.', cost: 250,
+  },
+  stormblades: {
+    name: 'Sturmklingen', tags: ['attack', 'orbit', 'hit', 'light'], beh: 'orbit',
+    cd: 0.5, dmg: { light: [2, 14] }, crit: 6, eff: 0.7, count: 2, area: 92, shk: 15,
+    lvl3: [{ s: 'proj', v: 1 }], lvl5: [{ s: 'area', t: 'inc', v: 20 }],
+    desc: 'Elektrisch geladene Klingen kreisen weit um dich.', cost: 250,
+  },
+  bloodrite: {
+    name: 'Blutritus', tags: ['spell', 'aura', 'area', 'dot', 'phys'], beh: 'aura',
+    cd: 0.5, dps: { phys: 9 }, eff: 0.5, area: 90,
+    lvl3: [{ s: 'area', t: 'inc', v: 15 }], lvl5: [{ s: 'dmg', t: 'more', v: 20 }],
+    desc: 'Eine Aura, die das Blut aller Gegner in deiner Nähe kochen lässt.', cost: 250,
+  },
+  shockwave: {
+    name: 'Schockwelle', tags: ['attack', 'area', 'hit', 'phys', 'light'], beh: 'nova',
+    cd: 1.4, dmg: { phys: [8, 12], light: [3, 15] }, crit: 5, eff: 1.1, area: 115, shk: 20,
+    lvl3: [{ s: 'area', t: 'inc', v: 15 }], lvl5: [{ s: 'spec_aftershock', v: 1 }],
+    desc: 'Du stampfst auf, und eine Welle aus Kraft und Blitz breitet sich aus.', cost: 300,
+  },
+  spiketrap: {
+    name: 'Dornenfalle', tags: ['trap', 'area', 'hit', 'phys'], beh: 'trap',
+    cd: 1.0, dmg: { phys: [12, 20] }, crit: 7, eff: 1.2, area: 70, max: 6, bld: 60,
+    lvl3: [{ s: 'bleed', t: 'inc', v: 30 }], lvl5: [{ s: 'spec_trapMax', v: 2 }],
+    desc: 'Eine Falle voller Dornen, die tiefe Wunden reißt.', cost: 250,
+  },
+  comet: {
+    name: 'Komet', tags: ['spell', 'area', 'hit', 'cold'], beh: 'meteor',
+    cd: 3.2, dmg: { cold: [44, 66] }, crit: 6, eff: 1.9, area: 100, delay: 0.9, frz: 25, count: 1,
+    lvl3: [{ s: 'area', t: 'inc', v: 15 }], lvl5: [{ s: 'proj', v: 1 }],
+    desc: 'Ein eisiger Komet schlägt ein und friert alles ringsum ein.', cost: 350,
+  },
+  spiritwolves: {
+    name: 'Geisterwölfe', tags: ['minion', 'melee', 'hit', 'phys'], beh: 'minion', kind: 'wolf',
+    cd: 0.8, dmg: { phys: [7, 12] }, crit: 6, eff: 0.9, count: 2, bld: 30,
+    lvl3: [{ s: 'minionCount', v: 1 }], lvl5: [{ s: 'minionCount', v: 1 }],
+    desc: 'Ein Rudel geisterhafter Wölfe, das Gegner zerfleischt.', cost: 300,
+  },
+  locusts: {
+    name: 'Heuschreckenschwarm', tags: ['minion', 'melee', 'hit', 'chaos'], beh: 'minion', kind: 'locust',
+    cd: 0.5, dmg: { chaos: [2, 4] }, crit: 5, eff: 0.4, count: 5, psn: 50,
+    lvl3: [{ s: 'minionCount', v: 2 }], lvl5: [{ s: 'minionCount', v: 2 }],
+    desc: 'Ein giftiger Schwarm, der über Gegner herfällt.', cost: 300,
+  },
+  firestorm: {
+    name: 'Feuersturm', tags: ['spell', 'area', 'hit', 'fire'], beh: 'strikes',
+    cd: 1.2, dmg: { fire: [8, 14] }, crit: 5, eff: 0.9, area: 50, count: 3, ign: 25,
+    lvl3: [{ s: 'proj', v: 1 }], lvl5: [{ s: 'area', t: 'inc', v: 20 }],
+    desc: 'Flammensäulen brechen um dich herum aus dem Boden.', cost: 300,
+  },
+  lightningarrow: {
+    name: 'Blitzpfeil', tags: ['attack', 'proj', 'chain', 'hit', 'light'], beh: 'proj',
+    cd: 0.8, dmg: { phys: [3, 5], light: [3, 15] }, crit: 7, eff: 1.0, count: 1, speed: 720, spread: 0.15, chain: 2, size: 6, range: 600, shk: 15,
+    lvl3: [{ s: 'chain', v: 1 }], lvl5: [{ s: 'proj', v: 1 }],
+    desc: 'Ein Pfeil voller Elektrizität, der von Gegner zu Gegner springt.', cost: 250,
+  },
 };
 
 export const DMG_TYPE_TAGS = new Set(['phys', 'fire', 'cold', 'light', 'chaos']);
@@ -360,6 +439,22 @@ export const SUPPORTS = {
   shatter: { name: 'Zersplittern', req: ['cold'], mods: [{ s: 'spec_shatter', v: 1 }, { s: 'freezeChance', v: 10 }], cost: 250 },
   deliberate: { name: 'Bedacht', req: [], mods: [{ s: 'dmg', t: 'more', v: 35 }, { s: 'speed', t: 'more', v: -20 }], cost: 150 },
   multistrike: { name: 'Mehrfachschlag', req: ['melee'], mods: [{ s: 'spec_echo', v: 1 }, { s: 'dmg', t: 'more', v: -25 }], cost: 300 },
+  // ---------- Erweiterung 2 ----------
+  elempen: { name: 'Elementare Durchdringung', req: ['fire', 'cold', 'light'], mods: [{ s: 'pen', v: 12 }], cost: 250 },
+  annihilate: { name: 'Vernichtung', req: ['hit'], mods: [{ s: 'critMulti', v: 80 }, { s: 'speed', t: 'more', v: -10 }], cost: 300 },
+  burnchain: { name: 'Zündkette', req: ['fire'], mods: [{ s: 'spec_burnStack', v: 1 }, { s: 'burn', t: 'more', v: -20 }, { s: 'igniteChance', v: 15 }], cost: 350 },
+  sparkchain: { name: 'Funkenkette', req: ['light'], mods: [{ s: 'shockChance', v: 25 }, { s: 'chain', v: 1 }], cost: 250 },
+  icyprecision: { name: 'Eiskalte Präzision', req: ['cold'], mods: [{ s: 'critBase', v: 2 }, { s: 'dmg_cold', t: 'more', v: 15 }], cost: 250 },
+  pack: { name: 'Rudel', req: ['minion'], mods: [{ s: 'minionCount', v: 2 }, { s: 'dmg_minion', t: 'more', v: -15 }], cost: 300 },
+  timestretch: { name: 'Zeitdehnung', req: ['dur', 'dot', 'aura'], mods: [{ s: 'dur', t: 'more', v: 50 }, { s: 'dmg_dot', t: 'more', v: 15 }, { s: 'speed', t: 'more', v: -10 }], cost: 250 },
+  chainblast: { name: 'Kettenexplosion', req: ['area'], mods: [{ s: 'spec_killExplode', v: 10 }], cost: 300 },
+  heft: { name: 'Wucht', req: ['melee'], mods: [{ s: 'area_melee', t: 'inc', v: 30 }, { s: 'dmg_melee', t: 'more', v: 20 }, { s: 'speed', t: 'more', v: -10 }], cost: 200 },
+  trapnet: { name: 'Fallennetz', req: ['trap'], mods: [{ s: 'spec_trapMax', v: 4 }, { s: 'area_trap', t: 'inc', v: 20 }], cost: 200 },
+  auraboost: { name: 'Aurenverstärkung', req: ['aura'], mods: [{ s: 'dmg_aura', t: 'more', v: 35 }], cost: 250 },
+  lifebind: { name: 'Lebensbindung', req: ['hit'], mods: [{ s: 'lifeOnKill', v: 6 }, { s: 'leech', v: 1 }], cost: 200 },
+  hunt: { name: 'Jagdinstinkt', req: ['hit'], mods: [{ s: 'dmgVsBoss', t: 'more', v: 35 }], cost: 250 },
+  doublethrow: { name: 'Doppelwurf', req: ['proj'], mods: [{ s: 'proj', v: 1 }, { s: 'projSpeed', t: 'inc', v: 20 }], cost: 200 },
+  quickcast: { name: 'Schnellzauber', req: ['spell'], mods: [{ s: 'speed_spell', t: 'more', v: 40 }, { s: 'dmg_spell', t: 'more', v: -20 }], cost: 250 },
 };
 
 export const supportFits = (sup, def) => !sup.req.length || sup.req.some((t) => def.tags.includes(t));

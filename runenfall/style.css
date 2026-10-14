@@ -329,3 +329,32 @@ h2.evt { text-align: center; color: var(--cyan); }
 .mnode.t-trial span { color: #ff8a5c; }
 .abnode.t-trial { border-color: #ff8a5c; }
 .proph button b { padding-right: 36px; }
+.mods li.setb { color: #8dffb0; font-size: 12px; }
+
+/* ---------------- Endgame ---------------- */
+.atlas { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.areg { aspect-ratio: 1; border-radius: 12px; border: 1.5px solid var(--line); background: color-mix(in srgb, var(--bc) 70%, #000); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; position: relative; }
+.areg b { font-size: 17px; }
+.areg small { font-size: 10px; color: var(--good); }
+.areg.locked { opacity: .35; }
+.areg.open { border-color: rgba(255, 216, 77, .55); }
+.areg.done { border-color: var(--good); }
+.areg.pin b { color: #ff5c7a; font-size: 20px; }
+.areg.tgt { box-shadow: 0 0 0 2px var(--gold), 0 0 16px rgba(255, 216, 77, .6); }
+.areg.sel { outline: 2px dashed #fff; outline-offset: 2px; }
+.atlasdone { border-color: rgba(255, 216, 77, .45); }
+.petgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.petc { border: 1.5px solid color-mix(in srgb, var(--pc) 60%, transparent); background: var(--panel); border-radius: 12px; padding: 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.petc span { font-size: 28px; }
+.petc b { font-size: 11px; text-align: center; }
+.petc small { font-size: 10px; color: var(--muted); }
+.petc.unk { opacity: .45; }
+.petc.sel { box-shadow: 0 0 12px var(--pc); }
+.petpick { display: flex; flex-wrap: wrap; gap: 6px; }
+.petpick button { width: 48px; height: 48px; border-radius: 12px; border: 1.5px solid var(--line); background: rgba(0, 0, 0, .25); font-size: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+.petpick button small { font-size: 9px; color: var(--muted); }
+.petpick button.on { border-color: var(--gold); box-shadow: 0 0 10px rgba(255, 216, 77, .4); }
+.prow { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.prow > div { flex: 1; }
+.prow .icon:disabled { opacity: .3; }
+.grid2 .tile:nth-last-child(1):nth-child(odd) { grid-column: span 2; }

@@ -11,6 +11,9 @@ export const CLASSES = {
   plague: { name: 'Seuchenweber', color: '#9cff5e', start: 'plague', unlock: 1500, glyph: '☣', desc: 'Gift, Chaos und Schaden über Zeit.' },
   warden: { name: 'Eisenhüter', color: '#e6dccb', start: 'slam', unlock: 0, glyph: '⛨', desc: 'Nahkampf, Rüstung und unerschütterliches Leben.' },
   binder: { name: 'Gebieterin', color: '#c58bff', start: 'wisps', unlock: 3000, glyph: '❖', desc: 'Begleiter, Fallen und Auren. Lässt andere kämpfen.' },
+  monk: { name: 'Sternenmönch', color: '#7ad7ff', start: 'thunderclap', unlock: 5000, glyph: '☯', desc: 'Nahkampf, Blitz und Tempo. Zwischen Feuer und Sturm.' },
+  hunter: { name: 'Bestienjägerin', color: '#ffb36b', start: 'glaive', unlock: 8000, glyph: '❂', desc: 'Wurfwaffen, Blutungen und wilde Begleiter.' },
+  chrono: { name: 'Zeitwächter', color: '#9fb4ff', start: 'frostorb', unlock: 12000, glyph: '⌛', desc: 'Kälte, Dauer und Kontrolle über das Schlachtfeld.' },
 };
 
 // ---------- Gegner ----------
@@ -38,6 +41,14 @@ export const ENEMIES = {
   leaper: { name: 'Springer', hp: 32, dmg: 16, speed: 60, r: 14, xp: 3, color: '#ff6b81', shape: 'tri', leap: 3.4 },
   minelayer: { name: 'Minenleger', hp: 28, dmg: 18, speed: 75, r: 13, xp: 3, color: '#ffb04d', shape: 'hex', mines: 2.2 },
   swarm: { name: 'Sternenschwarm', hp: 3, dmg: 4, speed: 150, r: 7, xp: 0.4, color: '#ffd84d', shape: 'tri', group: 6 },
+  lurker: { name: 'Lauerer', hp: 34, dmg: 15, speed: 70, r: 14, xp: 3, color: '#a0785a', shape: 'hex', phase: true, blink: 4.5 },
+  priest: { name: 'Leerenpriester', hp: 30, dmg: 9, speed: 52, r: 13, xp: 3, color: '#b06bff', shape: 'diamond', ranged: { cd: 3.4, speed: 170, elem: 'chaos', burst: 5 }, keep: 260 },
+  moloch: { name: 'Moloch', hp: 200, dmg: 26, speed: 38, r: 28, xp: 8, color: '#9a8a7a', shape: 'square', charge: { cd: 4.5, speed: 340 }, res: { phys: 40 } },
+  frostling: { name: 'Frostling', hp: 16, dmg: 8, speed: 88, r: 11, xp: 1, color: '#bff3ff', shape: 'tri', deathPool: { elem: 'cold', r: 50, t: 3.5 } },
+  sparkler: { name: 'Funkengeist', hp: 8, dmg: 16, speed: 115, r: 10, xp: 1, color: '#fff27a', shape: 'circle', explode: { r: 50, elem: 'light' } },
+  archer: { name: 'Bogenschütze', hp: 20, dmg: 9, speed: 58, r: 12, xp: 2, color: '#d9b38c', shape: 'diamond', ranged: { cd: 2.2, speed: 330, elem: 'phys', burst: 2 }, keep: 250 },
+  wartotem: { name: 'Kriegstotem', hp: 90, dmg: 0, speed: 0, r: 22, xp: 5, color: '#ff8a5c', shape: 'square', hasteAura: 170 },
+  reaper: { name: 'Seelenschnitter', hp: 44, dmg: 18, speed: 82, r: 15, xp: 4, color: '#8affd8', shape: 'tri', leap: 3, vampHit: true },
 };
 
 export const BIOMES = {
@@ -66,14 +77,26 @@ export const BIOMES = {
     pool: [['runner', 5], ['seer', 4], ['sniper', 3], ['blinker', 3], ['shielder', 3], ['charger', 4], ['swarm', 3], ['golem', 2], ['leaper', 3]],
   },
 };
+BIOMES.aschewald = {
+  name: 'Aschewald', tint: '#1c120c', floor: '#2a1a12', boss: 'hain', hazard: 'fire',
+  pool: [['shade', 6], ['runner', 5], ['sparkler', 3], ['archer', 3], ['bomber', 2], ['wartotem', 1], ['frostling', 2]],
+};
+BIOMES.spiegel = {
+  name: 'Spiegellabyrinth', tint: '#101626', floor: '#1b2440', boss: 'mirror', hazard: 'lightning',
+  pool: [['lurker', 3], ['blinker', 4], ['phantom', 3], ['archer', 4], ['shielder', 2], ['sparkler', 3], ['moloch', 1], ['runner', 4]],
+};
+BIOMES.seelenmeer = {
+  name: 'Seelenmeer', tint: '#0a1418', floor: '#10242a', boss: 'leviathan', hazard: 'poison',
+  pool: [['priest', 4], ['reaper', 3], ['wraith', 4], ['frostling', 3], ['moloch', 2], ['wartotem', 2], ['lurker', 3], ['swarm', 3], ['healer', 2]],
+};
 export const ACTS = [
-  { sub: 'Akt I', power: 1, biomes: ['sternengrab', 'nebelmoor'] },
-  { sub: 'Akt II', power: 2.7, biomes: ['kristall', 'glutschmiede'] },
-  { sub: 'Akt III', power: 6.5, biomes: ['leere', 'sturmgipfel'] },
+  { sub: 'Akt I', power: 1, biomes: ['sternengrab', 'nebelmoor', 'aschewald'] },
+  { sub: 'Akt II', power: 2.7, biomes: ['kristall', 'glutschmiede', 'spiegel'] },
+  { sub: 'Akt III', power: 6.5, biomes: ['leere', 'sturmgipfel', 'seelenmeer'] },
 ];
 export const ABYSS = {
   name: 'Der Abgrund', sub: 'Endlos', tint: '#05050c', floor: '#120c1c',
-  pool: Object.keys({ shade: 1, runner: 1, brute: 1, bomber: 1, seer: 1, splitter: 1, charger: 1, wraith: 1, golem: 1, shielder: 1, healer: 1, blinker: 1, nest: 1, sniper: 1, slime: 1, phantom: 1, turret: 1, leaper: 1, minelayer: 1, swarm: 1 }).map((k) => [k, 3]),
+  pool: ['shade', 'runner', 'brute', 'bomber', 'seer', 'splitter', 'charger', 'wraith', 'golem', 'shielder', 'healer', 'blinker', 'nest', 'sniper', 'slime', 'phantom', 'turret', 'leaper', 'minelayer', 'swarm', 'lurker', 'priest', 'moloch', 'frostling', 'sparkler', 'archer', 'wartotem', 'reaper'].map((k) => [k, 3]),
 };
 
 // ---------- Bosse ----------
@@ -104,7 +127,47 @@ BOSSES.witch = {
   name: 'Die Sturmhexe', hp: 2500, dmg: 23, speed: 70, r: 32, color: '#ffe34d', elem: 'light',
   patterns: [['laser', 4.2], ['blink', 3.5], ['barrage', 3], ['summon', 8], ['ring', 4]], summon: 'swarm',
 };
+BOSSES.hain = {
+  name: 'Der Brennende Hain', hp: 1600, dmg: 17, speed: 34, r: 42, color: '#ff8a3d', elem: 'fire',
+  patterns: [['firewall', 4.5], ['summon', 6.5], ['ring', 3.6], ['slam', 4.2]], summon: 'sparkler',
+};
+BOSSES.mirror = {
+  name: 'Der Spiegelfürst', hp: 1700, dmg: 21, speed: 66, r: 32, color: '#9fc4ff', elem: 'light',
+  patterns: [['blink', 3], ['laser', 4.6], ['barrage', 3.2], ['summon', 8]], summon: 'phantom',
+};
+BOSSES.leviathan = {
+  name: 'Der Leviathan', hp: 2700, dmg: 24, speed: 48, r: 44, color: '#5ce0c8', elem: 'chaos',
+  patterns: [['pools', 5], ['spiral', 5.5], ['charge', 5], ['ring', 3.4], ['summon', 8]], summon: 'priest',
+};
 export const BOSS_IDS = Object.keys(BOSSES);
+// Endbosse des Sternenatlas: mehrere Phasen mit wechselnden Mustern
+export const PINNACLES = {
+  fallenstar: {
+    name: 'Der Gefallene Stern', hp: 3600, dmg: 26, speed: 56, r: 46, color: '#ffe066', elem: 'fire', summon: 'sparkler',
+    phases: [
+      { at: 1, patterns: [['ring', 2.8], ['slam', 3.6], ['charge', 5]] },
+      { at: 0.66, patterns: [['laser', 3.6], ['spiral', 5], ['firewall', 4.5], ['summon', 7]] },
+      { at: 0.33, patterns: [['laser', 2.8], ['ring', 2.4], ['blink', 3.2], ['firewall', 3.8], ['pools', 5]] },
+    ],
+  },
+  weaver: {
+    name: 'Die Weberin der Leere', hp: 3400, dmg: 24, speed: 64, r: 38, color: '#c58bff', elem: 'chaos', summon: 'wraith',
+    phases: [
+      { at: 1, patterns: [['blink', 3.4], ['barrage', 2.8], ['pools', 5]] },
+      { at: 0.66, patterns: [['spiral', 4.4], ['summon', 6], ['blink', 2.8], ['laser', 4.8]] },
+      { at: 0.33, patterns: [['spiral', 3.6], ['pools', 3.6], ['ring', 2.6], ['blink', 2.4], ['barrage', 2.6]] },
+    ],
+  },
+  eternal: {
+    name: 'Der Ewige König', hp: 4200, dmg: 30, speed: 50, r: 48, color: '#ff5c7a', elem: 'phys', summon: 'moloch',
+    phases: [
+      { at: 1, patterns: [['charge', 3.8], ['slam', 3.2], ['summon', 8]] },
+      { at: 0.66, patterns: [['charge', 3.2], ['firewall', 4], ['ring', 3.2], ['slam', 3]] },
+      { at: 0.33, patterns: [['charge', 2.6], ['laser', 3.4], ['firewall', 3.2], ['ring', 2.6], ['summon', 6]] },
+    ],
+  },
+};
+for (const [k, b] of Object.entries(PINNACLES)) BOSSES[k] = { ...b, patterns: b.phases[0].patterns };
 
 // ---------- Elite-Affixe ----------
 export const ELITE_AFFIXES = {
@@ -410,6 +473,126 @@ export const EVENTS = [
       { label: 'Schleife brechen', desc: 'Volle Heilung', fx: { hpPct: 100 } },
     ],
   },
+  {
+    id: 'petegg', title: 'Ein seltsames Ei',
+    text: 'In einem Nest aus Sternenstaub liegt ein warmes, pulsierendes Ei.',
+    options: [
+      { label: 'Mitnehmen', desc: '40%: ein Gefährte schlüpft am Ende des Runs', fx: { egg: 0.4 } },
+      { label: 'Zerbrechen', desc: '+40 Sternenstaub am Ende des Runs', fx: { dust: 40 } },
+    ],
+  },
+  {
+    id: 'jewelvein', title: 'Juwelader',
+    text: 'Eine Ader aus funkelndem Kristall zieht sich durch den Fels.',
+    options: [
+      { label: 'Abbauen', desc: '50%: ein Juwel · 50%: −20% Leben (Steinschlag)', fx: { jewel: 0.5 } },
+      { label: 'Vorsichtig abklopfen', desc: '+30 Gold', fx: { gold: 30 } },
+    ],
+  },
+  {
+    id: 'duel', title: 'Herausforderung des Schwertmeisters',
+    text: '„Zeig mir, was du kannst.“ Ein Geist hebt seine Klinge.',
+    options: [
+      { label: 'Duell annehmen', desc: 'Elite-Kampf – Belohnung: einzigartiger Gegenstand', fx: { arena: 1 } },
+      { label: 'Lernen statt kämpfen', desc: '+10% Angriffsschaden und +10% Angriffstempo (Run)', fx: { boon: [inc('dmg_attack', 10), inc('speed_attack', 10)] } },
+    ],
+  },
+  {
+    id: 'astrologer', title: 'Der Astrologe',
+    text: '„Die Sterne stehen günstig – für einen Preis.“',
+    options: [
+      { label: 'Horoskop (50 Gold)', desc: '+1 Stufe aller Fertigkeiten (Run)', fx: { pay: 50, boon: [flat('lvl', 1)] } },
+      { label: 'Sternkarte kaufen (40 Gold)', desc: '+25% Erfahrung (Run)', fx: { pay: 40, boon: [inc('xp', 25)] } },
+    ],
+  },
+  {
+    id: 'bloodaltar', title: 'Blutaltar',
+    text: 'Der Altar dürstet. Je mehr du gibst, desto mehr gibt er zurück.',
+    options: [
+      { label: 'Wenig opfern', desc: '−15% Leben, +10% Schaden (Run)', fx: { hpPct: -15, boon: [inc('dmg', 10)] } },
+      { label: 'Viel opfern', desc: '−45% Leben, +25% mehr Schaden (Run)', fx: { hpPct: -45, boon: [more('dmg', 25)] } },
+    ],
+  },
+  {
+    id: 'cartographer', title: 'Kartograph',
+    text: 'Ein Wanderer zeichnet Karten der Sterne. Er bietet dir eine an.',
+    options: [
+      { label: 'Karte studieren', desc: '+1 Atlaspunkt beim Abschluss des Runs', fx: { atlasPoint: 1 } },
+      { label: 'Verkaufen', desc: '+70 Gold', fx: { gold: 70 } },
+    ],
+  },
+  {
+    id: 'swarmnest', title: 'Schwarmnest',
+    text: 'Etwas summt in der Höhle. Sehr viel von etwas.',
+    options: [
+      { label: 'Ausräuchern', desc: '+3 Stufen sofort, aber −30% Leben', fx: { lvls: 3, hpPct: -30 } },
+      { label: 'Leise vorbeischleichen', desc: '+8% Bewegungstempo (Run)', fx: { boon: [inc('move', 8)] } },
+    ],
+  },
+  {
+    id: 'glyphmaster', title: 'Glyphenmeister',
+    text: 'Ein alter Mann schnitzt Glyphen in Sternensplitter.',
+    options: [
+      { label: 'Drei Glyphen kaufen (90 Gold)', desc: 'Erhalte drei zufällige Glyphen', fx: { pay: 90, glyph: 3 } },
+      { label: 'Eine geschenkt', desc: 'Erhalte eine Glyphe', fx: { glyph: 1 } },
+    ],
+  },
+  {
+    id: 'ghostship', title: 'Geisterschiff',
+    text: 'Ein Schiff aus Licht treibt durch die Dunkelheit. An Deck: Kisten.',
+    options: [
+      { label: 'Kisten plündern', desc: 'Zwei Gegenstände – aber die Mannschaft ist noch da (−25% Leben)', fx: { hpPct: -25, item: 'rare', item2: 'magic' } },
+      { label: 'Salutieren', desc: '+15% Goldfund (Run)', fx: { boon: [inc('gold', 15)] } },
+    ],
+  },
+  {
+    id: 'clockwork', title: 'Uhrwerk der Sterne',
+    text: 'Zahnräder so groß wie Häuser drehen sich lautlos.',
+    options: [
+      { label: 'Ein Rad drehen', desc: '+15% Fertigkeitstempo, −10% Bewegungstempo (Run)', fx: { boon: [inc('speed', 15), inc('move', -10)] } },
+      { label: 'Zahnrad mitnehmen', desc: 'Ein zufälliger Affix deiner Ausrüstung steigt eine Stufe', fx: { upgrade: 1 } },
+    ],
+  },
+  {
+    id: 'echo', title: 'Echo eines Helden',
+    text: 'Der Schatten eines früheren Abenteurers grüßt dich. Er trägt deine Züge.',
+    options: [
+      { label: 'Erinnerung teilen', desc: 'Eine zufällige Rune +1 Stufe, +10% max. Leben (Run)', fx: { skillLvl: 1, boon: [inc('life', 10)] } },
+      { label: 'Ausrüstung tauschen', desc: 'Ein seltener Gegenstand', fx: { item: 'rare' } },
+    ],
+  },
+  {
+    id: 'starforge', title: 'Sternenschmiede',
+    text: 'Hier wurden die ersten Relikte geschmiedet.',
+    options: [
+      { label: 'Am Amboss arbeiten (120 Gold)', desc: 'Erhalte ein Relikt', fx: { pay: 120, relic: 1 } },
+      { label: 'Funken einfangen', desc: '+15% mehr kritischer Trefferschaden (Run)', fx: { boon: [flat('critMulti', 25)] } },
+    ],
+  },
+  {
+    id: 'fountain', title: 'Jungbrunnen',
+    text: 'Wer daraus trinkt, wird stärker – oder verliert sich.',
+    options: [
+      { label: 'Trinken', desc: '60%: +20% max. Leben · 40%: −10% max. Leben (Run)', fx: { gambleLife: 1 } },
+      { label: 'Flasche füllen', desc: 'Heilt 50% Leben', fx: { hpPct: 50 } },
+    ],
+  },
+  {
+    id: 'setpiece', title: 'Verlassenes Lager',
+    text: 'Ein Rucksack, sorgfältig gepackt. Die Ausrüstung trägt ein Wappen.',
+    options: [
+      { label: 'Durchsuchen', desc: 'Erhalte ein Set-Teil', fx: { setItem: 1 } },
+      { label: 'Gold nehmen', desc: '+50 Gold', fx: { gold: 50 } },
+    ],
+  },
+  {
+    id: 'voidgate', title: 'Riss in die Leere',
+    text: 'Ein Riss im Himmel. Dahinter: Macht und Wahnsinn.',
+    options: [
+      { label: 'Hindurchgreifen', desc: '+20% mehr Chaosschaden, +10% erlittener Schaden (Run)', fx: { boon: [more('dmg_chaos', 20), more('dmgTaken', 10)] } },
+      { label: 'Riss versiegeln', desc: '+15% Chaoswiderstand (Run)', fx: { boon: [flat('res_chaos', 15)] } },
+    ],
+  },
 ];
 
 // ---------- Altar: dauerhafte Verbesserungen für Sternenstaub ----------
@@ -501,6 +684,46 @@ export const ACHIEVEMENTS = [
   { id: 'bestiary', name: 'Naturforscher', desc: 'Besiege jede Gegnerart mindestens einmal', reward: { points: 1 }, check: (s, n) => n.bestiary >= n.enemyTypes },
   { id: 'nohit', name: 'Unberührbar', desc: 'Besiege einen Boss, ohne getroffen zu werden', reward: { points: 2 }, check: (s) => (s.stats.flawless || 0) >= 1 },
   { id: 'speedrun', name: 'Sternschnuppe', desc: 'Gewinne einen Feldzug in unter 15 Minuten', reward: { points: 2 }, check: (s) => (s.stats.fastestWin || 1e9) <= 900 },
+  { id: 'classes9', name: 'Allwissend', desc: 'Gewinne mit allen 9 Klassen', reward: { points: 3 }, check: (s) => Object.keys(s.stats.wins).length >= 9 },
+  { id: 'unlockMonk', name: 'Der Weg des Mönchs', desc: 'Schalte den Sternenmönch frei', reward: { dust: 500 }, check: (s) => s.unlockedCls.includes('monk') },
+  { id: 'unlockHunter', name: 'Ruf der Wildnis', desc: 'Schalte die Bestienjägerin frei', reward: { dust: 800 }, check: (s) => s.unlockedCls.includes('hunter') },
+  { id: 'unlockChrono', name: 'Hüter der Zeit', desc: 'Schalte den Zeitwächter frei', reward: { dust: 1200 }, check: (s) => s.unlockedCls.includes('chrono') },
+  { id: 'bossHain', name: 'Waldbrand', desc: 'Besiege den Brennenden Hain', reward: { points: 1 }, check: (s) => (s.stats.bossKills.hain || 0) >= 1 },
+  { id: 'bossMirror', name: 'Spiegelbruch', desc: 'Besiege den Spiegelfürsten', reward: { points: 1 }, check: (s) => (s.stats.bossKills.mirror || 0) >= 1 },
+  { id: 'bossLevi', name: 'Meeresungeheuer', desc: 'Besiege den Leviathan', reward: { points: 2 }, check: (s) => (s.stats.bossKills.leviathan || 0) >= 1 },
+  { id: 'pinnacle1', name: 'Sternensturz', desc: 'Besiege den Gefallenen Stern', reward: { points: 3 }, check: (s) => (s.stats.bossKills.fallenstar || 0) >= 1 },
+  { id: 'pinnacle2', name: 'Fadenriss', desc: 'Besiege die Weberin der Leere', reward: { points: 3 }, check: (s) => (s.stats.bossKills.weaver || 0) >= 1 },
+  { id: 'pinnacle3', name: 'Königsmörder', desc: 'Besiege den Ewigen König', reward: { points: 3 }, check: (s) => (s.stats.bossKills.eternal || 0) >= 1 },
+  { id: 'pinnacleAll', name: 'Herr des Atlas', desc: 'Besiege alle drei Endbosse', reward: { points: 5 }, check: (s) => ['fallenstar', 'weaver', 'eternal'].every((b) => (s.stats.bossKills[b] || 0) >= 1) },
+  { id: 'atlas1', name: 'Kartograph', desc: 'Schließe eine Atlas-Region ab', reward: { points: 1 }, check: (s) => Object.keys(s.atlas?.done || {}).length >= 1 },
+  { id: 'atlas10', name: 'Entdecker', desc: 'Schließe 10 Atlas-Regionen ab', reward: { points: 2 }, check: (s) => Object.keys(s.atlas?.done || {}).length >= 10 },
+  { id: 'atlasAll', name: 'Weltenwanderer', desc: 'Schließe alle Atlas-Regionen ab', reward: { points: 5 }, check: (s, n) => Object.keys(s.atlas?.done || {}).length >= n.atlasRegions },
+  { id: 'atlasT10', name: 'Hohe Stufe', desc: 'Schließe eine Atlas-Region der Stufe 10+ ab', reward: { points: 2 }, check: (s) => Object.entries(s.atlas?.done || {}).some(([, t]) => t >= 10) },
+  { id: 'atlasT16', name: 'Gipfel des Atlas', desc: 'Schließe eine Atlas-Region der Stufe 16 ab', reward: { points: 3 }, check: (s) => Object.entries(s.atlas?.done || {}).some(([, t]) => t >= 16) },
+  { id: 'pet1', name: 'Bester Freund', desc: 'Erhalte deinen ersten Gefährten', reward: { dust: 300 }, check: (s) => Object.keys(s.pets || {}).length >= 1 },
+  { id: 'pet6', name: 'Tierfreund', desc: 'Sammle 6 Gefährten', reward: { points: 1 }, check: (s) => Object.keys(s.pets || {}).length >= 6 },
+  { id: 'petAll', name: 'Arche', desc: 'Sammle alle Gefährten', reward: { points: 3 }, check: (s, n) => Object.keys(s.pets || {}).length >= n.pets },
+  { id: 'pet10', name: 'Treue Seele', desc: 'Bringe einen Gefährten auf Stufe 10', reward: { points: 2 }, check: (s) => Object.values(s.pets || {}).some((p) => p.lvl >= 10) },
+  { id: 'set2', name: 'Zusammengehörig', desc: 'Trage 2 Teile desselben Sets', reward: { dust: 300 }, check: (s) => (s.stats.maxSet || 0) >= 2 },
+  { id: 'set4', name: 'Vollständig', desc: 'Trage ein komplettes Set', reward: { points: 2 }, check: (s) => (s.stats.maxSet || 0) >= 4 },
+  { id: 'setAll', name: 'Setsammler', desc: 'Entdecke alle Set-Teile', reward: { points: 3 }, check: (s, n) => (s.codex.sets || []).length >= n.setPieces },
+  { id: 'jewel1', name: 'Juwelier', desc: 'Setze ein Juwel in die Sternenkarte ein', reward: { dust: 300 }, check: (s) => (s.stats.jewelsSocketed || 0) >= 1 },
+  { id: 'jewel12', name: 'Juwelenkrone', desc: 'Setze 12 Juwele gleichzeitig ein', reward: { points: 2 }, check: (s) => (s.stats.maxJewels || 0) >= 12 },
+  { id: 'jewelMythic', name: 'Sternenjuwel', desc: 'Finde ein mythisches Juwel', reward: { points: 1 }, check: (s) => (s.stats.mythicJewel || 0) >= 1 },
+  { id: 'paragon10', name: 'Sternenmacht', desc: 'Investiere 10 Punkte in Sternenmacht', reward: { dust: 500 }, check: (s) => Object.values(s.paragon || {}).reduce((a, b) => a + b, 0) >= 10 },
+  { id: 'paragon100', name: 'Sternengott', desc: 'Investiere 100 Punkte in Sternenmacht', reward: { points: 3 }, check: (s) => Object.values(s.paragon || {}).reduce((a, b) => a + b, 0) >= 100 },
+  { id: 'runs50', name: 'Unermüdlich', desc: 'Spiele 50 Runs', reward: { points: 1 }, check: (s) => s.stats.runs >= 50 },
+  { id: 'runs250', name: 'Besessen', desc: 'Spiele 250 Runs', reward: { points: 2 }, check: (s) => s.stats.runs >= 250 },
+  { id: 'runs1000', name: 'Ewiger Wanderer', desc: 'Spiele 1.000 Runs', reward: { points: 5 }, check: (s) => s.stats.runs >= 1000 },
+  { id: 'play10h', name: 'Zeitvertreib', desc: 'Spiele insgesamt 10 Stunden', reward: { points: 1 }, check: (s) => s.stats.playTime >= 36000 },
+  { id: 'play100h', name: 'Lebenswerk', desc: 'Spiele insgesamt 100 Stunden', reward: { points: 3 }, check: (s) => s.stats.playTime >= 360000 },
+  { id: 'dust100k', name: 'Sternenschatz', desc: 'Sammle insgesamt 100.000 Sternenstaub', reward: { points: 2 }, check: (s) => (s.stats.dustTotal || 0) >= 1e5 },
+  { id: 'relic20', name: 'Reliquiar', desc: 'Besitze 20 Relikte', reward: { points: 1 }, check: (s) => s.relics.length >= 20 },
+  { id: 'unique44', name: 'Museumsdirektor', desc: 'Entdecke 40 einzigartige Gegenstände', reward: { points: 2 }, check: (s) => s.codex.uniques.length >= 40 },
+  { id: 'nofail', name: 'Makellos', desc: 'Gewinne einen Feldzug auf Sternenhöhe 5+ ohne Wiederbelebung', reward: { points: 2 }, check: (s) => (s.stats.cleanAscWin || -1) >= 5 },
+  { id: 'proph9', name: 'Apokalyptiker', desc: 'Gewinne mit 9 aktiven Prophezeiungen', reward: { points: 5 }, check: (s) => (s.stats.maxProphWin || 0) >= 9 },
+  { id: 'abyss150', name: 'Jenseits des Abgrunds', desc: 'Erreiche Ebene 150 im Abgrund', reward: { points: 5 }, check: (s) => s.stats.maxAbyss >= 150 },
+  { id: 'hit1b', name: 'Supernova', desc: 'Verursache einen Treffer über 1 Milliarde', reward: { points: 5 }, check: (s) => s.stats.maxHit >= 1e9 },
 ];
 
 // ---------- Aufstiegsklassen ----------
@@ -593,6 +816,51 @@ export const ASCENDANCIES = {
     { name: 'Meisterrune', mods: [more('dmg', 20), inc('area', 20)] },
   ] },
 };
+
+Object.assign(ASCENDANCIES, {
+  fist: { cls: 'monk', name: 'Donnerfaust', desc: 'Jeder Schlag ein Gewitter.', nodes: [
+    { name: 'Geladene Fäuste', mods: [more('dmg_melee', 20), flat('shockChance', 20)] },
+    { name: 'Blitzschritt', mods: [flat('spec_moveStrike', 1), inc('move', 12)] },
+    { name: 'Nachhall', mods: [flat('spec_aftershock', 1)] },
+    { name: 'Hundert Hiebe', mods: [inc('speed_attack', 30), flat('spec_frenzy', 1)] },
+    { name: 'Sturmherz', mods: [more('dmg_light', 25), flat('lvl_melee', 1)] },
+  ] },
+  ascetic: { cls: 'monk', name: 'Asket', desc: 'Leere den Geist, fülle die Faust.', nodes: [
+    { name: 'Innere Ruhe', mods: [flat('spec_stillness', 1), flat('barrier', 50)] },
+    { name: 'Sternenleib', mods: [flat('dodge', 10), inc('evasion', 50)] },
+    { name: 'Gleichmut', mods: [flat('res_elem', 15), flat('lifeRegenPct', 1)] },
+    { name: 'Klarheit', mods: [inc('crit', 50), flat('critMulti', 30)] },
+    { name: 'Erleuchtung', mods: [more('dmg', 25), flat('lvl', 1)] },
+  ] },
+  beastmaster: { cls: 'hunter', name: 'Bestienmeisterin', desc: 'Das Rudel jagt mit ihr.', nodes: [
+    { name: 'Rudelführerin', mods: [flat('minionCount', 1), inc('dmg_minion', 30)] },
+    { name: 'Wilder Instinkt', mods: [inc('speed_minion', 25), inc('move', 10)] },
+    { name: 'Blutgeruch', mods: [flat('bleedChance', 20), more('bleed', 20)] },
+    { name: 'Alpha', mods: [more('dmg_minion', 30), flat('spec_minionLeech', 2)] },
+    { name: 'Jagdgöttin', mods: [flat('lvl_minion', 1), flat('lvl_attack', 1)] },
+  ] },
+  bladewind: { cls: 'hunter', name: 'Klingenwind', desc: 'Kein Ziel entkommt der Glefe.', nodes: [
+    { name: 'Weiter Wurf', mods: [inc('projSpeed', 30), flat('pierce', 2)] },
+    { name: 'Heimkehr', mods: [flat('spec_return', 1)] },
+    { name: 'Gabelung', mods: [flat('spec_fork', 1), more('dmg_proj', 10)] },
+    { name: 'Klingensturm', mods: [flat('proj', 1), inc('speed_attack', 15)] },
+    { name: 'Jagdfieber', mods: [more('dmg_attack', 25), more('dmgVsBoss', 20)] },
+  ] },
+  frostlord: { cls: 'chrono', name: 'Frostfürst', desc: 'Die Zeit gefriert in seiner Nähe.', nodes: [
+    { name: 'Kälteeinbruch', mods: [inc('chillEffect', 50), flat('freezeChance', 10)] },
+    { name: 'Eiskern', mods: [flat('spec_shatter', 1), inc('dmg_cold', 30)] },
+    { name: 'Frostaura', mods: [flat('spec_chillAura', 1), flat('res_cold', 25)] },
+    { name: 'Gletscherherz', mods: [flat('pen_cold', 20), flat('lvl_cold', 1)] },
+    { name: 'Absoluter Nullpunkt', mods: [more('dmg_cold', 35)] },
+  ] },
+  keeper: { cls: 'chrono', name: 'Hüter der Stunden', desc: 'Er dehnt jeden Augenblick.', nodes: [
+    { name: 'Gedehnte Zeit', mods: [inc('dur', 40), inc('ailDur', 30)] },
+    { name: 'Zeitschleife', mods: [flat('spec_echoAll', 1)] },
+    { name: 'Vorahnung', mods: [flat('dodge', 12), more('dmgTaken', -10)] },
+    { name: 'Ewiger Moment', mods: [more('dmg_dot', 30), more('dur', 15)] },
+    { name: 'Herr der Zeit', mods: [more('speed', 20), flat('lvl', 1)] },
+  ] },
+});
 
 // ---------- Prophezeiungen (frei wählbare Erschwernisse für mehr Belohnung) ----------
 export const MUTATORS = {

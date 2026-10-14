@@ -3,6 +3,7 @@ import { esc, fmt, fmtV } from './util.js';
 import { SKILLS, SUPPORTS, catTags } from './data/skills.js';
 import { TAG_NAME, ELEM, modText } from './data/stats.js';
 import { BASES, RARITY, SLOT_NAME, UNIQUES, itemName, itemMods, affixLine } from './data/items.js';
+import { SETS, JEWEL_SPECIALS } from './data/endgame.js';
 import { sfx, unlockAudio } from './audio.js';
 
 export const $ = (s, r = document) => r.querySelector(s);
@@ -74,6 +75,12 @@ export function itemCard(item, { compare = null, actions = '', small = false } =
   const lines = [];
   if (item.rarity === 'unique') {
     for (const m of UNIQUES[item.uq].mods) lines.push(`<li class="u">${esc(modText(m))}</li>`);
+  } else if (item.rarity === 'set') {
+    const st = SETS[item.set];
+    for (const m of st.pieces[item.piece].mods) lines.push(`<li class="u">${esc(modText(m))}</li>`);
+    lines.push('<li class="sep"></li>');
+    lines.push(`<li class="setb"><b>${esc(st.name)}</b> (${st.pieces.map((p) => esc(p.name)).join(', ')})</li>`);
+    for (const [n, mods] of Object.entries(st.bonus)) lines.push(`<li class="setb">${n} Teile: ${mods.map((m) => esc(modText(m))).join(', ')}</li>`);
   } else {
     for (const m of base.imp || []) lines.push(`<li class="imp">${esc(modText(m))}</li>`);
     if (base.imp && base.imp.length && item.affixes.length) lines.push('<li class="sep"></li>');
@@ -81,8 +88,11 @@ export function itemCard(item, { compare = null, actions = '', small = false } =
       const l = affixLine(item, af);
       lines.push(`<li>${esc(l.text)} <span class="tier">S${l.tier}</span></li>`);
     }
+    if (item.slot === 'jewel' && item.special !== null && item.special !== undefined) {
+      for (const m of JEWEL_SPECIALS[item.special]) lines.push(`<li class="u">✦ ${esc(modText(m))}</li>`);
+    }
   }
-  const sub = item.slot === 'relic' ? `Relikt · Stufe ${item.ilvl}` : `${SLOT_NAME[base.slot]} · ${base.name} · Gst. ${item.ilvl}`;
+  const sub = item.slot === 'relic' ? `Relikt · Stufe ${item.ilvl}` : item.slot === 'jewel' ? `Juwel · Stufe ${item.ilvl}` : `${SLOT_NAME[base.slot]} · ${base.name}${item.rarity === 'set' ? '' : ` · Gst. ${item.ilvl}`}`;
   const flavor = item.rarity === 'unique' ? `<p class="flavor">${esc(UNIQUES[item.uq].flavor)}</p>` : '';
   let cmp = '';
   if (compare !== null) cmp = compareHtml(item, compare);

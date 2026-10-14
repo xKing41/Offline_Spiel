@@ -11,6 +11,8 @@ import { modText } from './data/stats.js';
 import { buildSets, relicMods, ensureQuests, questText, dailyConfig } from './run.js';
 import { computePlayer, computeSkill } from './calc.js';
 import { sfx } from './audio.js';
+import { jewelsTab, jewelSocketPanel, paragonPanel } from './ui-endgame.js';
+import { PETS, SETS, getAtlas } from './data/endgame.js';
 
 on('nav', (d) => app.nav(d.to));
 
@@ -42,6 +44,8 @@ export function showHub() {
         <button class="tile" data-a="nav" data-to="relics"><span class="ti">◈</span>Relikte<small>${save.relicEq.length}/${relicSlots()} angelegt</small></button>
         <button class="tile" data-a="nav" data-to="ach"><span class="ti">♛</span>Erfolge<small>${achDone}/${ACHIEVEMENTS.length}</small></button>
         <button class="tile" data-a="nav" data-to="stats"><span class="ti">☷</span>Chronik<small>Statistik</small></button>
+        <button class="tile" data-a="nav" data-to="atlas"><span class="ti">✷</span>Sternenatlas${(save.atlas?.points || 0) > Object.keys(save.atlas?.passives || {}).length ? '<i class="dot"></i>' : ''}<small>${Object.keys(save.atlas?.done || {}).length}/30 Regionen</small></button>
+        <button class="tile" data-a="nav" data-to="pets"><span class="ti">🐾</span>Gefährten<small>${Object.keys(save.pets || {}).length}/12 gesammelt</small></button>
       </div>
       <button class="btn small ghost" data-a="nav" data-to="settings">⚙ Einstellungen</button>
       ${save.treeReset ? '<p class="note">Die Sternenkarte wurde überarbeitet – deine Punkte wurden zurückerstattet.</p>' : ''}
@@ -119,6 +123,8 @@ export function showSetup() {
         ${asc ? `<ul class="asclist">${asc}</ul>` : ''}
       </div>
       ${ascendPanel()}
+      ${petPanel()}
+      ${atlasPanel()}
       ${prophPanel()}
       <button class="btn primary big" data-a="go">LOS</button>
     </div>`);
@@ -162,15 +168,42 @@ on('buyCls', (d) => {
 });
 on('mode', (d) => { setup.mode = d.m; showSetup(); });
 on('asc', (d) => { setup.asc = Math.max(0, Math.min(save.ascUnlocked, setup.asc + Number(d.d))); showSetup(); });
-on('go', () => { save.lastCls = setup.cls; app.startRun({ ...setup }); });
+on('go', () => {
+  save.lastCls = setup.cls;
+  app.startRun({ ...setup, pet: setup.pet || null, atlas: setup.mode === 'normal' ? (save.atlas?.target || null) : null });
+});
+function petPanel() {
+  const own = Object.keys(save.pets || {});
+  if (!own.length) return '';
+  if (setup.pet && !own.includes(setup.pet)) setup.pet = null;
+  if (setup.pet === undefined) setup.pet = own[0];
+  return `<div class="panel"><h3>Gefährte</h3><div class="petpick"><button class="${!setup.pet ? 'on' : ''}" data-a="pickPet" data-id="">–</button>${own.map((id) =>
+    `<button class="${setup.pet === id ? 'on' : ''}" data-a="pickPet" data-id="${id}" title="${PETS[id].name}">${PETS[id].glyph}<small>${save.pets[id].lvl}</small></button>`).join('')}</div>
+    ${setup.pet ? `<p class="small">${esc(PETS[setup.pet].name)}: ${PETS[setup.pet].passive(save.pets[setup.pet].lvl).map(modText).map(esc).join(', ')}</p>` : ''}</div>`;
+}
+on('pickPet', (d) => { setup.pet = d.id || null; showSetup(); });
+function atlasPanel() {
+  if (setup.mode !== 'normal') return '';
+  const t = save.atlas?.target;
+  if (!t) return Object.keys(save.stats.wins).length ? '<p class="small muted center">Tipp: Wähle im Sternenatlas ein Ziel – es wird zu Akt IV.</p>' : '';
+  const reg = getAtlas().regions[t];
+  return `<div class="panel atlasdone"><b>✷ Akt IV: ${esc(reg.name)}</b><small class="muted">Stufe ${reg.tier} · ändern im Sternenatlas</small></div>`;
+}
 
 // ===================================================================== Sternenkarte
 let treeCls = null;
+app.treeCls = () => treeCls;
+app.refreshTree = () => { app.treeView.setAlloc(save.alloc[treeCls]); renderTreeUI(); };
 let treeSel = null;
 export function showTree() {
   if (!treeCls || !save.unlockedCls.includes(treeCls)) treeCls = save.run ? save.run.cls : save.lastCls;
   if (!save.unlockedCls.includes(treeCls)) treeCls = save.unlockedCls[0];
   const tv = app.treeView;
+  tv.jewelColor = (id) => {
+    const u = ((save.jewelSock || {})[treeCls] || {})[id];
+    const j = u && (save.jewels || []).find((x) => x.uid === u);
+    return j ? RARITY[j.rarity].color : null;
+  };
   tv.onSelect = (n, path) => { treeSel = n; renderTreePanel(path); };
   tv.open(treeCls, save.alloc[treeCls]);
   renderTreeUI();
@@ -200,7 +233,7 @@ function renderTreePanel(path) {
   const tree = getTree();
   const on = alloc.has(n.id);
   const pts = totalPoints() - spentPoints(treeCls);
-  const typeName = { key: 'Keystone', notable: 'Bedeutender Stern', small: 'Stern', travel: 'Wegstern', hub: 'Sternenherz', start: 'Ursprung' }[n.type];
+  const typeName = { key: 'Keystone', notable: 'Bedeutender Stern', small: 'Stern', travel: 'Wegstern', hub: 'Sternenherz', start: 'Ursprung', jewel: 'Juwelsockel' }[n.type];
   let act = '';
   if (save.run) act = '';
   else if (n.type === 'start') act = '';
@@ -213,7 +246,7 @@ function renderTreePanel(path) {
   else act = '<small class="muted">Nicht erreichbar (Ursprung einer anderen Klasse)</small>';
   const keyDesc = n.type === 'key' ? `<p class="small muted">${esc(KEYSTONES[n.key].desc)}</p>` : '';
   el.innerHTML = `<div class="tnode t-${n.type}"><div><b>${esc(n.name)}</b> <small class="muted">${typeName}</small></div>
-    <ul class="mods">${n.mods.map((m) => `<li>${esc(modText(m))}</li>`).join('')}</ul>${keyDesc}<div class="row">${act}</div></div>`;
+    <ul class="mods">${n.mods.map((m) => `<li>${esc(modText(m))}</li>`).join('')}</ul>${keyDesc}${n.type === 'jewel' ? jewelSocketPanel(treeCls, n) : ''}<div class="row">${act}</div></div>`;
 }
 on('treeCls', (d) => { treeCls = d.c; treeSel = null; app.treeView.open(treeCls, save.alloc[treeCls]); renderTreeUI(); });
 on('tzoom', (d) => app.treeView.zoom(Number(d.f)));
@@ -272,7 +305,7 @@ export const treeTabLocked = () => !!save.run;
 // ===================================================================== Kodex
 let codexTab = 'skills';
 export function showCodex() {
-  const tabs = [['skills', 'Runen'], ['supports', 'Glyphen'], ['ascend', 'Aufstieg'], ['uniques', 'Unikate'], ['bestiary', 'Bestien']]
+  const tabs = [['skills', 'Runen'], ['supports', 'Glyphen'], ['ascend', 'Aufstieg'], ['uniques', 'Unikate'], ['sets', 'Sets'], ['bestiary', 'Bestien']]
     .map(([k, n]) => `<button class="${codexTab === k ? 'on' : ''}" data-a="ctab" data-t="${k}">${n}</button>`).join('');
   let body = '';
   if (codexTab === 'skills') {
@@ -297,6 +330,12 @@ export function showCodex() {
         const btn = lvl >= 5 ? '<span class="ok">VOLLENDET</span>' : `<button class="btn small ${gate && save.dust >= ASCEND_COST[lvl] ? 'primary' : 'disabled'}" data-a="ascBuy" data-id="${id}">Stufe ${lvl + 1}: ✦ ${fmt(ASCEND_COST[lvl])}</button>`;
         return `<div class="panel"><div class="row between"><div><h3 style="color:${c.color}">${c.glyph} ${esc(a.name)}</h3><small class="muted">${esc(c.name)} · ${esc(a.desc)}</small></div>${btn}</div><ul class="mods">${nodes}</ul></div>`;
       }).join('');
+  } else if (codexTab === 'sets') {
+    const found = save.codex.sets || [];
+    body = Object.entries(SETS).map(([sid, st]) => `<div class="panel"><h3 style="color:${st.color}">${esc(st.name)}</h3>
+      <ul class="mods">${st.pieces.map((p, i) => found.includes(`${sid}:${i}`) ? `<li class="u">✓ ${esc(p.name)} – ${p.mods.map(modText).map(esc).join(', ')}</li>` : '<li class="muted">○ ???</li>').join('')}</ul>
+      ${Object.entries(st.bonus).map(([n, mods]) => `<p class="small setb">${n} Teile: ${mods.map(modText).map(esc).join(', ')}</p>`).join('')}</div>`).join('');
+    body = `<p class="muted center small">Set-Teile findest du überall, wo es Beute gibt. Mehrere Teile desselben Sets schalten Boni frei.</p>${body}`;
   } else if (codexTab === 'bestiary') {
     const kills = save.stats.enemyKills || {};
     const known = Object.keys(ENEMIES).filter((k) => kills[k] > 0).length;
@@ -346,7 +385,7 @@ export function showAltar() {
       ${max ? '<span class="ok">MAX</span>' : `<button class="btn small ${save.dust >= cost ? 'primary' : 'disabled'}" data-a="abuy" data-id="${a.id}">✦ ${fmt(cost)}</button>`}</div>
       <div class="pips">${Array.from({ length: a.max }, (_, i) => `<i class="${i < l ? 'on' : ''}"></i>`).join('')}</div></div>`;
   }).join('');
-  screen(`${topbar('Altar der Sterne', 'hub', `<b class="dust">✦ ${fmt(save.dust)}</b>`)}<div class="pad">${rows}</div>`);
+  screen(`${topbar('Altar der Sterne', 'hub', `<b class="dust">✦ ${fmt(save.dust)}</b>`)}<div class="pad">${paragonPanel()}${rows}</div>`);
 }
 on('abuy', (d) => {
   const a = ALTAR.find((x) => x.id === d.id);
@@ -379,11 +418,15 @@ export function showRelics() {
       <button class="btn small danger" data-a="rsalv">Zerlegen (+✦ ${relicSalvage(sel)})</button>` }) +
       `<div class="panel"><b>Veredeln</b><p class="small muted">Hebt einen Affix eine Stufe an (bis Stufe ${RELIC_TIERS}).</p><div class="refine">${refine}</div></div>`;
   }
-  screen(`${topbar('Relikte', 'hub', `<b class="dust">✦ ${fmt(save.dust)}</b>`)}
-    <div class="pad"><h3>Angelegt (${eq.length}/${slots})</h3><div class="rslots">${eqHtml}</div>
+  const tabs = `<div class="seg"><button class="${relicTab === 'relics' ? 'on' : ''}" data-a="rTab" data-t="relics">Relikte</button><button class="${relicTab === 'jewels' ? 'on' : ''}" data-a="rTab" data-t="jewels">Juwelen (${(save.jewels || []).length})</button></div>`;
+  const body = relicTab === 'jewels' ? jewelsTab(app.jewelSel) : `<h3>Angelegt (${eq.length}/${slots})</h3><div class="rslots">${eqHtml}</div>
     <h3>Sammlung (${save.relics.length}/60)</h3><div class="rgrid">${inv || '<p class="muted">Noch keine Relikte.</p>'}</div>
-    ${detail}</div>`);
+    ${detail}`;
+  screen(`${topbar('Relikte & Juwelen', 'hub', `<b class="dust">✦ ${fmt(save.dust)}</b>`)}<div class="pad">${tabs}${body}</div>`);
 }
+let relicTab = 'relics';
+on('rTab', (d) => { relicTab = d.t; showRelics(); });
+on('jSel', (d) => { app.jewelSel = d.u; showRelics(); });
 on('rsel', (d) => { relicSel = d.u; showRelics(); });
 on('req', () => {
   if (save.run) { toast('Relikte können nur zwischen Runs gewechselt werden.'); return; }

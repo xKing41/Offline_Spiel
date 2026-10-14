@@ -9,8 +9,9 @@ import { SLOTS, SLOT_NAME, RARITY, canCraft, itemName } from './data/items.js';
 import { ELEM, modText } from './data/stats.js';
 import {
   snapshot, boonMods, reachable, NODE_TYPES, LAYERS, xpNeed, rollBoons, applyChoice, genShop, forge, forgeCost,
-  sellValue, socket, unsocket, equip, sell, applyEvent, pickEvent, priceMult, genAbyssChoices, actInfo, itemLevel, addItem,
+  sellValue, socket, unsocket, equip, sell, applyEvent, pickEvent, priceMult, genAbyssChoices, actInfo, itemLevel, addItem, atlasHas,
 } from './run.js';
+import { PETS } from './data/endgame.js';
 import { makeItem } from './data/items.js';
 import { sfx, buzz } from './audio.js';
 
@@ -488,7 +489,7 @@ function showShrine() {
 on('shrinePick', (d) => {
   const run = R();
   const sh = SHRINES[Number(d.i)];
-  run.shrine = { name: sh.name, mods: sh.mods, fights: 2 };
+  run.shrine = { name: sh.name, mods: sh.mods, fights: atlasHas('aShrine') ? 3 : 2 };
   run.shrineChoice = null;
   sfx.levelup();
   finishNode();
@@ -517,6 +518,10 @@ export function showSummary(res, relics) {
   const accBefore = res.lvlBefore, acc = accountLevel();
   const relicHtml = relics.length ? `<h3>Neue Relikte</h3>${relics.map((r) => itemCard(r, { small: true })).join('')}` : '';
   const ach = res.achievements.length ? `<h3>Erfolge</h3>${res.achievements.map((a) => `<div class="ach done"><span class="ai">♛</span><div><b>${esc(a.name)}</b><small>${esc(a.desc)}</small></div></div>`).join('')}` : '';
+  const jewels = (save.run === null && res.jewelList) || [];
+  const atlas = res.atlasDone ? `<div class="panel atlasdone"><h3>✶ Atlas-Region bezwungen</h3><p>${esc(res.atlasDone.name)} · Stufe ${res.atlasDone.tier}${res.atlasDone.points ? ` · <b class="up">+${res.atlasDone.points} Atlaspunkt</b>` : ''}</p></div>` : '';
+  const pets = (res.hatched || []).length ? `<h3>Gefährten-Eier</h3>${res.hatched.map((h) => `<div class="ach done"><span class="ai">${PETS[h.id].glyph}</span><div><b>${esc(PETS[h.id].name)}</b><small>${h.isNew ? 'Neuer Gefährte!' : `Stufe ${h.lvl}`}</small></div></div>`).join('')}` : '';
+  const jewelHtml = jewels.length ? `<h3>Neue Juwelen</h3>${jewels.map((j) => itemCard(j, { small: true })).join('')}` : '';
   const quests = (res.quests || []).length ? `<h3>Aufträge erfüllt</h3>${res.quests.map((q) => `<div class="ach done"><span class="ai">✔</span><div><b>${esc(q.text)}</b><small>+✦ ${q.dust}${q.relic ? ' · Relikt' : ''}</small></div></div>`).join('')}` : '';
   const extra = `${res.prophBonus ? `<div class="srow"><span>Prophezeiungen</span><b class="up">+${res.prophBonus}% Staub</b></div>` : ''}${res.dailyBonus ? '<div class="srow"><span>Tägliche Herausforderung</span><b class="up">Staub ×2</b></div>' : ''}`;
   const title = res.win ? '<h1 class="win">TRIUMPH</h1>' : res.outcome === 'abandon' ? '<h1 class="lose">RÜCKZUG</h1>' : '<h1 class="lose">GEFALLEN</h1>';
@@ -529,5 +534,5 @@ export function showSummary(res, relics) {
     ${extra}${acc.level > accBefore ? `<p class="up">Kontostufe ${accBefore} → ${acc.level}! +${acc.level - accBefore} Sternpunkt${acc.level - accBefore > 1 ? 'e' : ''}</p>` : ''}
     ${bar(acc.cur, acc.need, 'xp')}</div>
     ${res.win && res.mode !== 'abyss' ? `<p class="up">Sternenhöhe ${res.asc + 1} freigeschaltet!</p>` : ''}
-    ${quests}${relicHtml}${ach}<button class="btn primary big" data-a="nav" data-to="hub">Zur Sternwarte</button></div>`);
+    ${atlas}${pets}${quests}${relicHtml}${jewelHtml}${ach}<button class="btn primary big" data-a="nav" data-to="hub">Zur Sternwarte</button></div>`);
 }

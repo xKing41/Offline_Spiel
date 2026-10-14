@@ -28,6 +28,7 @@ export class TreeView {
     this.search = '';
     this.matches = new Set();
     this.onSelect = () => {};
+    this.jewelColor = () => null;
     this.active = false;
     this.pointers = new Map();
     this.attach();
@@ -130,10 +131,11 @@ export class TreeView {
     this.select(best ? best.id : null);
   }
 
-  radius(n) { return { key: 26, notable: 17, start: 22, small: 9, travel: 6, hub: 9 }[n.type]; }
+  radius(n) { return { key: 26, notable: 17, start: 22, small: 9, travel: 6, hub: 9, jewel: 16 }[n.type]; }
   color(n) {
     if (n.type === 'key') return '#ffd84d';
     if (n.type === 'start') return CLASSES[n.cls].color;
+    if (n.type === 'jewel') return this.jewelColor(n.id) || '#62ffd0';
     if (n.type === 'travel' || n.type === 'hub') return '#a49cc9';
     return THEME_COLOR[n.theme] || '#c9c3b5';
   }
@@ -189,6 +191,9 @@ export class TreeView {
       ctx.beginPath();
       if (n.type === 'key') {
         for (let i = 0; i < 8; i++) { const a = (i * TAU) / 8, rr = i % 2 ? r * 0.72 : r; ctx.lineTo(n.x + Math.cos(a) * rr, n.y + Math.sin(a) * rr); }
+        ctx.closePath();
+      } else if (n.type === 'jewel') {
+        for (let i = 0; i < 6; i++) { const a = (i * TAU) / 6 + Math.PI / 6; ctx.lineTo(n.x + Math.cos(a) * r, n.y + Math.sin(a) * r); }
         ctx.closePath();
       } else if (n.type === 'notable') {
         ctx.moveTo(n.x, n.y - r); ctx.lineTo(n.x + r, n.y); ctx.lineTo(n.x, n.y + r); ctx.lineTo(n.x - r, n.y); ctx.closePath();

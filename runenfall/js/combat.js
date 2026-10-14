@@ -156,7 +156,8 @@ export class Combat {
       if (sk.S.def.beh !== 'minion') return;
       const mine = this.minions.filter((m) => m.skId === sk.S.id);
       for (let k = 0; k < sk.S.minions; k++) {
-        const m = mine[k] || { skId: sk.S.id, x: this.player.x + rand(-30, 30), y: this.player.y + rand(-30, 30), atk: rand(0, 0.5), kind: sk.S.def.kind, bob: Math.random() * 6 };
+        const d = sk.S.def;
+        const m = mine[k] || { skId: sk.S.id, x: this.player.x + rand(-30, 30), y: this.player.y + rand(-30, 30), atk: rand(0, 0.5), kind: d.kind, bob: Math.random() * 6, ranged: !!d.petRanged, petColor: d.color, glyph: d.glyph };
         keep.push(m);
       }
     });
@@ -306,7 +307,7 @@ export class Combat {
       if (save.settings.shake) this.shake = Math.max(this.shake, 5);
       sfx.hurt();
       buzz(25);
-      if (src && src.vamp) src.hp = Math.min(src.maxHp, src.hp + src.maxHp * 0.05);
+      if (src && (src.vamp || (src.d && src.d.vampHit))) src.hp = Math.min(src.maxHp, src.hp + src.maxHp * 0.08);
     }
     if (p.hp <= 0 && P.spec.spec_rebirth && !this.rebirthUsed) {
       this.rebirthUsed = true;
@@ -486,14 +487,15 @@ export class Combat {
     const chillAura = P.spec.spec_chillAura;
     this.updateEnvHazards(dt);
     // Unterstützer: Schilde und Heilung für Verbündete
-    const supports = this.enemies.filter((e) => !e.dead && (e.d.shield || e.shieldAura || e.d.heal));
-    for (const e of this.enemies) e.shielded = false;
+    const supports = this.enemies.filter((e) => !e.dead && (e.d.shield || e.shieldAura || e.d.heal || e.d.hasteAura));
+    for (const e of this.enemies) { e.shielded = false; e.hasted = false; }
     for (const s of supports) {
-      const sr = s.d.shield || s.shieldAura || 0, hr = s.d.heal || 0;
-      this.query(s.x, s.y, Math.max(sr, hr), (o) => {
+      const sr = s.d.shield || s.shieldAura || 0, hr = s.d.heal || 0, ar = s.d.hasteAura || 0;
+      this.query(s.x, s.y, Math.max(sr, hr, ar), (o) => {
         if (o === s || o.boss) return;
         const dd = Math.hypot(o.x - s.x, o.y - s.y);
         if (sr && dd < sr) o.shielded = true;
+        if (ar && dd < ar) o.hasted = true;
         if (hr && dd < hr && o.hp < o.maxHp && !o.hunt) o.hp = Math.min(o.maxHp, o.hp + o.maxHp * (o.elite ? 0.015 : 0.05) * dt);
       });
     }
@@ -558,6 +560,7 @@ export class Combat {
 
       let mx = dx, my = dy;
       if (e.affixes.includes('enraged') && e.hp < e.maxHp * 0.5) spd *= 1.6;
+      if (e.hasted) spd *= 1.35;
       if (e.affixes.includes('chilling') && d < 170) p.slowT = 0.2;
       const R = e.d.ranged;
       if (R) {
@@ -673,6 +676,20 @@ export class Combat {
   // ---------------------------------------------------------------- Boss
   updateBoss(e, dt, dx, dy, d, spd) {
     const p = this.player, b = e.b;
+    if (b.phases) {
+      const ratio = e.hp / e.maxHp;
+      let ph = 0;
+      b.phases.forEach((x, i) => { if (ratio <= x.at) ph = i; });
+      if (ph !== (e.phase || 0)) {
+        e.phase = ph;
+        e.pat = b.phases[ph].patterns.map(([n, cd]) => ({ n, cd, t: cd * rand(0.3, 0.6) }));
+        this.text(e.x, e.y - 60, `PHASE ${ph + 1}`, b.color, 1.8);
+        this.ring(e.x, e.y, 260, b.color, 0.8);
+        this.eprojs = [];
+        if (save.settings.shake) this.shake = 10;
+        sfx.boss();
+      }
+    }
     if (e.hp < e.maxHp * 0.5 && !e.rage) { e.rage = true; this.text(e.x, e.y - 50, 'WUT!', '#ff4d4d', 1.5); }
     // Laufende Muster
     if (e.charge) {
@@ -970,9 +987,11 @@ export class Combat {
       sfx.kill();
     }
     // Belohnungen
-    const xpv = e.xp * c.xpMult;
+    const eliteLoot = e.elite && c.eliteLoot ? 1.5 : 1;
+    const xpv = e.xp * c.xpMult * eliteLoot;
+    if (e.d.deathPool) { const dp = e.d.deathPool; this.hazards.push({ x: e.x, y: e.y, r: dp.r, t: dp.t, max: dp.t, dps: e.dmg * 0.6, elem: dp.elem }); }
     if (xpv > 0) this.dropOrb(e.x, e.y, 'xp', xpv);
-    if (Math.random() < 0.06 + (e.elite ? 0.9 : 0)) this.dropOrb(e.x + rand(-10, 10), e.y + rand(-10, 10), 'gold', randi(1, 3) * (c.act || 3) * (e.elite ? 5 : 1));
+    if (Math.random() < 0.06 + (e.elite ? 0.9 : 0)) this.dropOrb(e.x + rand(-10, 10), e.y + rand(-10, 10), 'gold', randi(1, 3) * (c.act || 3) * (e.elite ? 5 * eliteLoot : 1));
     if (Math.random() < (e.elite ? 0.3 : 0.007)) this.dropOrb(e.x, e.y, 'heart', 0.12);
     if (P.lifeOnKill) this.heal(P.lifeOnKill);
     if (e.elite) { this.stats.elites++; this.cb.onEliteKill(e); }
@@ -1262,6 +1281,13 @@ export class Combat {
   updateZones(dt) {
     for (const z of this.zones) {
       z.t -= dt; z.tick -= dt;
+      if (z.S.def.pull) {
+        this.query(z.x, z.y, z.r + 30, (e) => {
+          if (e.boss) return;
+          const dx = z.x - e.x, dy = z.y - e.y, d = Math.hypot(dx, dy);
+          if (d < z.r && d > 4) { const f = Math.min(d, 70 * dt) / d; e.x += dx * f; e.y += dy * f; }
+        });
+      }
       if (z.tick <= 0) { z.tick += 0.5; this.areaDot(z.S, z.x, z.y, z.r, 0.5); }
     }
     this.zones = this.zones.filter((z) => z.t > 0);
@@ -1292,23 +1318,23 @@ export class Combat {
       if (!sk) continue;
       const S = sk.S;
       m.bob += dt * 4;
-      const ranged = m.kind === 'wisp' || m.kind === 'spirit';
+      const ranged = m.kind === 'wisp' || m.kind === 'spirit' || m.ranged;
       const range = ranged ? 230 : m.kind === 'golem' ? 50 : 30;
       const tgt = this.nearest(m.x, m.y, 460);
       let tx, ty;
       if (tgt && Math.hypot(tgt.x - p.x, tgt.y - p.y) < 520) { tx = tgt.x; ty = tgt.y; }
       else { const a = m.bob * 0.3 + this.minions.indexOf(m); tx = p.x + Math.cos(a) * 50; ty = p.y + Math.sin(a) * 50; }
       const dx = tx - m.x, dy = ty - m.y, d = Math.hypot(dx, dy) || 1;
-      const spd = (m.kind === 'wisp' ? 210 : m.kind === 'spirit' ? 240 : m.kind === 'golem' ? 130 : 190) * (S.minionSpeed || 1);
+      const spd = (m.kind === 'wisp' ? 210 : m.kind === 'spirit' ? 240 : m.kind === 'golem' ? 130 : m.kind === 'pet' ? 230 : m.kind === 'wolf' ? 235 : m.kind === 'locust' ? 270 : 190) * (S.minionSpeed || 1);
       const stop = tgt && tx === tgt.x ? range * 0.8 : 10;
-      if (d > stop) { m.x += (dx / d) * spd * dt; m.y += (dy / d) * spd * dt; }
+      if (d > stop) { m.x += (dx / d) * spd * dt; m.y += (dy / d) * spd * dt; m.face = Math.atan2(dy, dx); }
       if (Math.hypot(m.x - p.x, m.y - p.y) > 600) { m.x = p.x; m.y = p.y; }
       m.atk -= dt;
       if (m.atk <= 0 && tgt && Math.hypot(tgt.x - m.x, tgt.y - m.y) < range + tgt.r) {
         m.atk = S.interval;
         if (ranged) {
           const extra = Math.max(1, S.count - (S.def.count || 1) + 1);
-          const col = m.kind === 'spirit' ? ELEM.fire.color : ELEM.light.color;
+          const col = m.kind === 'pet' ? m.petColor : m.kind === 'spirit' ? ELEM.fire.color : ELEM.light.color;
           this.fireProj({ ...S, count: extra, def: { ...S.def, range: 300, size: 5, spread: 0.2 }, projSpeed: 420 }, m.x, m.y, Math.atan2(tgt.y - m.y, tgt.x - m.x), col);
         } else if (m.kind === 'golem') {
           this.blast(S, tgt.x, tgt.y, 62, ELEM.cold.color);
@@ -1548,6 +1574,21 @@ export class Combat {
         const y = m.y + Math.sin(m.bob) * 4;
         ctx.drawImage(this.glow('#ffe34d', 22), m.x - 22, y - 22, 44, 44);
         ctx.fillStyle = '#fff6b0'; ctx.beginPath(); ctx.arc(m.x, y, 5, 0, TAU); ctx.fill();
+      } else if (m.kind === 'wolf') {
+        ctx.drawImage(this.glow('#8affd8', 20), m.x - 20, m.y - 20, 40, 40);
+        ctx.fillStyle = '#1a2e2a'; ctx.strokeStyle = '#bfffe8'; ctx.lineWidth = 2;
+        const a = m.face || 0;
+        ctx.beginPath(); ctx.moveTo(m.x + Math.cos(a) * 12, m.y + Math.sin(a) * 12);
+        ctx.lineTo(m.x + Math.cos(a + 2.4) * 9, m.y + Math.sin(a + 2.4) * 9); ctx.lineTo(m.x + Math.cos(a - 2.4) * 9, m.y + Math.sin(a - 2.4) * 9);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      } else if (m.kind === 'locust') {
+        ctx.fillStyle = '#c8ff5e';
+        ctx.beginPath(); ctx.arc(m.x + Math.sin(m.bob * 3) * 2, m.y + Math.cos(m.bob * 3) * 2, 3.5, 0, TAU); ctx.fill();
+      } else if (m.kind === 'pet') {
+        const y = m.y + Math.sin(m.bob) * 3;
+        ctx.drawImage(this.glow(m.petColor || '#ffffff', 26), m.x - 26, y - 26, 52, 52);
+        ctx.font = '20px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(m.glyph || '●', m.x, y);
       } else if (m.kind === 'spirit') {
         const y = m.y + Math.sin(m.bob * 1.3) * 5;
         ctx.drawImage(this.glow('#ff7a2a', 20), m.x - 20, y - 20, 40, 40);
@@ -1691,6 +1732,10 @@ export class Combat {
     if (e.d.heal) {
       ctx.strokeStyle = rgba('#7dffb0', 0.18); ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(e.x, e.y, e.d.heal, 0, TAU); ctx.stroke();
+    }
+    if (e.d.hasteAura) {
+      ctx.strokeStyle = rgba('#ff8a5c', 0.2); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.d.hasteAura, 0, TAU); ctx.stroke();
     }
     if (e.shielded) {
       ctx.strokeStyle = '#9fc4ff'; ctx.lineWidth = 2;

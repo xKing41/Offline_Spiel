@@ -71,6 +71,12 @@ export const KEYSTONES = {
 };
 
 export const CLASS_ORDER = ['pyro', 'storm', 'ranger', 'plague', 'warden', 'binder'];
+// Zusätzliche Klassen starten zwischen zwei Sektoren und erreichen beide.
+export const EXTRA_CLASSES = [
+  { cls: 'monk', between: 0, start: [inc('dmg_melee', 8), inc('speed', 4)] },
+  { cls: 'hunter', between: 2, start: [inc('dmg_attack', 8), inc('dmg_minion', 8)] },
+  { cls: 'chrono', between: 4, start: [inc('dmg_cold', 8), inc('dur', 8)] },
+];
 
 const SECTORS = {
   pyro: { themes: ['fire', 'spell', 'burn', 'area', 'elem', 'barrier', 'pen', 'aura', 'dmg', 'crit'], keys: ['eternal', 'starsoul'], minor: inc('dmg_spell', 4), start: [inc('dmg_fire', 8), flat('barrier', 10)] },
@@ -187,6 +193,30 @@ export function getTree() {
       const a = nodes.get(`s${k}c${c1}n`), b = nodes.get(`s${k2}c${c2}n`);
       path(nearestSmall(`s${k}c${c1}`, b.x, b.y), nearestSmall(`s${k2}c${c2}`, a.x, a.y), `b_${k}_${c1}`, null);
     }
+  });
+
+  // Zusätzliche Klassen
+  for (const ex of EXTRA_CLASSES) {
+    const k = ex.between, k2 = (k + 1) % 6;
+    const th = -90 + 60 * k + 30;
+    const sp = polar(250, th);
+    const sid = `start_${ex.cls}`;
+    add(sid, { ...sp, type: 'start', cls: ex.cls, name: 'Ursprung', mods: ex.start });
+    starts[ex.cls] = sid;
+    path(sid, `h${2 * k + 1}`, `p_${sid}_hub`, null);
+    path(sid, nearestSmall(`s${k}c1`, sp.x, sp.y), `p_${sid}_a`, null);
+    path(sid, nearestSmall(`s${k2}c0`, sp.x, sp.y), `p_${sid}_b`, null);
+  }
+
+  // Juwelsockel: zwei pro Sektor
+  CLASS_ORDER.forEach((cls, k) => {
+    const th = -90 + 60 * k;
+    [[820, 3], [1300, 8]].forEach(([r, c], i) => {
+      const jp = polar(r, th);
+      const jid = `jewel_${k}_${i}`;
+      add(jid, { ...jp, type: 'jewel', name: 'Juwelsockel', mods: [] });
+      path(nearestSmall(`s${k}c${c}`, jp.x, jp.y), jid, `p_${jid}`, cls);
+    });
   });
 
   cached = { nodes, edges, starts };
