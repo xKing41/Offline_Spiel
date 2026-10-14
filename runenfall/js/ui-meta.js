@@ -17,6 +17,7 @@ import { jewelsTab, jewelSocketPanel, paragonPanel } from './ui-endgame.js';
 import { modeGrid, modePanel, modeTiles, towerClaimPanel, modeWhere, resWhere } from './ui-modes.js';
 import { modeLock } from './data/modes.js';
 import { factionTiles, storyPanel, giftsPanel } from './ui-factions.js';
+import { resetHints } from './coach.js';
 import { PETS, SETS, getAtlas } from './data/endgame.js';
 
 on('nav', (d) => app.nav(d.to));
@@ -614,7 +615,8 @@ export function showSettings() {
   const st = save.settings;
   const tg = (k, label) => `<button class="toggle ${st[k] ? 'on' : ''}" data-a="setTog" data-k="${k}"><span>${label}</span><i></i></button>`;
   screen(`${topbar('Einstellungen')}<div class="pad"><div class="panel">
-    ${tg('sound', 'Ton')}${tg('vibrate', 'Vibration')}${tg('dmgNums', 'Schadenszahlen')}${tg('shake', 'Bildschirmwackeln')}</div>
+    ${tg('sound', 'Ton')}${tg('vibrate', 'Vibration')}${tg('dmgNums', 'Schadenszahlen')}${tg('shake', 'Bildschirmwackeln')}${tg('hints', 'Hinweise & Einführung')}
+    <button class="btn small ghost" data-a="hintsReset">Alle Hinweise erneut zeigen</button></div>
     <div class="panel"><h3>Grafik</h3><div class="seg">${[['auto', 'Automatisch'], ['high', 'Pracht'], ['low', 'Schnell']].map(([k, n]) => `<button class="${(st.gfx || 'auto') === k ? 'on' : ''}" data-a="setGfx" data-k="${k}">${n}</button>`).join('')}</div>
     <p class="small muted">„Pracht“: Licht, Schatten und Atmosphäre. „Schnell“ für ältere Handys. „Automatisch“ wechselt bei Rucklern selbst.</p></div>
     <div class="panel"><h3>Spielstand</h3><p class="small muted">Dein Fortschritt liegt nur auf diesem Gerät. Sichere ihn gelegentlich als Text (z. B. in einer Notiz).</p>
@@ -623,6 +625,7 @@ export function showSettings() {
     <p class="muted small center">Runenfall · läuft komplett offline</p></div>`);
 }
 on('setTog', (d) => { save.settings[d.k] = !save.settings[d.k]; persist(); showSettings(); });
+on('hintsReset', () => { resetHints(); save.hints.welcome = true; persist(); toast('Hinweise werden wieder angezeigt.'); showSettings(); });
 on('setGfx', (d) => { save.settings.gfx = d.k; app.combat.lowGfx = d.k === 'low'; persist(); showSettings(); });
 on('exp', () => {
   const code = exportSave();

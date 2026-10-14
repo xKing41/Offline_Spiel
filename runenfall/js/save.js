@@ -60,7 +60,8 @@ function defaults() {
       fastestWin: 1e9, lastCls: null, nemesisSlain: 0, nemesisMax: 0, beasts: 0, leagueRuns: 0, potionsBrewed: 0, buildingUps: 0, packsOpened: 0,
       maxTower: 0, towerWins: 0, rushBest: 0, rushClears: 0, rushFastest: 1e9, huntWins: 0, maxHunt: 0,
     },
-    settings: { sound: true, vibrate: true, dmgNums: true, shake: true, gfx: 'auto' },
+    settings: { sound: true, vibrate: true, dmgNums: true, shake: true, gfx: 'auto', hints: true },
+    hints: {},
     run: null,
   };
 }
@@ -79,7 +80,10 @@ export let save = load();
 function load() {
   let s;
   try { s = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { s = null; }
+  const oldSave = !!s && s.hints === undefined && s.stats && s.stats.runs > 0;
   s = fill(s || {}, defaults());
+  // Bestehende Spieler kennen die Grundlagen schon: nur Hinweise zu neuen Systemen zeigen
+  if (oldSave) for (const k of ['welcome', 'setup', 'map', 'move', 'orbs', 'levelup', 'rewards', 'build', 'glyph', 'boss', 'shop', 'forge', 'death', 'tree', 'codex', 'altar', 'relics', 'abyss', 'base', 'cards', 'nemesis', 'season', 'atlas', 'pets']) s.hints[k] = true;
   if (s.treeV !== TREE_VERSION) { s.alloc = {}; s.jewelSock = {}; s.mastery = {}; s.treeV = TREE_VERSION; s.treeReset = true; }
   // Startknoten sicherstellen
   const tree = getTree();

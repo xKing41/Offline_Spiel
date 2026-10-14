@@ -5,6 +5,13 @@ import { ELEM } from './data/stats.js';
 import { sfx, buzz } from './audio.js';
 import { save } from './save.js';
 import { bossLine } from './data/factions.js';
+
+/** Schadensanalyse eines Kampfes: je Rune, Element, Krit, Schaden über Zeit und erlittener Schaden. */
+const newAn = () => ({ sk: {}, el: {}, crit: [0, 0, 0, 0], dot: {}, other: 0, tk: {}, src: {}, dodged: 0 });
+const anSkill = (A, S) => {
+  const key = S.isPet ? 'pet:' + S.id : S.id;
+  return A.sk[key] || (A.sk[key] = { d: 0, h: 0, c: 0, dot: 0, k: 0 });
+};
 import {
   BIOME_FX, floorTile, soft, shadowSprite, enemySprite, bossSprite, tinted, isDirectional, isBlobby, runeCircle, playerSprite,
   makeAmbient, drawAmbient, vignette, nebulaBg, shade, setSpriteRes,
@@ -134,7 +141,7 @@ export class Combat {
     this.boss = null;
     this.bossSpawned = false;
     this.shake = 0;
-    this.stats = { kills: 0, maxHit: 0, elites: 0, dmgDone: 0, byType: {}, hitsTaken: 0 };
+    this.stats = { kills: 0, maxHit: 0, elites: 0, dmgDone: 0, byType: {}, hitsTaken: 0, an: newAn() };
     this.hazards = [];
     this.decals = [];
     this.hitstop = 0; this.slowmo = 0; this.lastStop = -1; this.whiteFlash = 0; this.lastKrit = -1; this.lastAil = -1;
@@ -315,6 +322,7 @@ export class Combat {
         p.inv = 0.18;
         this.text(p.x, p.y - 20, 'Ausgewichen', '#9fe7ff', 0.8);
         sfx.dodge();
+        this.stats.an.dodged++;
         return;
       }
     }
@@ -322,6 +330,11 @@ export class Combat {
     if (elem === 'phys') dmg *= 1 - Math.min(0.9, P.armor / (P.armor + 8 * amount));
     else dmg *= 1 - (P.res[elem] || 0) / 100;
     dmg *= P.dmgTaken;
+    {
+      const A = this.stats.an, who = src ? (src.nemesis ? src.nemesis.name : src.name || (src.d && src.d.name)) || 'Unbekannt' : 'Umgebung';
+      A.tk[elem] = (A.tk[elem] || 0) + dmg;
+      if (A.src[who] !== undefined || Object.keys(A.src).length < 40) A.src[who] = (A.src[who] || 0) + dmg;
+    }
     if (p.barrier > 0) {
       const ab = Math.min(p.barrier, dmg);
       p.barrier -= ab;
@@ -589,24 +602,25 @@ export class Combat {
       if (chillAura && d < 170) { e.chill = Math.max(e.chill, 0.3); e.chillEff = Math.max(e.chillEff, 0.3); }
 
       // Schaden über Zeit
-      let dot = 0;
+      let dot = 0, dB = 0, dP = 0, dL = 0;
       if (e.burns.length) {
         let sum = 0, mx = 0;
         for (const b of e.burns) { b.t -= dt; sum += b.dps; mx = Math.max(mx, b.dps); }
         e.burns = e.burns.filter((b) => b.t > 0);
-        dot += (e.burnStack ? sum : mx) * (1 - this.resOf(e, 'fire') / 100);
+        dB = (e.burnStack ? sum : mx) * (1 - this.resOf(e, 'fire') / 100);
       }
       if (e.poisons.length) {
         let sum = 0;
         for (const ps of e.poisons) { ps.t -= dt; sum += ps.dps; }
         e.poisons = e.poisons.filter((ps) => ps.t > 0);
-        dot += sum * (1 - this.resOf(e, 'chaos') / 100);
+        dP = sum * (1 - this.resOf(e, 'chaos') / 100);
       }
       if (e.bleed) {
         e.bleed.t -= dt;
-        dot += e.bleed.dps * (1 - this.resOf(e, 'phys') / 100) * (d > 0 ? 1 : 1);
+        dL = e.bleed.dps * (1 - this.resOf(e, 'phys') / 100);
         if (e.bleed.t <= 0) e.bleed = null;
       }
+      dot = dB + dP + dL;
       if (dot > 0) {
         let m = e.takenMult;
         if (e.shock > 0) m *= 1 + e.shockEff;
@@ -614,6 +628,12 @@ export class Combat {
         const v = dot * m * dt;
         e.hp -= v;
         this.stats.dmgDone += v;
+        // Analyse: Schaden über Zeit nach Art, Element und auslösender Rune
+        const A = this.stats.an, f = m * dt;
+        if (dB) { A.dot.burn = (A.dot.burn || 0) + dB * f; A.el.fire = (A.el.fire || 0) + dB * f; }
+        if (dP) { A.dot.poison = (A.dot.poison || 0) + dP * f; A.el.chaos = (A.el.chaos || 0) + dP * f; }
+        if (dL) { A.dot.bleed = (A.dot.bleed || 0) + dL * f; A.el.phys = (A.el.phys || 0) + dL * f; }
+        if (e.lastS) { const k = anSkill(A, e.lastS); k.d += v; k.dot += v; } else A.other += v;
         e.dotAcc += v;
         e.dotShow -= dt;
         if (e.dotShow <= 0) {
@@ -1147,8 +1167,20 @@ export class Combat {
     }
     total *= e.takenMult;
     e.lastS = S;
+    // Analyse: Schaden je Rune, Element und Krit
+    {
+      const A = this.stats.an, k = anSkill(A, S);
+      k.d += total; k.h++;
+      A.crit[0]++; A.crit[3] += total;
+      if (crit) { k.c++; A.crit[1]++; A.crit[2] += total; }
+      let rs = 0;
+      for (const t in raw) rs += raw[t];
+      if (rs > 0) for (const t in raw) A.el[t] = (A.el[t] || 0) + (total * raw[t]) / rs;
+    }
     const hadAil = { frozen: e.frozen > 0, burn: e.burns.length > 0, shock: e.shock > 0, poison: e.poisons.length > 0, bleed: !!e.bleed };
+    this._inHit = true;
     this.dealDamage(e, total, crit, S);
+    this._inHit = false;
     impact(this, S, e.x, e.y);
     // Rückstoß (Bosse und unbewegliche Gegner sind immun)
     if (!e.boss && e.speed > 0) {
@@ -1219,6 +1251,8 @@ export class Combat {
     e.hp -= amount;
     e.flash = 0.08;
     this.stats.dmgDone += amount;
+    if (!S) this.stats.an.other += amount;
+    else if (!this._inHit) anSkill(this.stats.an, S).d += amount;
     if (amount > this.stats.maxHit) this.stats.maxHit = amount;
     if (crit) sfx.crit(); else sfx.hit();
     this.dmgText(e, amount, crit, S ? typeColor(S.dmg) : '#fff');
@@ -1270,9 +1304,11 @@ export class Combat {
     this.query(x, y, r + 30, (e) => {
       if (Math.hypot(e.x - x, e.y - y) > r + e.r * 0.5) return;
       let total = 0;
+      const parts = {};
       for (const t in S.dmg) {
         const avg = (S.dmg[t][0] + S.dmg[t][1]) / 2;
-        total += avg * secs * (1 - (this.resOf(e, t) - S.pen[t]) / 100);
+        parts[t] = avg * secs * (1 - (this.resOf(e, t) - S.pen[t]) / 100);
+        total += parts[t];
       }
       let m = e.takenMult;
       if (e.shock > 0) m *= 1 + e.shockEff;
@@ -1281,6 +1317,9 @@ export class Combat {
       e.hp -= total;
       e.lastS = S;
       this.stats.dmgDone += total;
+      const A = this.stats.an, k = anSkill(A, S);
+      k.d += total; k.dot += total;
+      for (const t in parts) A.el[t] = (A.el[t] || 0) + parts[t] * m;
       e.dotAcc += total;
       if (e.hp <= 0) this.kill(e, S);
     });
@@ -1288,6 +1327,7 @@ export class Combat {
 
   kill(e, S, silent = false) {
     if (!e.dead) this.stats.byType[e.id] = (this.stats.byType[e.id] || 0) + 1;
+    if (!e.dead && S) anSkill(this.stats.an, S).k++;
     if (e.dead) return;
     e.dead = true;
     const c = this.cfg, P = this.P;

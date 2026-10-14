@@ -488,6 +488,8 @@ export function combatCfg(run, node) {
   const mu = (k) => (run.mutators && run.mutators.includes(k)) || (A.regionMods && A.regionMods.includes(k));
   const trial = node.type === 'trial' || node.arena;
   const kind = node.type === 'boss' ? 'boss' : node.type === 'elite' || trial ? 'elite' : 'fight';
+  // Allererster Run: die ersten Kämpfe und der erste Boss sind sanfter
+  const tut = save.stats.runs === 0 && run.mode === 'normal' && run.act === 0 && (kind === 'boss' || (run.map.pos ? run.map.pos[0] : 0) <= 1) ? 0.7 : 1;
   const bossId = kind === 'boss' ? (node.boss || A.boss) : null;
   if (bossId) ensureBoss(bossId);
   // Sternenjagd: Splitter schwächen die Bestie, ein Hinterhalt stärkt sie
@@ -496,10 +498,10 @@ export function combatCfg(run, node) {
     kind, act, power, pool: A.pool, trial, nemesis: pickNemesis(run, kind),
     bossId,
     duration: kind === 'boss' ? 0 : run.mode === 'tower' ? 26 + act * 3 : 34 + act * 4,
-    hpMult: ascHpMult(asc) * (mu('titans') ? 1.5 : 1) * (mu('horde') ? 0.75 : 1) * (trial ? 1.25 : 1),
+    hpMult: ascHpMult(asc) * (mu('titans') ? 1.5 : 1) * (mu('horde') ? 0.75 : 1) * (trial ? 1.25 : 1) * tut,
     dmgMult: ascDmgMult(asc) * (mu('brutal') ? 1.4 : 1),
     asc,
-    density: (1 + 0.08 * (act - 1)) * (ascHas(asc, 'density') ? 1.25 : 1) * (mu('horde') ? 1.6 : 1),
+    density: (1 + 0.08 * (act - 1)) * (ascHas(asc, 'density') ? 1.25 : 1) * (mu('horde') ? 1.6 : 1) * (tut < 1 ? 0.75 : 1),
     eliteAffixes: Math.min(5, act + (ascHas(asc, 'eliteAffix') ? 1 : 0) + (mu('elites') ? 1 : 0) + (trial ? 1 : 0)),
     champChance: ascHas(asc, 'elites') ? 0.6 : 0.3,
     extraElite: ascHas(asc, 'elites') || trial,
@@ -938,9 +940,13 @@ export function endRun(run, outcome) {
     quests, prophBonus, dailyBonus, mutators: run.mutators || [], ascend: run.ascend, hatched, atlasDone: run.atlasDone || null,
     nemesis, mats, sxp, packs, nemesisSlain: run.nemesisSlain || [], cards: run.cards || [], league: run.league,
     tier: run.hunt ? run.hunt.tier : null, modeLines: modeRes.lines, towerRank: modeRes.rank || null, faction: fac, gifts: run.gifts || [],
+    an: s.an || null, runSkills: run.skills.map((x) => ({ id: x.id, evo: x.evo, traits: x.traits })),
   };
   const score = depth * 1000 + run.asc * 5000 + s.kills;
-  if (['normal', 'abyss', 'tower'].includes(run.mode) && (!st.bestRun || score > st.bestRun.score)) st.bestRun = { score, ...result, date: Date.now() };
+  if (['normal', 'abyss', 'tower'].includes(run.mode) && (!st.bestRun || score > st.bestRun.score)) {
+    const { an, runSkills, faction, ...keep } = result;
+    st.bestRun = { score, ...keep, date: Date.now() };
+  }
   save.run = null;
   result.achievements = checkAchievements();
   persist();

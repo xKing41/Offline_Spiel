@@ -18,6 +18,8 @@ import { showMap, showBuild, showLevelUp, showRewards, showShop, showForge, show
 import { sfx, buzz } from './audio.js';
 import { towerCampAfter, RUSH_LEN, rushCampAfter, huntTile } from './data/modes.js';
 import { showFactions, showStory } from './ui-factions.js';
+import { coach, welcome } from './coach.js';
+import { mergeAn, analysisHtml } from './analysis.js';
 
 const combat = new Combat($('#cv'));
 const treeView = new TreeView($('#tree'));
@@ -36,7 +38,9 @@ app.nav = (to) => {
   if (to !== 'tree') treeView.close();
   if (to === 'map' && !save.run) to = 'hub';
   (SCREENS[to] || showHub)();
+  if (['setup', 'tree', 'codex', 'altar', 'relics', 'base', 'cards', 'nemesis', 'season', 'atlas', 'pets', 'factions', 'story'].includes(to)) coach(to);
 };
+app.resetClock = () => { last = performance.now(); };
 app.showMap = () => app.nav('map');
 
 app.startRun = (opts) => {
@@ -109,6 +113,7 @@ app.startCombat = (node) => {
     onBoss(e) {
       $('#hBoss').classList.remove('hidden');
       $('#hBossName').textContent = e.name;
+      coach('boss');
     },
     onDeath() {
       if (run.revive) {
@@ -123,6 +128,9 @@ app.startCombat = (node) => {
     onLose(stats) { if (run.rush) run.rush.time += combat.t; addStats(stats); run.killer = combat.killer || null; $('#hud').classList.remove('show'); combat.cfg = null; finishRun('death'); },
   });
   last = performance.now();
+  // Einführung im ersten Kampf
+  if (!save.hints || !save.hints.move) setTimeout(() => coach('move'), 700);
+  else if (!save.hints.orbs) setTimeout(() => { if (combat.running) coach('orbs'); }, 5000);
 };
 
 function refreshCombatStats() {
@@ -139,6 +147,8 @@ function addStats(st) {
   run.stats.maxSet = Math.max(run.stats.maxSet || 0, setCountMax(run));
   run.stats.byType = run.stats.byType || {};
   for (const [k, v] of Object.entries(st.byType || {})) run.stats.byType[k] = (run.stats.byType[k] || 0) + v;
+  run.stats.an = mergeAn(run.stats.an, st.an, combat.t);
+  run.lastAn = { an: st.an, t: combat.t };
   run.hp = Math.max(1, combat.player.hp);
 }
 
@@ -219,6 +229,7 @@ function finishRun(outcome) {
   res.jewelList = jewelIds.map((u) => (save.jewels || []).find((j) => j.uid === u)).filter(Boolean);
   if (outcome === 'win') sfx.win();
   showSummary(res, relics);
+  if (outcome !== 'win') coach('death');
 }
 
 // ===================================================================== HUD
@@ -257,10 +268,15 @@ function showPauseMenu() {
   modal(`<h2>Pause</h2><div class="col">
     <button class="btn primary" data-a="resume">Weiter</button>
     <button class="btn" data-a="pbuild">⚒ Build ansehen</button>
+    <button class="btn" data-a="pAnalysis">📊 Schadensanalyse</button>
     <button class="btn ghost" data-a="pquit">Zur Sternwarte (Kampf wird neu gestartet)</button></div>`);
 }
 on('resume', () => { closeModal(); hideScreen(); refreshCombatStats(); combat.paused = false; last = performance.now(); });
 on('pbuild', () => { closeModal(); showBuild('combat'); });
+on('pAnalysis', () => {
+  modal(`<h2>📊 Dieser Kampf</h2>${analysisHtml(combat.stats.an, combat.t, save.run)}<div class="col"><button class="btn primary" data-a="pAnBack">Zurück</button></div>`);
+});
+on('pAnBack', () => showPauseMenu());
 on('pquit', () => {
   closeModal();
   combat.running = false;
@@ -320,5 +336,6 @@ if (cap && cap.Plugins && cap.Plugins.App) {
 checkAchievements();
 persist();
 app.nav('hub');
+welcome(() => app.nav('setup'));
 requestAnimationFrame(frame);
 if (location.hash === '#debug') window.__rf = { app, save: () => save, combat, treeView, snapshot };

@@ -21,6 +21,8 @@ import { EVOLUTIONS, evolvedDef, evoOf } from './data/evolutions.js';
 import { pendingEvolution, evolveRune, eventById } from './run.js';
 import { FACTIONS, facIcon } from './data/factions.js';
 import { factionSummary } from './ui-factions.js';
+import { coach } from './coach.js';
+import { analysisHtml, analysisTop } from './analysis.js';
 import { showTowerRun, showRushRun, showHuntRun, modeWhere, resWhere } from './ui-modes.js';
 import { huntTile } from './data/modes.js';
 
@@ -53,6 +55,8 @@ export function showMap() {
   const ev = pendingEvolution(run);
   if (ev < 0) evoShown = false;
   else if (!evoShown) { evoShown = true; setTimeout(() => showEvolution(ev, () => { evoShown = false; showMap(); }), 30); }
+  coach(run.mode === 'normal' ? 'map' : run.mode);
+  if (run.glyphs.length && run.skills.some((s) => s.sup.includes(null))) coach('glyph');
   if (run.mode === 'abyss') return showAbyss();
   if (run.mode === 'tower') return showTowerRun();
   if (run.mode === 'rush') return showRushRun();
@@ -166,16 +170,18 @@ let buildTab = 'skills';
 let glyphPick = null;
 export function showBuild(back = 'map') {
   const run = R();
+  coach('build');
   const snap = snapshot(run);
-  const tabs = [['skills', 'Runen'], ['gear', 'Ausrüstung'], ['sheet', 'Werte'], ['boons', 'Segen']]
+  const tabs = [['skills', 'Runen'], ['gear', 'Ausrüstung'], ['sheet', 'Werte'], ['boons', 'Segen'], ['an', 'Analyse']]
     .map(([k, n]) => `<button class="${buildTab === k ? 'on' : ''}" data-a="btab" data-t="${k}">${n}</button>`).join('');
   let body = '';
   if (buildTab === 'skills') body = skillsTab(run, snap);
   else if (buildTab === 'gear') body = gearTab(run);
   else if (buildTab === 'sheet') body = sheetTab(run, snap);
+  else if (buildTab === 'an') body = anTab(run);
   else body = boonsTab(run);
   screen(`<div class="topbar"><button class="icon" data-a="buildBack">‹</button><h2>Build</h2><div class="tb-extra"><span class="gold">● ${fmt(run.gold)}</span></div></div>
-    <div class="pad"><div class="seg">${tabs}</div>${body}</div>`, 'runscreen');
+    <div class="pad"><div class="seg tabs5">${tabs}</div>${body}</div>`, 'runscreen');
   buildBackTo = back;
 }
 let buildBackTo = 'map';
@@ -231,6 +237,7 @@ export function showEvolution(idx, next) {
   const run = R();
   const sk = run.skills[idx];
   if (!sk || sk.evo || !EVOLUTIONS[sk.id]) return next && next();
+  coach('evo');
   app._evoNext = next;
   modal(`<h2 class="center evotitle">✦ Evolution ✦</h2>
     <p class="center"><b>${esc(runeName(sk))}</b> hat die Höchststufe erreicht. Wähle ihre endgültige Form – die Entscheidung gilt für diesen Run.</p>
@@ -305,6 +312,15 @@ function sheetTab(run, snap) {
     ${row('Run-Erfahrung', `${fmt(run.xp)} / ${fmt(xpNeed(run.lvl))}`)}</div>${spec}`;
 }
 
+function anTab(run) {
+  const seg = `<div class="seg small"><button class="${anScope === 'run' ? 'on' : ''}" data-a="anScope" data-s="run">Ganzer Run</button><button class="${anScope === 'last' ? 'on' : ''}" data-a="anScope" data-s="last">Letzter Kampf</button></div>`;
+  const body = anScope === 'last' ? (run.lastAn ? analysisHtml(run.lastAn.an, run.lastAn.t, run) : '<p class="muted small center">Noch kein Kampf.</p>')
+    : analysisHtml(run.stats.an, run.stats.an ? run.stats.an.time : 0, run);
+  return `${seg}<div class="panel">${body}</div>`;
+}
+let anScope = 'run';
+on('anScope', (d) => { anScope = d.s; showBuild(buildBackTo); });
+
 function boonsTab(run) {
   if (!run.boons.length && !run.runMods.length) return '<p class="muted center">Noch keine Segen. Du erhältst sie beim Stufenaufstieg.</p>';
   const list = run.boons.map((b) => `<li style="color:${BOON_RARITY[b.r].color}">${boonMods(b).map(modText).map(esc).join(', ')}</li>`).join('');
@@ -316,6 +332,7 @@ function boonsTab(run) {
 let lvlChoices = null;
 export function showLevelUp(onDone) {
   const run = R();
+  coach('levelup');
   if (!lvlChoices) lvlChoices = rollBoons(run);
   const cards = lvlChoices.map((c, i) => choiceCard(run, c, i, 'lvlPick')).join('');
   modal(`<h2 class="lvlup">STUFE ${run.lvl - run.pendingLvl + 1}</h2><p class="muted center small">Wähle einen Segen</p>
@@ -384,6 +401,7 @@ let rewardState = null;
 export function showRewards(choices, info, onDone) {
   rewardState = { choices, onDone, info };
   const run = R();
+  coach('rewards');
   const cards = choices.map((c, i) => choiceCard(run, c, i, 'rewPick')).join('');
   modal(`<h2 class="win">SIEG</h2><p class="center small">${info}</p><p class="muted center small">Wähle eine Belohnung</p>
     <div class="choices">${cards}</div><button class="btn small ghost" data-a="rewSkip">Überspringen (+● ${Math.round(15 * priceMult(run))})</button>`, 'rewards');
@@ -410,6 +428,7 @@ on('rewSkip', () => {
 // ===================================================================== Händler
 export function showShop(fresh) {
   const run = R();
+  coach('shop');
   if (fresh || !run.shop) run.shop = genShop(run);
   const { P } = snapshot(run);
   const offers = run.shop.map((o, i) => {
@@ -459,6 +478,7 @@ on('leave', () => finishNode());
 let forgeSel = null;
 export function showForge() {
   const run = R();
+  coach('forge');
   const all = [...SLOTS.map((s) => run.eq[s]).filter(Boolean), ...run.bag].filter((it) => it.slot !== 'relic' && it.slot !== 'jewel');
   const list = all.map((it) => `<button class="bagi ${forgeSel === it.uid ? 'sel' : ''}" style="--rc:${RARITY[it.rarity].color}" data-a="fSel" data-u="${it.uid}">
     <small>${SLOT_NAME[it.slot]}${Object.values(run.eq).includes(it) ? ' · angelegt' : ''}${it.corrupt ? ' · ⛧' : ''}</small><b>${esc(itemName(it))}</b></button>`).join('');
@@ -650,5 +670,5 @@ export function showSummary(res, relics) {
     ${extra}${modeRows}${acc.level > accBefore ? `<p class="up">Kontostufe ${accBefore} → ${acc.level}! +${acc.level - accBefore} Sternpunkt${acc.level - accBefore > 1 ? 'e' : ''}</p>` : ''}
     ${bar(acc.cur, acc.need, 'xp')}</div>
     ${res.win && res.mode === 'normal' ? `<p class="up">Sternenhöhe ${res.asc + 1} freigeschaltet!</p>` : ''}
-    ${systemsSummary(res)}${factionSummary(res)}${atlas}${pets}${quests}${relicHtml}${jewelHtml}${ach}<button class="btn primary big" data-a="nav" data-to="hub">Zur Sternwarte</button></div>`);
+    ${analysisTop(res.an, { skills: res.runSkills || [] })}${systemsSummary(res)}${factionSummary(res)}${atlas}${pets}${quests}${relicHtml}${jewelHtml}${ach}<button class="btn primary big" data-a="nav" data-to="hub">Zur Sternwarte</button></div>`);
 }
