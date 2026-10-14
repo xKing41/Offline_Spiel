@@ -4,6 +4,7 @@ import { SKILLS, SUPPORTS, catTags } from './data/skills.js';
 import { TAG_NAME, ELEM, modText } from './data/stats.js';
 import { BASES, RARITY, SLOT_NAME, UNIQUES, itemName, itemMods, affixLine } from './data/items.js';
 import { SETS, JEWEL_SPECIALS } from './data/endgame.js';
+import { MYTHIC_EFFECTS } from './data/systems.js';
 import { sfx, unlockAudio } from './audio.js';
 
 export const $ = (s, r = document) => r.querySelector(s);
@@ -87,6 +88,12 @@ export function itemCard(item, { compare = null, actions = '', small = false } =
     for (const af of item.affixes) {
       const l = affixLine(item, af);
       lines.push(`<li>${esc(l.text)} <span class="tier">S${l.tier}</span></li>`);
+    }
+    if (item.rarity === 'mythic' && item.effects) {
+      for (const e of item.effects) {
+        const fx = MYTHIC_EFFECTS[e];
+        lines.push(`<li class="myth">✦ ${esc(fx.name)}: ${fx.mods.map((m) => esc(modText(m))).join(', ')}</li>`);
+      }
     }
     if (item.slot === 'jewel' && item.special !== null && item.special !== undefined) {
       for (const m of JEWEL_SPECIALS[item.special]) lines.push(`<li class="u">✦ ${esc(modText(m))}</li>`);

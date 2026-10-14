@@ -363,3 +363,4 @@ h2.evt { text-align: center; color: var(--cyan); }
 .treebar input { min-width: 90px; }
 .seg { overflow-x: auto; scrollbar-width: none; }
 .seg button { flex: 1 0 auto; padding-left: 10px; padding-right: 10px; }
+.mods li.myth { color: #ff8fae; }

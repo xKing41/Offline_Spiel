@@ -2,6 +2,7 @@
 import { pick, weighted, uid, clamp } from '../util.js';
 import { modText } from './stats.js';
 import { SETS, JEWEL_AFFIX, jewelMods } from './endgame.js';
+import { MYTHIC_EFFECTS, mythicTitle } from './systems.js';
 
 export const SLOTS = ['weapon', 'armor', 'helm', 'gloves', 'boots', 'belt', 'amulet', 'ring'];
 export const SLOT_NAME = {
@@ -609,6 +610,12 @@ function rollAffix(slot, ilvl, existing) {
 export function itemMods(item) {
   if (item.rarity === 'unique') return UNIQUES[item.uq].mods;
   if (item.rarity === 'set') return SETS[item.set].pieces[item.piece].mods;
+  if (item.rarity === 'mythic' && item.slot !== 'relic' && item.slot !== 'jewel') {
+    const out = [...(BASES[item.base].imp || [])];
+    for (const af of item.affixes) { const d = AFFIX[af.id]; if (d) out.push({ s: d.s, t: d.t, v: af.v }); }
+    for (const e of item.effects || []) out.push(...MYTHIC_EFFECTS[e].mods);
+    return out;
+  }
   if (item.slot === 'jewel') return jewelMods(item);
   const out = [...(BASES[item.base].imp || [])];
   for (const af of item.affixes) {
@@ -623,7 +630,7 @@ export function itemName(item) {
   if (item.rarity === 'unique') return UNIQUES[item.uq].name;
   if (item.rarity === 'set') return SETS[item.set].pieces[item.piece].name;
   if (item.slot === 'jewel') return item.title || 'Juwel';
-  if (item.rarity === 'rare' || item.slot === 'relic') return item.title || base.name;
+  if (item.rarity === 'rare' || item.rarity === 'mythic' || item.slot === 'relic') return item.title || base.name;
   if (item.rarity === 'magic') {
     const p = item.affixes.map((x) => AFFIX[x.id]).find((a) => a && a.k === 'pre');
     const s = item.affixes.map((x) => AFFIX[x.id]).find((a) => a && a.k === 'suf');
@@ -633,6 +640,21 @@ export function itemName(item) {
 }
 
 export function rareTitle() { return pick(RARE_A) + pick(RARE_B); }
+
+/** Mythischer Gegenstand: vier Affixe auf höchster Stufe plus ein bis zwei Spezialeffekte. */
+export function makeMythic(ilvl = 60, slot) {
+  slot = slot || pick(SLOTS);
+  const bases = Object.keys(BASES).filter((k) => BASES[k].slot === slot);
+  const item = { uid: uid(), slot, base: pick(bases), rarity: 'mythic', ilvl: Math.max(ilvl, 40), affixes: [], effects: [], title: mythicTitle() };
+  for (let i = 0; i < 4; i++) {
+    const af = rollAffix(slot, item.ilvl + 25, item.affixes);
+    if (af) item.affixes.push(af);
+  }
+  const n = Math.random() < 0.3 ? 2 : 1;
+  const pool = MYTHIC_EFFECTS.map((_, i) => i);
+  for (let i = 0; i < n; i++) item.effects.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  return item;
+}
 
 /** Set-Teil erzeugen (bevorzugt für den gewünschten Platz). */
 export function makeSetItem(slot) {
@@ -701,7 +723,7 @@ export function craftUpgrade(item) {
   return true;
 }
 export function canCraft(item) {
-  return item.rarity !== 'unique' && item.rarity !== 'set' && item.slot !== 'relic' && item.slot !== 'jewel';
+  return item.rarity !== 'unique' && item.rarity !== 'set' && item.rarity !== 'mythic' && item.slot !== 'relic' && item.slot !== 'jewel';
 }
 
 // ---------- Relikte ----------
@@ -737,4 +759,4 @@ export function affixLine(item, af) {
   return { text: modText({ s: d.s, t: d.t, v: af.v }), tier: af.tier + 1 };
 }
 
-export const itemValue = (item) => Math.round((item.rarity === 'unique' || item.rarity === 'set' ? 60 : item.rarity === 'rare' ? 30 : item.rarity === 'magic' ? 14 : 6) * (1 + item.ilvl / 20));
+export const itemValue = (item) => Math.round((item.rarity === 'mythic' ? 150 : item.rarity === 'unique' || item.rarity === 'set' ? 60 : item.rarity === 'rare' ? 30 : item.rarity === 'magic' ? 14 : 6) * (1 + item.ilvl / 20));

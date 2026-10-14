@@ -275,6 +275,7 @@ export class Combat {
   damagePlayer(amount, elem = 'phys', isHit = true, src = null) {
     const p = this.player, P = this.P;
     if (this.over) return;
+    if (src && src.d) this.lastSrc = src;
     if (isHit) {
       if (p.inv > 0) return;
       const evade = P.evasion / (P.evasion + 600);
@@ -328,6 +329,8 @@ export class Combat {
         this.over = true;
         this.endT = 1.6;
         this.result = { win: false };
+        const k = src && src.d ? src : this.lastSrc;
+        this.killer = k ? { id: k.id, name: k.nemesis ? k.nemesis.name : k.name || k.d.name, boss: !!k.boss, color: k.color, nemesisUid: k.nemesis ? k.nemesis.uid : null } : null;
         sfx.death();
         buzz([80, 60, 200]);
         this.burst(p.x, p.y, '#ffffff', 60, 260);
@@ -410,6 +413,39 @@ export class Combat {
     this.text(e.x, e.y - 30, e.name, '#ffd84d', 1);
   }
 
+  spawnNemesis(n) {
+    const pos = this.spawnPos();
+    const e = this.makeEnemy(n.base, pos.x, pos.y);
+    const k = 6 + 2.5 * n.rank;
+    e.hp = e.maxHp = e.maxHp * k;
+    e.dmg *= 1.3 + 0.12 * n.rank;
+    e.r *= 1.6; e.xp *= 15; e.speed *= 1.05;
+    e.elite = true; e.nemesis = n; e.color = n.color; e.name = n.name;
+    for (const t of n.traits) {
+      if (t === 'tough') { e.hp = e.maxHp = e.maxHp * 1.6; }
+      if (t === 'swift') e.speed *= 1.4;
+      if (t === 'fireborn') { e.res.fire = 75; e.affixes.push('burning'); }
+      if (t === 'frostheart') { e.res.cold = 75; e.affixes.push('chilling'); }
+      if (t === 'stormsoul') { e.res.light = 75; e.extraRanged = { cd: 2.4, elem: 'light', burst: 3 }; }
+      if (t === 'blinker') e.blinkCd = 3;
+      if (t === 'summoner') e.sumT = 4;
+      if (t === 'vampire') e.vamp = true;
+      if (t === 'splitter') e.splitElite = true;
+      if (t === 'shield') e.shieldAura = 170;
+      if (t === 'regen') e.affixes.push('regen');
+      if (t === 'sniper') e.extraRanged = { cd: 2.2, elem: 'phys', burst: 4 };
+      if (t === 'wrath') e.affixes.push('enraged');
+      if (t === 'armored') e.takenMult *= 0.6;
+      if (t === 'bomber') e.nemMines = 2;
+      if (t === 'hunter') e.nemLeap = 3;
+    }
+    this.enemies.push(e);
+    this.ring(e.x, e.y, 120, '#ff4d4d', 0.8);
+    this.text(this.player.x, this.player.y - 90, `☠ ${n.name} (Rang ${n.rank}) jagt dich!`, '#ff6b6b', 1.3);
+    sfx.boss();
+    buzz([60, 40, 60]);
+  }
+
   spawnBoss() {
     const c = this.cfg, b = BOSSES[c.bossId];
     const pos = { x: this.player.x, y: this.player.y - 330 };
@@ -445,6 +481,7 @@ export class Combat {
         }
       }
       while (this.eliteTimes.length && this.t >= this.eliteTimes[0]) { this.eliteTimes.shift(); this.spawnElite(); }
+      if (c.nemesis && !this.nemSpawned && this.t > 6) { this.nemSpawned = true; this.spawnNemesis(c.nemesis); }
     } else {
       this.hazardT = Math.max(this.hazardT, 0);
       if (!this.bossSpawned && this.t > 1.2) this.spawnBoss();
@@ -458,6 +495,7 @@ export class Combat {
   /** Umgebungsgefahren des Gebiets (Lava, Gift, Blitze, Meteore). */
   updateEnvHazards(dt) {
     const c = this.cfg, p = this.player;
+    this._shooter = null;
     const kinds = [c.kind === 'boss' ? null : c.hazard, c.meteors ? 'meteor' : null].filter(Boolean);
     if (!kinds.length) return;
     this.hazardT -= dt;
@@ -466,10 +504,10 @@ export class Combat {
     const dmg = 9 * Math.pow(c.power, 0.72) * c.dmgMult;
     for (const k of kinds) {
       const x = p.x + rand(-160, 160), y = p.y + rand(-160, 160);
-      if (k === 'fire') this.teles.push({ x, y, r: 60, t: 1.2, max: 1.2, dmg: dmg * 1.3, elem: 'fire' });
-      else if (k === 'lightning') this.teles.push({ x: p.x + rand(-90, 90), y: p.y + rand(-90, 90), r: 38, t: 0.9, max: 0.9, dmg: dmg * 1.2, elem: 'light', bolt: true });
+      if (k === 'fire') this.teles.push({ src: this._shooter, x, y, r: 60, t: 1.2, max: 1.2, dmg: dmg * 1.3, elem: 'fire' });
+      else if (k === 'lightning') this.teles.push({ src: this._shooter, x: p.x + rand(-90, 90), y: p.y + rand(-90, 90), r: 38, t: 0.9, max: 0.9, dmg: dmg * 1.2, elem: 'light', bolt: true });
       else if (k === 'poison') this.hazards.push({ x, y, r: 55, t: 6, max: 6, dps: dmg * 0.5, elem: 'chaos' });
-      else if (k === 'meteor') this.teles.push({ x, y, r: 75, t: 1.4, max: 1.4, dmg: dmg * 1.6, elem: 'fire' });
+      else if (k === 'meteor') this.teles.push({ src: this._shooter, x, y, r: 75, t: 1.4, max: 1.4, dmg: dmg * 1.6, elem: 'fire' });
     }
   }
 
@@ -502,6 +540,7 @@ export class Combat {
     const overtime = c.kind !== 'boss' && this.t > c.duration;
     for (const e of this.enemies) {
       if (e.dead) continue;
+      this._shooter = e;
       if (overtime && e.elite) {
         e.hunt = true;
         if (this.t > c.duration + 20) { e.hp -= e.maxHp * 0.04 * dt; if (e.hp <= 0) { this.kill(e, null); continue; } }
@@ -610,21 +649,31 @@ export class Combat {
           for (let i = 0; i < e.d.spawn.n; i++) this.spawn(e.d.spawn.id, e.x + rand(-30, 30), e.y + rand(-30, 30));
         }
       }
-      if (e.d.leap) {
+      if (e.extraRanged && e.frozen <= 0) {
+        e.xr = (e.xr ?? 1.5) - dt;
+        if (e.xr <= 0) {
+          e.xr = e.extraRanged.cd;
+          const a = Math.atan2(dy, dx), n = e.extraRanged.burst;
+          for (let i = 0; i < n; i++) this.shootE(e.x, e.y, a + (i - (n - 1) / 2) * 0.18, 300, e.dmg * 0.6, e.extraRanged.elem);
+        }
+      }
+      const leapCd = e.d.leap || e.nemLeap;
+      if (leapCd) {
         e.leapT -= dt;
         if (e.leapT <= 0 && d < 400 && !e.leap) {
           e.leap = { x: p.x, y: p.y, t: 0.8 };
-          this.teles.push({ x: p.x, y: p.y, r: 55, t: 0.8, max: 0.8, dmg: e.dmg, elem: 'phys' });
+          this.teles.push({ src: this._shooter, x: p.x, y: p.y, r: 55, t: 0.8, max: 0.8, dmg: e.dmg, elem: 'phys' });
         }
         if (e.leap) {
           e.leap.t -= dt; spd = 0;
-          if (e.leap.t <= 0) { e.x = e.leap.x; e.y = e.leap.y; e.leap = null; e.leapT = e.d.leap * rand(0.8, 1.2); }
+          if (e.leap.t <= 0) { e.x = e.leap.x; e.y = e.leap.y; e.leap = null; e.leapT = leapCd * rand(0.8, 1.2); }
         }
       }
-      if (e.d.mines) {
+      const minesCd = e.d.mines || e.nemMines;
+      if (minesCd) {
         e.mineT -= dt;
-        if (e.mineT <= 0) { e.mineT = e.d.mines * rand(0.8, 1.2); this.teles.push({ x: e.x, y: e.y, r: 48, t: 1.8, max: 1.8, dmg: e.dmg, elem: 'fire' }); }
-        if (d < 260) { mx = -dy; my = dx; }
+        if (e.mineT <= 0) { e.mineT = minesCd * rand(0.8, 1.2); this.teles.push({ src: this._shooter, x: e.x, y: e.y, r: 48, t: 1.8, max: 1.8, dmg: e.dmg, elem: 'fire' }); }
+        if (d < 260 && e.d.mines) { mx = -dy; my = dx; }
       }
       if (e.d.charge) {
         e.ct -= dt;
@@ -676,6 +725,7 @@ export class Combat {
   // ---------------------------------------------------------------- Boss
   updateBoss(e, dt, dx, dy, d, spd) {
     const p = this.player, b = e.b;
+    this._shooter = e;
     if (b.phases) {
       const ratio = e.hp / e.maxHp;
       let ph = 0;
@@ -739,7 +789,15 @@ export class Combat {
         e.lasers = null;
       }
     }
-    const busy = e.charge || e.spiral || e.barr || e.lasers;
+    if (e.vortex) {
+      e.vortex.t -= dt;
+      const vx = e.x - p.x, vy = e.y - p.y, vd = Math.hypot(vx, vy) || 1;
+      if (vd > e.r + 20) { p.x += (vx / vd) * 95 * dt; p.y += (vy / vd) * 95 * dt; }
+      e.vortex.acc = (e.vortex.acc || 0) + dt;
+      if (e.vortex.acc > 0.5) { e.vortex.acc = 0; const off = Math.random() * TAU; for (let i = 0; i < 6; i++) this.shootE(e.x, e.y, off + (i * TAU) / 6, 130, e.dmg * 0.5, b.elem); }
+      if (e.vortex.t <= 0) e.vortex = null;
+    }
+    const busy = e.charge || e.spiral || e.barr || e.lasers || e.vortex;
     for (const pt of e.pat) {
       pt.t -= dt * (e.rage ? 1.45 : 1);
       if (pt.t > 0 || busy) continue;
@@ -761,7 +819,7 @@ export class Combat {
         }
         case 'slam': {
           const spots = [[p.x, p.y], [p.x + rand(-140, 140), p.y + rand(-140, 140)], [p.x + rand(-140, 140), p.y + rand(-140, 140)]];
-          for (const [x, y] of spots) this.teles.push({ x, y, r: 90, t: 1.15, max: 1.15, dmg: e.dmg * 1.3, elem: b.elem });
+          for (const [x, y] of spots) this.teles.push({ src: this._shooter, x, y, r: 90, t: 1.15, max: 1.15, dmg: e.dmg * 1.3, elem: b.elem });
           break;
         }
         case 'laser': {
@@ -784,7 +842,7 @@ export class Combat {
         case 'pools':
           for (let i = 0; i < 3 + (e.rage ? 2 : 0); i++) {
             const x = p.x + rand(-120, 120), y = p.y + rand(-120, 120);
-            this.teles.push({ x, y, r: 60, t: 1.0, max: 1.0, dmg: e.dmg * 0.5, elem: b.elem, pool: { dps: e.dmg * 0.4, t: 4.5 } });
+            this.teles.push({ src: this._shooter, x, y, r: 60, t: 1.0, max: 1.0, dmg: e.dmg * 0.5, elem: b.elem, pool: { dps: e.dmg * 0.4, t: 4.5 } });
           }
           break;
         case 'firewall': {
@@ -792,10 +850,33 @@ export class Combat {
           const gap = randi(-2, 2);
           for (let i = -4; i <= 4; i++) {
             if (i === gap) continue;
-            this.teles.push({ x: p.x + Math.cos(a) * i * 70, y: p.y + Math.sin(a) * i * 70, r: 42, t: 1.1, max: 1.1, dmg: e.dmg * 1.2, elem: b.elem });
+            this.teles.push({ src: this._shooter, x: p.x + Math.cos(a) * i * 70, y: p.y + Math.sin(a) * i * 70, r: 42, t: 1.1, max: 1.1, dmg: e.dmg * 1.2, elem: b.elem });
           }
           break;
         }
+        case 'cross': {
+          const base = Math.random() * TAU;
+          const angs = [0, 1, 2, 3].map((i) => base + (i * Math.PI) / 2);
+          e.lasers = { t: 1.1, angs };
+          for (const a of angs) this.fx.push({ type: 'line', x: e.x, y: e.y, a, len: 900, w: 44, t: 1.1, max: 1.1, color: b.color });
+          break;
+        }
+        case 'rain':
+          for (let i = 0; i < 9 + (e.rage ? 5 : 0); i++) {
+            this.teles.push({ src: e, x: p.x + rand(-260, 260), y: p.y + rand(-260, 260), r: 42, t: rand(0.9, 1.6), max: 1.6, dmg: e.dmg * 0.9, elem: b.elem });
+          }
+          break;
+        case 'vortex':
+          e.vortex = { t: 2.6 };
+          this.ring(e.x, e.y, 300, b.color, 0.6);
+          break;
+        case 'clones':
+          for (let i = 0; i < 2; i++) {
+            const a = Math.random() * TAU;
+            const c = this.spawn('reaper', e.x + Math.cos(a) * 90, e.y + Math.sin(a) * 90);
+            if (c) { c.color = b.color; c.hp = c.maxHp = c.maxHp * 4; c.r *= 1.4; c.name = 'Schatten des Bosses'; }
+          }
+          break;
         case 'summon':
           for (let i = 0; i < 3 + act; i++) {
             const a = Math.random() * TAU;
@@ -810,7 +891,7 @@ export class Combat {
   shootE(x, y, a, spd, dmg, elem, r = 7) {
     if (this.eprojs.length > 600) return;
     const m = ascHas(this.cfg.asc, 'projSpeed') ? 1.25 : 1;
-    this.eprojs.push({ x, y, vx: Math.cos(a) * spd * m, vy: Math.sin(a) * spd * m, r, dmg, elem, life: 6 });
+    this.eprojs.push({ x, y, vx: Math.cos(a) * spd * m, vy: Math.sin(a) * spd * m, r, dmg, elem, life: 6, src: this._shooter });
   }
 
   updateEProjs(dt) {
@@ -819,7 +900,7 @@ export class Combat {
       b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
       if (Math.hypot(b.x - p.x, b.y - p.y) < b.r + p.r - 2) {
         b.life = 0;
-        this.damagePlayer(b.dmg, b.elem, true);
+        this.damagePlayer(b.dmg, b.elem, true, b.src);
       }
       if (Math.hypot(b.x, b.y) > ARENA_R + 40) b.life = 0;
     }
@@ -831,7 +912,7 @@ export class Combat {
     for (const t of this.teles) {
       t.t -= dt;
       if (t.t <= 0) {
-        if (Math.hypot(p.x - t.x, p.y - t.y) < t.r + p.r * 0.5) this.damagePlayer(t.dmg, t.elem, true);
+        if (Math.hypot(p.x - t.x, p.y - t.y) < t.r + p.r * 0.5) this.damagePlayer(t.dmg, t.elem, true, t.src);
         if (t.pool) this.hazards.push({ x: t.x, y: t.y, r: t.r, t: t.pool.t, max: t.pool.t, dps: t.pool.dps, elem: t.elem });
         if (t.bolt) { this.fx.push({ type: 'bolt', pts: [[t.x, t.y - 200], [t.x + rand(-20, 20), t.y - 100], [t.x, t.y]], t: 0.2, max: 0.2, color: ELEM[t.elem].color }); sfx.zap(); }
         this.ring(t.x, t.y, t.r, ELEM[t.elem].color, 0.35);
@@ -995,6 +1076,11 @@ export class Combat {
     if (Math.random() < (e.elite ? 0.3 : 0.007)) this.dropOrb(e.x, e.y, 'heart', 0.12);
     if (P.lifeOnKill) this.heal(P.lifeOnKill);
     if (e.elite) { this.stats.elites++; this.cb.onEliteKill(e); }
+    if (e.nemesis) {
+      this.text(e.x, e.y - 40, 'RACHE!', '#ffd84d', 1.8);
+      this.ring(e.x, e.y, 200, '#ffd84d', 0.8);
+      if (this.cb.onNemesisKill) this.cb.onNemesisKill(e.nemesis);
+    }
     // Besondere Effekte
     if (S && S.killExplode) this.aoeFlat(e.x, e.y, 75, (e.maxHp * S.killExplode) / 100, 'fire');
     if (P.spec.spec_burnSpread && e.burns.length) {
@@ -1014,9 +1100,9 @@ export class Combat {
       this.burst(e.x, e.y, '#bff3ff', 16, 200);
     }
     if (P.spec.spec_frenzy) { this.frenzy = Math.min(30, this.frenzy + 1); this.frenzyT = 3; }
-    if (c.volatileCorpses && !e.boss && Math.random() < 0.4) this.teles.push({ x: e.x, y: e.y, r: 45, t: 0.8, max: 0.8, dmg: e.dmg * 0.7, elem: 'fire' });
-    if (e.affixes.includes('volatile')) this.teles.push({ x: e.x, y: e.y, r: 85, t: 0.8, max: 0.8, dmg: e.dmg * 1.5, elem: 'fire' });
-    if (!e.boss && !e.elite && ascHas(c.asc, 'explode') && Math.random() < 0.35) this.teles.push({ x: e.x, y: e.y, r: 40, t: 0.7, max: 0.7, dmg: e.dmg * 0.6, elem: 'fire' });
+    if (c.volatileCorpses && !e.boss && Math.random() < 0.4) this.teles.push({ src: this._shooter, x: e.x, y: e.y, r: 45, t: 0.8, max: 0.8, dmg: e.dmg * 0.7, elem: 'fire' });
+    if (e.affixes.includes('volatile')) this.teles.push({ src: this._shooter, x: e.x, y: e.y, r: 85, t: 0.8, max: 0.8, dmg: e.dmg * 1.5, elem: 'fire' });
+    if (!e.boss && !e.elite && ascHas(c.asc, 'explode') && Math.random() < 0.35) this.teles.push({ src: this._shooter, x: e.x, y: e.y, r: 40, t: 0.7, max: 0.7, dmg: e.dmg * 0.6, elem: 'fire' });
   }
 
   // ---------------------------------------------------------------- Fertigkeiten

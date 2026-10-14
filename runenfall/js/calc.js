@@ -4,6 +4,14 @@
 //   Wert = (Basis + flach) × (1 + Σ erhöht) × Π (1 + mehr)
 // Gescopte Werte (z. B. dmg_fire) zählen nur, wenn der Schaden bzw. die Fertigkeit den Tag trägt.
 import { SKILLS, SUPPORTS, supportFits, catTags } from './data/skills.js';
+import { RUNE_TRAITS, traitFits } from './data/systems.js';
+
+/** Anzeigename einer Rune inklusive Merkmalen (z. B. „Glühender Zwillings-Feuerball“). */
+export function runeName(inst) {
+  const def = inst.def || SKILLS[inst.id];
+  const tr = (inst.traits || []).filter((t) => RUNE_TRAITS[t]).map((t) => RUNE_TRAITS[t].name);
+  return tr.length ? `${tr.join('-')}-${def.name}` : def.name;
+}
 import { DMG_TYPES, ELEMENTAL } from './data/stats.js';
 import { clamp } from './util.js';
 
@@ -120,6 +128,10 @@ export function computeSkill(inst, gsets) {
     if (!sid) continue;
     const sd = SUPPORTS[sid];
     if (sd && supportFits(sd, def)) local.addAll(sd.mods);
+  }
+  for (const tid of inst.traits || []) {
+    const t = RUNE_TRAITS[tid];
+    if (t && traitFits(t, def)) local.addAll(t.mods);
   }
   const lvl = skillLevel(inst, [...gsets, local]);
   if (lvl >= 3 && def.lvl3) local.addAll(def.lvl3);

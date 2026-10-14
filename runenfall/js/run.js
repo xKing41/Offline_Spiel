@@ -6,6 +6,37 @@ import { ACTS, ABYSS, BIOMES, BOSS_IDS, BOONS, BOON_RARITY, EVENTS, ALTAR, CLASS
 import { makeItem, makeRelic, SLOTS, itemMods, UNIQUES, craftReroll, craftAdd, craftUpgrade, canCraft, itemValue } from './data/items.js';
 import { getTree, treeMods } from './data/tree.js';
 import { PETS, PET_IDS, PET_MAX, petSkillDef, SETS, getAtlas, atlasPower, ATLAS_PASSIVES, PARAGON, makeJewel, jewelMods } from './data/endgame.js';
+import {
+  rollTraits, RUNE_TRAITS, makeNemesis, NEMESIS_MAX, NEMESIS_IDS, NEMESIS_TAUNTS, beastId, BUILDINGS, POTIONS, CARDS, CARD_IDS, cardMods,
+  deckSize, openPack, currentLeague, seasonKey, SEASON_TIERS, seasonXpFor,
+} from './data/systems.js';
+import { makeMythic } from './data/items.js';
+
+// ---------------------------------------------------------------- Sternwarte-Helfer
+export const baseLvl = (id) => (save.base && save.base.lvl && save.base.lvl[id]) || 0;
+export function addRes(res) {
+  save.base = save.base || { lvl: {}, res: {}, last: Date.now(), potions: {}, eggT: 0 };
+  for (const [k, v] of Object.entries(res)) save.base.res[k] = Math.round(((save.base.res[k] || 0) + v) * 10) / 10;
+}
+/** Runen-Archiv: jede Kombination aus Rune und Merkmal wird gesammelt. */
+export function archiveRune(inst) {
+  save.runeArchive = save.runeArchive || [];
+  for (const t of inst.traits || []) {
+    const k = `${inst.id}:${t}`;
+    if (!save.runeArchive.includes(k)) save.runeArchive.push(k);
+  }
+}
+function rollRuneTraits(run, id) {
+  const r = Math.random();
+  const bonus = run.asc * 0.01 + (run.act >= 3 ? 0.1 : 0);
+  const n = r < 0.08 + bonus ? 2 : r < 0.38 + bonus ? 1 : 0;
+  return rollTraits(SKILLS[id], n);
+}
+function drawCards(run, n) {
+  const deck = (save.deck || []).filter((id) => CARDS[id] && save.cards && save.cards[id] && !(run.cards || []).includes(id));
+  run.cards = run.cards || [];
+  for (let i = 0; i < n && deck.length; i++) run.cards.push(deck.splice(Math.floor(Math.random() * deck.length), 1)[0]);
+}
 import { ModSet, computePlayer, computeSkill, flatSum } from './calc.js';
 import { save, persist, altarLvl, checkAchievements, accountLevel } from './save.js';
 
@@ -15,7 +46,8 @@ export const atlasHas = (id) => !!(save.atlas && save.atlas.passives && save.atl
 export const xpNeed = (l) => Math.round(12 + 7 * l + 0.55 * l * l);
 
 // ---------------------------------------------------------------- Neuer Run
-export function newRun({ cls, asc = 0, mode = 'normal', ascend = null, mutators = [], daily = null, seed = null, pet = null, atlas = null }) {
+export function newRun({ cls, asc = 0, mode = 'normal', ascend = null, mutators = [], daily = null, seed = null, pet = null, atlas = null, potion = null, league = false }) {
+  if (league) { const L = currentLeague(); mutators = [...new Set([...mutators, ...L.muts])]; }
   const run = {
     v: 1, cls, asc, mode, seed: seed ?? Math.floor(Math.random() * 1e9), started: Date.now(),
     ascend: ascend && ASCENDANCIES[ascend] && ASCENDANCIES[ascend].cls === cls ? ascend : null,
@@ -31,6 +63,14 @@ export function newRun({ cls, asc = 0, mode = 'normal', ascend = null, mutators 
     revive: altarLvl('revive') > 0, pendingLvl: 0,
     stats: { kills: 0, elites: 0, bosses: 0, nodes: 0, maxHit: 0, dmg: 0, relics: [], byType: {}, gold: 0 },
   };
+  run.league = league ? currentLeague().key : null;
+  if (potion && save.base && save.base.potions && save.base.potions[potion] > 0) {
+    save.base.potions[potion]--;
+    run.potion = potion;
+  }
+  drawCards(run, 2);
+  const tl = Math.floor(baseLvl('training') / 2);
+  if (tl) { run.lvl += tl; run.pendingLvl += tl; }
   const brng = makeRng(run.seed + 17);
   run.biomes = ACTS.map((a) => brng.pick(a.biomes));
   if (run.mutators.includes('glass')) run.runMods.push({ s: 'life', t: 'more', v: -30 });
@@ -96,6 +136,10 @@ export function buildSets(run, opts = {}) {
     sets.push(boons);
     sets.push(new ModSet(ascendMods(run.ascend)));
     if (run.pet && save.pets[run.pet]) sets.push(new ModSet(PETS[run.pet].passive(save.pets[run.pet].lvl)));
+    const extra = new ModSet();
+    if (run.potion && POTIONS[run.potion]) extra.addAll(POTIONS[run.potion].mods);
+    for (const c of run.cards || []) if (CARDS[c] && save.cards && save.cards[c]) extra.addAll(cardMods(c, save.cards[c]));
+    sets.push(extra);
   }
   sets.push(new ModSet([...jewelSocketMods(run ? run.cls : opts.cls), ...paragonMods()]));
   return sets;
@@ -229,7 +273,7 @@ export function reachable(run) {
 export const abyssPower = (floor) => Math.pow(1.24, floor);
 export function genAbyssChoices(run) {
   const f = run.floor;
-  if (f % 5 === 0) return [{ type: 'boss', boss: BOSS_IDS[(f / 5 - 1) % BOSS_IDS.length] }];
+  if (f % 5 === 0) return [{ type: 'boss', boss: f >= 25 ? beastId(run.seed + f * 7919) : BOSS_IDS[(f / 5 - 1) % BOSS_IDS.length] }];
   const opts = [{ type: 'fight' }, { type: Math.random() < 0.5 ? 'elite' : 'fight' }];
   opts.push({ type: pick(['event', 'shop', 'forge', 'rest', 'elite', 'treasure', 'shrine', 'trial']) });
   return opts;
@@ -257,7 +301,7 @@ export function combatCfg(run, node) {
   const trial = node.type === 'trial' || node.arena;
   const kind = node.type === 'boss' ? 'boss' : node.type === 'elite' || trial ? 'elite' : 'fight';
   return {
-    kind, act, power, pool: A.pool, trial,
+    kind, act, power, pool: A.pool, trial, nemesis: pickNemesis(run, kind),
     bossId: kind === 'boss' ? (node.boss || A.boss) : null,
     duration: kind === 'boss' ? 0 : 34 + act * 4,
     hpMult: ascHpMult(asc) * (mu('titans') ? 1.5 : 1) * (mu('horde') ? 0.75 : 1) * (trial ? 1.25 : 1),
@@ -317,7 +361,7 @@ export function rollBoons(run) {
 export function applyChoice(run, c) {
   if (c.kind === 'boon') run.boons.push({ id: c.id, r: c.r });
   else if (c.kind === 'skillLvl') run.skills[c.idx].lvl = Math.min(MAX_SKILL_LVL, run.skills[c.idx].lvl + 1);
-  else if (c.kind === 'newSkill') run.skills.push({ id: c.id, lvl: 1, sup: [null, null, null] });
+  else if (c.kind === 'newSkill') { const inst = { id: c.id, lvl: 1, sup: [null, null, null], traits: c.traits || [] }; run.skills.push(inst); archiveRune(inst); }
   else if (c.kind === 'glyph') run.glyphs.push(c.id);
   else if (c.kind === 'item') addItem(run, c.item);
   else if (c.kind === 'gold') run.gold += c.v;
@@ -374,7 +418,7 @@ export function rollRewards(run, kind) {
     out.push({ kind: 'item', item: mk({ ilvl, luck }) });
   }
   const opts = [];
-  if (run.skills.length < MAX_SKILLS) { const id = newSkillChoice(run); if (id) opts.push({ kind: 'newSkill', id }); }
+  if (run.skills.length < MAX_SKILLS) { const id = newSkillChoice(run); if (id) opts.push({ kind: 'newSkill', id, traits: rollRuneTraits(run, id) }); }
   opts.push({ kind: 'glyph', id: randomGlyph(run) });
   const up = run.skills.filter((s) => s.lvl < MAX_SKILL_LVL);
   if (up.length) opts.push({ kind: 'skillLvl', idx: run.skills.indexOf(pick(up)) });
@@ -401,7 +445,7 @@ export function genShop(run) {
   }
   for (let i = 0; i < 2; i++) offers.push({ kind: 'glyph', id: randomGlyph(run), price: Math.round(55 * pm) });
   const ns = run.skills.length < MAX_SKILLS ? newSkillChoice(run) : null;
-  if (ns) offers.push({ kind: 'newSkill', id: ns, price: Math.round(90 * pm) });
+  if (ns) offers.push({ kind: 'newSkill', id: ns, traits: rollRuneTraits(run, ns), price: Math.round(90 * pm) });
   offers.push({ kind: 'heal', price: Math.round(30 * pm) });
   offers.push({ kind: 'lvlAny', price: Math.round(80 * pm) });
   return offers;
@@ -545,6 +589,7 @@ export function healAfterFight(run) {
 /** Nach einem gewonnenen Boss: nächster Akt oder Sieg. */
 export function advanceAct(run) {
   run.act++;
+  drawCards(run, 2);
   if (run.act === ACTS.length && run.atlas && !run.atlasDone) {
     run.map = genMap(run, run.act);
     run.hp = snapshot(run).P.maxLife;
@@ -564,7 +609,7 @@ export function endRun(run, outcome) {
   const win = outcome === 'win';
   const ascF = 1 + run.asc * 0.15;
   const depth = run.mode === 'abyss' ? run.floor : run.act * LAYERS + (run.map && run.map.pos ? run.map.pos[0] + 1 : 0);
-  let axp = (s.kills * 0.6 + s.nodes * 35 + s.elites * 40 + s.bosses * 220 + (win ? 600 : 0)) * ascF;
+  let axp = (s.kills * 0.6 + s.nodes * 35 + s.elites * 40 + s.bosses * 220 + (win ? 600 : 0)) * ascF * (1 + 0.05 * baseLvl('library'));
   let dust = (s.nodes * 5 + s.elites * 12 + s.bosses * 70 + (win ? 200 : 0)) * (1 + run.asc * 0.25);
   if (run.mode === 'abyss') { dust *= 1 + run.floor * 0.04; axp *= 1 + run.floor * 0.03; }
   const prophBonus = Math.round((run.mutators || []).reduce((sum, m) => sum + MUTATORS[m].reward, 0) * (atlasHas('aProph') ? 1.25 : 1));
@@ -605,6 +650,26 @@ export function endRun(run, outcome) {
   st.maxSet = Math.max(st.maxSet || 0, run.stats.maxSet || 0);
   if (win && !run.usedRevive) st.cleanAscWin = Math.max(st.cleanAscWin ?? -1, run.asc);
   // Gefährten-Eier schlüpfen
+  // Erzfeind
+  let nemesis = null;
+  if (outcome === 'death' && run.killer) nemesis = recordNemesis(run.killer);
+  // Materialien für die Sternwarte
+  const depthF = 1 + run.act * 0.6 + run.asc * 0.1 + (run.mode === 'abyss' ? run.floor * 0.08 : 0);
+  const mats = {
+    ore: Math.round((s.kills * 0.04 + s.elites * 3 + s.bosses * 15) * depthF),
+    crystal: Math.round((s.elites * 0.6 + s.bosses * 6 + (win ? 10 : 0)) * depthF),
+    essence: Math.round((s.nodes * 1.2 + s.bosses * 5) * depthF),
+  };
+  addRes(mats);
+  // Saison-Erfahrung
+  save.season = save.season && save.season.key === seasonKey() ? save.season : { key: seasonKey(), xp: 0, claimed: [] };
+  const sxp = Math.round((s.nodes * 20 + s.bosses * 120 + (win ? 400 : 0) + (run.mode === 'abyss' ? run.floor * 30 : 0)) * (run.league ? 1.5 : 1));
+  save.season.xp += sxp;
+  // Kartenpacks aus dem Run
+  const packs = [];
+  for (let i = 0; i < (run.packs || 0); i++) packs.push(...openPack(3));
+  for (const c of packs) { save.cards = save.cards || {}; save.cards[c] = Math.min(5, (save.cards[c] || 0) + 1); }
+  if (run.league) save.stats.leagueRuns = (save.stats.leagueRuns || 0) + 1;
   const hatched = [];
   for (let i = 0; i < (run.eggs || 0); i++) hatched.push(hatchEgg());
   // Atlaspunkte aus Ereignissen
@@ -615,6 +680,7 @@ export function endRun(run, outcome) {
     mode: run.mode, floor: run.floor, lvl: run.lvl, kills: s.kills, maxHit: s.maxHit, bosses: s.bosses,
     time: Math.round((Date.now() - run.started) / 1000),
     quests, prophBonus, dailyBonus, mutators: run.mutators || [], ascend: run.ascend, hatched, atlasDone: run.atlasDone || null,
+    nemesis, mats, sxp, packs, nemesisSlain: run.nemesisSlain || [], cards: run.cards || [], league: run.league,
   };
   const score = depth * 1000 + run.asc * 5000 + s.kills;
   if (!st.bestRun || score > st.bestRun.score) st.bestRun = { score, ...result, date: Date.now() };
@@ -694,6 +760,43 @@ export function dropRelic(run, chanceMult = 1) {
   if (r.rarity === 'mythic') save.stats.mythic++;
   run.stats.relics.push(r.uid);
   return r;
+}
+
+// ---------------------------------------------------------------- Erzfeinde
+function pickNemesis(run, kind) {
+  const list = (save.nemesis || []).filter((n) => !(run.nemesisSeen || []).includes(n.uid));
+  if (!list.length || kind === 'boss' || run.daily) return null;
+  if (Math.random() > 0.1 + 0.02 * list.length) return null;
+  const n = list[Math.floor(Math.random() * list.length)];
+  run.nemesisSeen = [...(run.nemesisSeen || []), n.uid];
+  return n;
+}
+export function recordNemesis(killer) {
+  save.nemesis = save.nemesis || [];
+  let n = killer.nemesisUid ? save.nemesis.find((x) => x.uid === killer.nemesisUid) : null;
+  if (n) {
+    n.rank++; n.kills++;
+    if (n.traits.length < 5) { const pool = NEMESIS_IDS.filter((t) => !n.traits.includes(t)); n.traits.push(pool[Math.floor(Math.random() * pool.length)]); }
+  } else {
+    n = makeNemesis(killer);
+    if (save.nemesis.length >= NEMESIS_MAX) save.nemesis.splice(save.nemesis.reduce((mi, x, i, a) => (x.rank < a[mi].rank ? i : mi), 0), 1);
+    save.nemesis.push(n);
+  }
+  save.stats.nemesisMax = Math.max(save.stats.nemesisMax || 0, n.rank);
+  return { ...n, taunt: NEMESIS_TAUNTS[Math.floor(Math.random() * NEMESIS_TAUNTS.length)], promoted: !!killer.nemesisUid };
+}
+export function nemesisSlain(run, uid) {
+  save.nemesis = save.nemesis || [];
+  const n = save.nemesis.find((x) => x.uid === uid);
+  if (!n) return null;
+  save.nemesis = save.nemesis.filter((x) => x.uid !== uid);
+  save.stats.nemesisSlain = (save.stats.nemesisSlain || 0) + 1;
+  run.bonusDust += 120 * n.rank;
+  const it = makeMythic(itemLevel(run) + 10);
+  addItem(run, it);
+  if (n.rank >= 3) dropRelic(run, 1);
+  run.nemesisSlain = [...(run.nemesisSlain || []), { name: n.name, rank: n.rank }];
+  return { n, item: it };
 }
 
 /** Juwel-Drop (dauerhaft). */
