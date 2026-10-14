@@ -8,6 +8,10 @@ import {
   BIOME_FX, floorTile, soft, shadowSprite, enemySprite, bossSprite, tinted, isDirectional, isBlobby, runeCircle, playerSprite,
   makeAmbient, drawAmbient, vignette, nebulaBg, shade, setSpriteRes,
 } from './gfx.js';
+import {
+  drawProjectiles, projTrail, impact, blastFx, fallFx, drawFx, drawZone, auraTick, drawAura, drawTrap, drawOrbitItem,
+  drawDecal, drawParticles, updateParticles, elemOf, visOf,
+} from './skillfx.js';
 
 const ARENA_R = 1000;
 const CELL = 80;
@@ -22,6 +26,9 @@ const segDist = (px, py, ax, ay, bx, by) => {
   return Math.hypot(px - (ax + vx * t), py - (ay + vy * t));
 };
 
+// Rückstoß-Stärke je Fertigkeitsverhalten (rein für das Trefferfeedback, Bosse sind immun)
+const KB = { proj: 0.5, nova: 1.2, melee: 1.5, meteor: 1.3, strikes: 0.6, chain: 0.25, orbit: 0.45, trap: 1, line: 0.8, minion: 0.4, zone: 0 };
+const AIL_TXT = { frozen: ['Eingefroren', '#bff3ff'], burn: ['Entzündet', '#ff9a4a'], shock: ['Geschockt', '#ffe34d'], poison: ['Vergiftet', '#9cff5e'], bleed: ['Blutung', '#ff5c7a'] };
 const typeColor = (dmg) => {
   let best = 'phys', bv = -1;
   for (const t in dmg) { const v = dmg[t][1]; if (v > bv) { bv = v; best = t; } }
@@ -33,6 +40,7 @@ export class Combat {
     this.cv = canvas;
     this.ctx = canvas.getContext('2d');
     this.glowCache = new Map();
+    this.sfx = sfx;
     this.input = { x: 0, y: 0, key: { x: 0, y: 0 }, stick: null };
     this.stars = Array.from({ length: 90 }, () => ({ x: Math.random(), y: Math.random(), s: rand(0.5, 1.8), a: rand(0.2, 0.8) }));
     this.running = false;
@@ -128,6 +136,7 @@ export class Combat {
     this.stats = { kills: 0, maxHit: 0, elites: 0, dmgDone: 0, byType: {}, hitsTaken: 0 };
     this.hazards = [];
     this.decals = [];
+    this.hitstop = 0; this.slowmo = 0; this.lastStop = -1; this.whiteFlash = 0; this.lastKrit = -1; this.lastAil = -1;
     this.bfx = BIOME_FX[cfg.biome] || BIOME_FX.sternengrab;
     this.floorPat = null;
     this.ambient = typeof document !== 'undefined' ? makeAmbient(this.bfx.amb) : [];
@@ -166,10 +175,19 @@ export class Combat {
       const mine = this.minions.filter((m) => m.skId === sk.S.id);
       for (let k = 0; k < sk.S.minions; k++) {
         const d = sk.S.def;
-        const m = mine[k] || { skId: sk.S.id, x: this.player.x + rand(-30, 30), y: this.player.y + rand(-30, 30), atk: rand(0, 0.5), kind: d.kind, bob: Math.random() * 6, ranged: !!d.petRanged, petColor: d.color, glyph: d.glyph };
+        let m = mine[k];
+        if (!m) {
+          m = { skId: sk.S.id, x: this.player.x + rand(-30, 30), y: this.player.y + rand(-30, 30), atk: rand(0, 0.5), kind: d.kind, bob: Math.random() * 6, ranged: !!d.petRanged, petColor: d.color, glyph: d.glyph };
+          // Beschwörungs-Effekt
+          if (this.fx) {
+            this.fx.push({ type: 'flash', x: m.x, y: m.y, r: 30, color: d.color || '#c58bff', t: 0.3, max: 0.3 });
+            for (let i = 0; i < 8; i++) { const a = (i * TAU) / 8; this.part({ x: m.x + Math.cos(a) * 26, y: m.y + Math.sin(a) * 26, vx: -Math.cos(a) * 60, vy: -Math.sin(a) * 60 - 20, t: 0.45, color: d.color || '#c58bff', s: 2.2, k: 0 }); }
+          }
+        }
         keep.push(m);
       }
     });
+    if (keep.length > this.minions.length && this.running) sfx.summon?.();
     this.minions = keep;
   }
 
@@ -178,6 +196,9 @@ export class Combat {
   // ---------------------------------------------------------------- Schleife
   update(dt) {
     if (!this.running || this.paused) return;
+    if (this.whiteFlash > 0) this.whiteFlash -= dt;
+    if (this.hitstop > 0) { this.hitstop -= dt; return; }
+    if (this.slowmo > 0) { this.slowmo -= dt; dt *= 0.28; }
     if (this.over) {
       this.updateFx(dt);
       this.updateOrbs(dt);
@@ -713,6 +734,12 @@ export class Combat {
 
       e.x += mx * spd * dt;
       e.y += my * spd * dt;
+      if (e.kx || e.ky) {
+        e.x += e.kx * dt; e.y += e.ky * dt;
+        const kd = Math.exp(-11 * dt);
+        e.kx *= kd; e.ky *= kd;
+        if (Math.abs(e.kx) < 2 && Math.abs(e.ky) < 2) { e.kx = 0; e.ky = 0; }
+      }
       // Abstoßung von Nachbarn (verhindert Klumpen)
       const k = this.grid.get(this.key(Math.floor(e.x / CELL), Math.floor(e.y / CELL)));
       if (k && k.length > 1) {
@@ -958,7 +985,22 @@ export class Combat {
     }
     total *= e.takenMult;
     e.lastS = S;
+    const hadAil = { frozen: e.frozen > 0, burn: e.burns.length > 0, shock: e.shock > 0, poison: e.poisons.length > 0, bleed: !!e.bleed };
     this.dealDamage(e, total, crit, S);
+    impact(this, S, e.x, e.y);
+    // Rückstoß (Bosse und unbewegliche Gegner sind immun)
+    if (!e.boss && e.speed > 0) {
+      const w = (S.def.kb ?? KB[S.def.beh] ?? 0.5) * (crit ? 1.6 : 1) * (e.elite ? 0.35 : 1);
+      if (w > 0) {
+        const f = Math.min(1, total / Math.max(1, e.maxHp));
+        const imp = w * (35 + 230 * f);
+        const dx = e.x - p.x, dy = e.y - p.y, d = Math.hypot(dx, dy) || 1;
+        e.kx = clamp((e.kx || 0) + (dx / d) * imp, -420, 420);
+        e.ky = clamp((e.ky || 0) + (dy / d) * imp, -420, 420);
+      }
+    }
+    // Kurzes Einfrieren des Bildes bei vernichtenden Krits
+    if (crit && total > e.maxHp * 0.3 && this.t - this.lastStop > 0.4) { this.hitstop = 0.045; this.lastStop = this.t; }
 
     // Zustände (aus dem Schaden vor Widerständen)
     const ad = S.ailDur;
@@ -979,6 +1021,11 @@ export class Combat {
     if (raw.phys && S.bld && Math.random() * 100 < S.bld) {
       const dps = raw.phys * 0.6 * S.bleedMult;
       if (!e.bleed || e.bleed.dps < dps) e.bleed = { dps, t: 4 * ad };
+    }
+    // Neu verursachte Zustände kurz anzeigen (sparsam)
+    if (!crit && save.settings.dmgNums && this.t - this.lastAil > 0.35 && (e.elite || e.boss || Math.random() < 0.3)) {
+      const now = { frozen: e.frozen > 0, burn: e.burns.length > 0, shock: e.shock > 0, poison: e.poisons.length > 0, bleed: !!e.bleed };
+      for (const k in now) if (now[k] && !hadAil[k]) { this.label(e.x, e.y - e.r - 22, AIL_TXT[k][0], AIL_TXT[k][1]); this.lastAil = this.t; break; }
     }
     // Lebensraub (max. 12% des Lebens pro Sekunde)
     if (S.leech > 0) {
@@ -1017,7 +1064,18 @@ export class Combat {
 
   dmgText(e, amount, crit, color, dot = false) {
     if (!save.settings.dmgNums || this.texts.length > 70) return;
-    this.texts.push({ x: e.x + rand(-8, 8), y: e.y - e.r - 6, txt: fmt(amount), color: crit ? '#ffe066' : color, t: 0.7, max: 0.7, size: crit ? 1.35 : dot ? 0.8 : 1, vy: -40 });
+    const big = amount > e.maxHp * 0.25 && !dot;
+    this.texts.push({
+      x: e.x + rand(-8, 8), y: e.y - e.r - 6, txt: fmt(amount) + (crit ? '!' : ''), color: crit ? '#ffe066' : color,
+      t: crit ? 0.85 : 0.7, max: crit ? 0.85 : 0.7, size: crit ? (big ? 1.75 : 1.45) : dot ? 0.75 : big ? 1.2 : 1, vy: crit ? -55 : -40,
+      style: crit ? 'crit' : dot ? 'dot' : null, rot: crit ? rand(-0.15, 0.15) : 0,
+    });
+    if (crit && this.t - this.lastKrit > 0.3) { this.lastKrit = this.t; this.label(e.x, e.y - e.r - 26, 'KRIT', '#ff9a3a'); }
+  }
+  /** Kleine Beschriftung (Zustände, KRIT) über einem Gegner. */
+  label(x, y, txt, color) {
+    if (this.texts.length > 70) return;
+    this.texts.push({ x, y, txt, color, t: 0.6, max: 0.6, size: 0.7, vy: -30, style: 'label' });
   }
 
   /** Flacher Flächenschaden ohne Krit/Zustände (Explosionen, Sturmläufer). */
@@ -1040,7 +1098,7 @@ export class Combat {
   /** Flächentreffer inklusive Nachbeben (Glyphe/Effekt). */
   blast(S, x, y, r, color) {
     this.areaHit(S, x, y, r);
-    this.ring(x, y, r, color, 0.3, true);
+    if (!blastFx(this, S, x, y, r, color)) this.ring(x, y, r, color, 0.3, true);
     if (S.aftershock) {
       this.delayed.push({ t: 0.4, fn: () => { this.areaHit(S, x, y, r * 1.1, 0.5); this.ring(x, y, r * 1.1, color, 0.3); } });
     }
@@ -1072,9 +1130,20 @@ export class Combat {
     e.dead = true;
     const c = this.cfg, P = this.P;
     this.stats.kills++;
+    if (e.boss && !silent) {
+      this.slowmo = 1.5; this.whiteFlash = 0.35;
+      this.fx.push({ type: 'shock', x: e.x, y: e.y, r: 520, color: '#ffffff', t: 1.1, max: 1.1 });
+      this.fx.push({ type: 'shock', x: e.x, y: e.y, r: 320, color: e.color, t: 0.8, max: 0.8 });
+      this.fx.push({ type: 'flash', x: e.x, y: e.y, r: 260, color: '#ffffff', t: 0.5, max: 0.5 });
+      for (let i = 0; i < 14; i++) { const a = Math.random() * TAU, v = rand(120, 380); this.part({ x: e.x, y: e.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: rand(0.9, 1.6), color: '#3a2a30', s: rand(4, 8), k: 6, z: 5, vz: rand(250, 520) }); }
+      if (save.settings.shake) this.shake = Math.max(this.shake, 12);
+      this.decal({ x: e.x, y: e.y, r: e.r * 2.6, kind: 'crater', t: 40 });
+      sfx.bossDie?.();
+      this.sfx.setDuck?.(0.25, 2);
+    } else if (e.elite && !silent && this.t - this.lastStop > 0.3) { this.hitstop = 0.07; this.lastStop = this.t; this.fx.push({ type: 'shock', x: e.x, y: e.y, r: 140, color: '#ffd84d', t: 0.4, max: 0.4 }); }
     if (!silent) {
       this.burst(e.x, e.y, e.color, e.boss ? 80 : e.elite ? 24 : 9, e.boss ? 300 : 140);
-      if (this.decals) { this.decals.push({ x: e.x, y: e.y, r: e.r * 1.7, col: e.color, t: e.boss ? 30 : 7 }); if (this.decals.length > 90) this.decals.shift(); }
+      this.decal({ x: e.x, y: e.y, r: e.r * 1.7, col: e.color, t: e.boss ? 30 : 7 });
       this.ring(e.x, e.y, e.r * 1.6, e.color, 0.22);
       sfx.kill();
     }
@@ -1122,11 +1191,13 @@ export class Combat {
     if (this.frenzy) dt *= 1 + this.frenzy / 100;
     for (const sk of this.sk) {
       const S = sk.S, def = S.def;
+      if (def.beh === 'aura') auraTick(this, sk, dt);
       if (def.beh === 'orbit') { this.updateOrbit(sk, dt); continue; }
       if (def.beh === 'minion') continue;
       sk.t -= dt;
       if (sk.t > 0) continue;
       if (this.cast(sk)) {
+        if (def.beh !== 'aura') sfx.cast?.(elemOf(S.dmg));
         sk.t += S.interval;
         if (sk.t < 0) sk.t = 0;
         if (S.echo) this.delayed.push({ t: 0.2, fn: () => this.cast(sk, true) });
@@ -1169,14 +1240,22 @@ export class Combat {
       case 'strikes': {
         const near = this.enemies.filter((e) => !e.dead && !e.phased && Math.hypot(e.x - p.x, e.y - p.y) < 400);
         if (!near.length) return false;
+        const falls = !!visOf(S).fall;
         for (let i = 0; i < S.count; i++) {
           const tg = pick(near);
-          this.delayed.push({ t: i * 0.07, fn: () => {
-            this.blast(S, tg.x, tg.y, S.area, color);
-            this.fx.push({ type: 'bolt', pts: [[tg.x + rand(-30, 30), tg.y - 220], [tg.x + rand(-15, 15), tg.y - 100], [tg.x, tg.y]], t: 0.2, max: 0.2, color });
-          } });
+          const tx = tg.x, ty = tg.y;
+          if (falls) {
+            const fd = 0.2;
+            this.delayed.push({ t: i * 0.07, fn: () => fallFx(this, S, tx, ty, fd) });
+            this.delayed.push({ t: i * 0.07 + fd, fn: () => this.blast(S, tx, ty, S.area, color) });
+          } else {
+            this.delayed.push({ t: i * 0.07, fn: () => {
+              this.blast(S, tg.x, tg.y, S.area, color);
+              this.fx.push({ type: 'bolt', pts: [[tg.x + rand(-30, 30), tg.y - 220], [tg.x + rand(-15, 15), tg.y - 100], [tg.x, tg.y]], t: 0.2, max: 0.2, color });
+            } });
+          }
         }
-        sfx.zap();
+        if (falls) sfx.meteor?.(); else sfx.zap();
         return true;
       }
       case 'chain': {
@@ -1227,6 +1306,8 @@ export class Combat {
           const x = tg.x + rand(-20, 20), y = tg.y + rand(-20, 20);
           const delay = (def.delay || 0.7) + i * 0.15;
           this.fx.push({ type: 'tele', x, y, r: S.area, t: delay, max: delay, color });
+          fallFx(this, S, x, y, delay);
+          if (!i) sfx.meteor?.();
           this.delayed.push({ t: delay, fn: () => {
             this.blast(S, x, y, S.area, color);
             this.burst(x, y, color, 26, 260);
@@ -1315,6 +1396,7 @@ export class Combat {
       }
       pr.x += pr.vx * dt; pr.y += pr.vy * dt;
       pr.life -= dt;
+      projTrail(this, pr, dt);
       if (pr.life <= 0 || Math.hypot(pr.x, pr.y) > ARENA_R + 50) { pr.dead = true; continue; }
       if (pr.S.pulse && !pr.ret) continue; // Kugelblitz trifft nur über Entladungen
       this.query(pr.x, pr.y, pr.r + 30, (e) => {
@@ -1331,7 +1413,11 @@ export class Combat {
     if (S.explode > 0) {
       this.areaHit(S, e.x, e.y, S.explode);
       this.ring(e.x, e.y, S.explode, pr.color, 0.25, true);
-      this.burst(e.x, e.y, pr.color, 8, 140);
+      this.fx.push({ type: 'flash', x: e.x, y: e.y, r: S.explode * 1.2, color: pr.color, t: 0.14, max: 0.14 });
+      for (let i = 0; i < 10; i++) { const a = Math.random() * TAU, v = rand(60, 220); this.part({ x: e.x, y: e.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: rand(0.3, 0.6), color: Math.random() < 0.5 ? '#ffb040' : pr.color, s: rand(1.5, 3.2), k: 2 }); }
+      this.part({ x: e.x, y: e.y, vx: 0, vy: 0, t: 0.8, color: '#3a2a24', s: S.explode * 0.35, k: 4 });
+      this.decal({ x: e.x, y: e.y, r: S.explode * 0.7, kind: 'scorch', col: pr.color, t: 4 });
+      sfx.explode?.(elemOf(S.dmg));
     } else this.hitEnemy(e, S);
     if (pr.fork) {
       pr.fork = false;
@@ -1505,10 +1591,21 @@ export class Combat {
   }
   burst(x, y, color, n, spd) {
     for (let i = 0; i < n; i++) {
-      if (this.parts.length > 500) this.parts.shift();
       const a = Math.random() * TAU, v = rand(0.3, 1) * spd, life = rand(0.3, 0.7);
-      this.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: life, max: life, color, s: rand(1.5, 3.5), k: Math.random() < 0.45 ? 1 : 0 });
+      this.part({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: life, color, s: rand(1.5, 3.5), k: Math.random() < 0.45 ? 1 : 0 });
     }
+  }
+  /** Einzelnes Partikel (k: 0 Glühen, 1 Funke, 2 Glut, 3 Eissplitter, 4 Rauch, 5 Tropfen, 6 Brocken, 7 Schneeflocke). */
+  part(o) {
+    if (this.parts.length > 520) this.parts.splice(0, 20);
+    o.max = o.t; if (o.k === undefined) o.k = 0;
+    this.parts.push(o);
+  }
+  decal(o) {
+    if (!this.decals) return;
+    o.max = o.t;
+    this.decals.push(o);
+    if (this.decals.length > 90) this.decals.shift();
   }
   text(x, y, txt, color, size = 1) {
     this.texts.push({ x, y, txt, color, t: 1.2, max: 1.2, size, vy: -25 });
@@ -1516,8 +1613,7 @@ export class Combat {
   updateFx(dt) {
     for (const f of this.fx) f.t -= dt;
     this.fx = this.fx.filter((f) => f.t > 0);
-    const damp = Math.pow(0.06, dt);
-    for (const p of this.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= damp; p.vy *= damp; p.t -= dt; }
+    updateParticles(this.parts, dt);
     this.parts = this.parts.filter((p) => p.t > 0);
     for (const t of this.texts) { t.y += t.vy * dt; t.t -= dt; }
     this.texts = this.texts.filter((t) => t.t > 0);
@@ -1590,18 +1686,17 @@ export class Combat {
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     // Brandspuren
+    const shSpr = shadowSprite();
     for (const d of this.decals) {
       if (!vis(d.x, d.y, d.r)) continue;
-      ctx.globalAlpha = Math.min(1, d.t / 2) * 0.5;
-      ctx.drawImage(shadowSprite(), d.x - d.r, d.y - d.r * 0.6, d.r * 2, d.r * 1.2);
-      ctx.globalAlpha = Math.min(1, d.t / 2) * 0.22;
-      ctx.drawImage(soft(d.col), d.x - d.r * 0.7, d.y - d.r * 0.5, d.r * 1.4, d.r);
+      drawDecal(ctx, d, Math.min(1, d.t / 2), shSpr);
     }
     ctx.globalAlpha = 1;
 
     // ---- Auren des Spielers
     for (const sk of this.sk) {
       if (sk.S.def.beh !== 'aura') continue;
+      if (drawAura(ctx, sk, this, runeCircle)) continue;
       const col = typeColor(sk.S.dmg), R = sk.S.area;
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.18 + 0.05 * Math.sin(this.t * 4);
@@ -1631,6 +1726,7 @@ export class Combat {
     }
     for (const z of this.zones) {
       if (!vis(z.x, z.y, z.r)) continue;
+      if (drawZone(ctx, z, this, runeCircle)) continue;
       const a = Math.min(1, z.t / 0.4);
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.3 * a;
@@ -1694,15 +1790,7 @@ export class Combat {
       }
     }
     // ---- Fallen
-    for (const t of this.traps) {
-      let x = t.x, y = t.y;
-      if (t.fly > 0) { const k = 1 - t.fly / 0.25; x = t.sx + (t.x - t.sx) * k; y = t.sy + (t.y - t.sy) * k - Math.sin(k * Math.PI) * 40; }
-      ctx.save(); ctx.translate(x, y); ctx.rotate(this.t * 2);
-      ctx.globalAlpha = t.arm > 0 ? 0.5 : 1;
-      ctx.drawImage(runeCircle(t.color, 64, 6, 9), -12, -12, 24, 24);
-      ctx.fillStyle = t.color; ctx.fillRect(-3, -3, 6, 6);
-      ctx.restore(); ctx.globalAlpha = 1;
-    }
+    for (const t of this.traps) drawTrap(ctx, t, this, runeCircle);
     // ---- Schatten aller Figuren
     const shS = shadowSprite();
     if (!this.lowGfx) for (const e of this.enemies) {
@@ -1719,27 +1807,8 @@ export class Combat {
     }
     // ---- Begleiter
     for (const m of this.minions) this.drawMinion(ctx, m);
-    // ---- Projektile mit Schweif
-    ctx.globalCompositeOperation = 'lighter';
-    for (const pr of this.projs) {
-      if (!vis(pr.x, pr.y, 40)) continue;
-      const r = pr.r, s = soft(pr.color);
-      for (let i = 4; i >= 1; i--) {
-        const k = i * 0.018;
-        const w = r * (3.2 - i * 0.5);
-        ctx.globalAlpha = 0.5 - i * 0.09;
-        ctx.drawImage(s, pr.x - pr.vx * k - w, pr.y - pr.vy * k - w, w * 2, w * 2);
-      }
-      ctx.globalAlpha = 0.9;
-      ctx.drawImage(s, pr.x - r * 3, pr.y - r * 3, r * 6, r * 6);
-    }
-    ctx.globalAlpha = 1;
-    const core = soft('#ffffff', 1);
-    for (const pr of this.projs) {
-      if (!vis(pr.x, pr.y, 40)) continue;
-      ctx.drawImage(core, pr.x - pr.r * 0.9, pr.y - pr.r * 0.9, pr.r * 1.8, pr.r * 1.8);
-    }
-    ctx.globalCompositeOperation = 'source-over';
+    // ---- Projektile (eigene Optik je Rune)
+    drawProjectiles(ctx, this, vis);
     for (const b of this.eprojs) {
       if (!vis(b.x, b.y, 30)) continue;
       const col = ELEM[b.elem].color;
@@ -1758,26 +1827,16 @@ export class Combat {
     for (const sk of this.sk) {
       if (sk.S.def.beh !== 'orbit') continue;
       const n = sk.S.count, R = sk.S.area, col = typeColor(sk.S.dmg);
+      void col;
       for (let i = 0; i < n; i++) {
         const a = sk.orbitA + (i * TAU) / n;
-        const x = p.x + Math.cos(a) * R, y = p.y + Math.sin(a) * R;
-        ctx.globalCompositeOperation = 'lighter';
-        for (let j = 1; j <= 3; j++) {
-          const b = a - j * 0.12;
-          ctx.globalAlpha = 0.35 - j * 0.09;
-          ctx.drawImage(soft(col), p.x + Math.cos(b) * R - 14, p.y + Math.sin(b) * R - 14, 28, 28);
-        }
-        ctx.globalAlpha = 0.9; ctx.drawImage(soft(col), x - 16, y - 16, 32, 32);
-        ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-        ctx.save(); ctx.translate(x, y); ctx.rotate(a + this.t * 12);
-        ctx.fillStyle = '#f2eee6'; ctx.strokeStyle = shade(col, -0.5); ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(-13, 0); ctx.lineTo(0, -4); ctx.lineTo(13, 0); ctx.lineTo(0, 4); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.restore();
+        drawOrbitItem(ctx, sk, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R, a, this);
       }
     }
     // ---- Effekte
     for (const f of this.fx) {
       const k = f.t / f.max;
+      if (drawFx(ctx, f, this)) continue;
       if (f.type === 'ring') {
         const rr = f.r * (f.fill ? 1 : 0.6 + 0.4 * (1 - k));
         if (f.fill) {
@@ -1804,6 +1863,15 @@ export class Combat {
         path(); ctx.strokeStyle = rgba(f.color, 0.35 * k); ctx.lineWidth = 9; ctx.lineCap = 'round'; ctx.stroke();
         ctx.strokeStyle = rgba(f.color, k); ctx.lineWidth = 3.5; ctx.stroke();
         ctx.strokeStyle = rgba('#ffffff', k); ctx.lineWidth = 1.4; ctx.stroke();
+        // Verästelungen
+        ctx.beginPath();
+        for (let i = 1; i < f.pts.length; i++) {
+          const [ax, ay] = f.pts[i - 1], [bx, by] = f.pts[i];
+          const mx = (ax + bx) / 2, my = (ay + by) / 2, ang = Math.atan2(by - ay, bx - ax) + (Math.random() < 0.5 ? 1 : -1) * rand(0.5, 1.1);
+          const l = Math.hypot(bx - ax, by - ay) * rand(0.15, 0.3);
+          ctx.moveTo(mx, my); ctx.lineTo(mx + Math.cos(ang) * l * 0.5 + rand(-5, 5), my + Math.sin(ang) * l * 0.5 + rand(-5, 5)); ctx.lineTo(mx + Math.cos(ang) * l, my + Math.sin(ang) * l);
+        }
+        ctx.strokeStyle = rgba(f.color, 0.7 * k); ctx.lineWidth = 1.5; ctx.stroke();
         const [lx, ly] = f.pts[f.pts.length - 1];
         ctx.globalAlpha = k; ctx.drawImage(soft(f.color), lx - 24, ly - 24, 48, 48); ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'source-over';
@@ -1825,21 +1893,7 @@ export class Combat {
       }
     }
     // ---- Partikel
-    ctx.globalCompositeOperation = 'lighter';
-    for (const pt of this.parts) {
-      const k = pt.t / pt.max;
-      if (pt.k || this.lowGfx) {
-        ctx.strokeStyle = rgba(pt.color, k); ctx.lineWidth = pt.s * 0.6; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt.x - pt.vx * 0.04, pt.y - pt.vy * 0.04); ctx.stroke();
-      } else {
-        ctx.globalAlpha = k;
-        const s = pt.s * 3.2;
-        ctx.drawImage(soft(pt.color), pt.x - s / 2, pt.y - s / 2, s, s);
-        ctx.globalAlpha = 1;
-      }
-    }
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
+    drawParticles(ctx, this.parts, this.lowGfx, this.t);
     ctx.restore();
 
     // ---- Licht: Dunkelheit mit ausgestanzten Lichtquellen
@@ -1854,14 +1908,21 @@ export class Combat {
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (const t of this.texts) {
       const age = t.max - t.t;
-      const pop = age < 0.12 ? 1 + ((0.12 - age) / 0.12) * 0.8 : 1;
+      const popK = t.style === 'crit' ? 1.3 : 0.8;
+      const pop = age < 0.12 ? 1 + ((0.12 - age) / 0.12) * popK : 1;
       ctx.globalAlpha = Math.min(1, (t.t / t.max) * 2.2);
       const size = Math.round(14 * t.size * pop);
-      ctx.font = `900 ${size}px Cinzel, Georgia, serif`;
-      ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(10,4,16,0.85)';
-      ctx.strokeText(t.txt, t.x, t.y);
-      ctx.fillStyle = t.color;
-      ctx.fillText(t.txt, t.x, t.y);
+      ctx.font = t.style === 'dot' ? `italic 700 ${size}px system-ui, sans-serif` : t.style === 'label' ? `800 ${size}px system-ui, sans-serif` : `900 ${size}px Cinzel, Georgia, serif`;
+      ctx.save(); ctx.translate(t.x, t.y); if (t.rot) ctx.rotate(t.rot);
+      ctx.lineWidth = t.style === 'crit' ? 5 : 4; ctx.lineJoin = 'round'; ctx.strokeStyle = t.style === 'crit' ? 'rgba(60,20,0,0.9)' : 'rgba(10,4,16,0.85)';
+      ctx.strokeText(t.txt, 0, 0);
+      if (t.style === 'crit') {
+        const gr = ctx.createLinearGradient(0, -size / 2, 0, size / 2);
+        gr.addColorStop(0, '#fff8d0'); gr.addColorStop(0.5, '#ffd84d'); gr.addColorStop(1, '#ff8a1a');
+        ctx.fillStyle = gr;
+      } else ctx.fillStyle = t.color;
+      ctx.fillText(t.txt, 0, 0);
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
     ctx.restore();
@@ -1875,6 +1936,7 @@ export class Combat {
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.arc(s.x, s.y, 18, 0, TAU); ctx.fill();
     }
+    if (this.whiteFlash > 0) { ctx.fillStyle = `rgba(255,255,255,${Math.min(0.6, this.whiteFlash * 1.8)})`; ctx.fillRect(0, 0, W, H); }
     // ---- Schadensblitz
     if (this.player.hurt > 0) {
       const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.hypot(W, H) * 0.6);
@@ -2043,8 +2105,7 @@ export class Combat {
     else if (e.chill > 0) st = ELEM.cold.color;
     const spr = e.boss ? bossSprite(this.cfg.bossId || 'boss', e.color, r) : enemySprite(e.id, e.color, r);
     let img = spr.c;
-    if (e.flash > 0) img = spr.flash;
-    else if (st) img = tinted(spr, st, e.frozen > 0 ? 0.6 : 0.3);
+    if (st) img = tinted(spr, st, e.frozen > 0 ? 0.6 : 0.3);
     const h = spr.h * r * (e.boss ? 1.05 : 1.18);
     let rot = 0, sx = 1, sy = 1;
     const face = Math.atan2(this.player.y - e.y, this.player.x - e.x);
@@ -2057,6 +2118,7 @@ export class Combat {
     ctx.rotate(rot);
     ctx.scale(sx, sy);
     ctx.drawImage(img, -h, -h, h * 2, h * 2);
+    if (e.flash > 0) { const ga = ctx.globalAlpha; ctx.globalAlpha = ga * 0.65; ctx.drawImage(spr.flash, -h, -h, h * 2, h * 2); ctx.globalAlpha = ga; }
     ctx.restore();
     if (st && e.burns.length && !e.frozen) {
       ctx.globalCompositeOperation = 'lighter';
