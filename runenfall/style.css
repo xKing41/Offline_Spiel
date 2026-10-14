@@ -1,3 +1,5 @@
+@font-face { font-family: "Cinzel"; src: url("fonts/cinzel.woff2") format("woff2"); font-weight: 400 900; font-display: swap; }
+@font-face { font-family: "Cinzel Decorative"; src: url("fonts/cinzel-deco.woff2") format("woff2"); font-weight: 900; font-display: swap; }
 :root {
   --bg: #0a0716;
   --panel: rgba(24, 16, 46, 0.86);
@@ -38,7 +40,7 @@ b.dps, .dps { color: var(--gold); }
 #ui {
   position: fixed; inset: 0; display: none; overflow-y: auto; touch-action: pan-y;
   padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
-  background: radial-gradient(ellipse at 50% 0%, rgba(60, 30, 110, .55), rgba(10, 7, 22, .93) 70%);
+  background: radial-gradient(ellipse at 50% 0%, rgba(60, 30, 110, .25), rgba(8, 5, 18, .62) 75%);
 }
 #ui.show { display: block; }
 #ui.treescreen { background: none; pointer-events: none; overflow: hidden; }
@@ -396,3 +398,142 @@ h2.evt { text-align: center; color: var(--cyan); }
 .chip.on { background: rgba(255, 216, 77, .22); color: var(--gold); }
 .chip.off { opacity: .4; }
 .bld h3 small { color: var(--muted); font-weight: 400; }
+
+/* =====================================================================
+   Optik-Update: Gold-Metall, Ornamente, Glas, Bewegung
+   ===================================================================== */
+:root {
+  --gold-grad: linear-gradient(180deg, #fff6c8 0%, #ffd84d 38%, #c88a1a 62%, #ffe9a0 100%);
+  --rim: linear-gradient(135deg, rgba(255, 216, 77, .55), rgba(160, 110, 255, .25) 40%, rgba(160, 110, 255, .12) 60%, rgba(255, 216, 77, .45));
+}
+/* Logo: Metallgold mit Lichtschimmer und Runenkreis dahinter */
+.logo { position: relative; font-family: "Cinzel Decorative", var(--serif); padding: 18px 0 4px; isolation: isolate; }
+.logo::before {
+  content: ""; position: absolute; left: 50%; top: 50%; width: min(78vw, 360px); aspect-ratio: 1; translate: -50% -50%; z-index: -1;
+  background: url("icons/runering.svg") center / contain no-repeat; opacity: .55; animation: spin 60s linear infinite;
+  filter: drop-shadow(0 0 12px rgba(255, 200, 90, .5));
+}
+.logo span:first-child, .logo span:last-child {
+  background: var(--gold-grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: none; filter: drop-shadow(0 2px 0 #5a3a08) drop-shadow(0 0 18px rgba(255, 190, 60, .45));
+}
+.logo span:last-child {
+  background: linear-gradient(180deg, #f4ecff 0%, #c9a8ff 40%, #6a3ad0 65%, #e0ccff 100%); -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 2px 0 #2a0a5a) drop-shadow(0 0 20px rgba(170, 120, 255, .6));
+}
+.logo span { position: relative; }
+.logo span:first-child::after {
+  content: "RUNEN"; position: absolute; inset: 0; color: transparent; -webkit-background-clip: text; background-clip: text;
+  background-image: linear-gradient(100deg, transparent 40%, rgba(255, 255, 255, .95) 50%, transparent 60%); background-size: 250% 100%;
+  animation: shine 5s ease-in-out infinite; filter: none;
+}
+@keyframes shine { 0%, 55% { background-position: 150% 0; } 100% { background-position: -100% 0; } }
+@keyframes spin { to { rotate: 360deg; } }
+.tag { letter-spacing: .5px; }
+
+/* Panels: Glas mit Goldrand und Eck-Ornamenten */
+.panel, .acc, .tile, .daily, .quest, .ccard, .abnode {
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(120, 80, 220, .14), transparent 60%),
+    linear-gradient(180deg, rgba(30, 20, 58, .9), rgba(16, 10, 34, .92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 8px 24px rgba(0, 0, 0, .35);
+  backdrop-filter: blur(3px);
+}
+.panel, .acc, .tile { position: relative; border: 1px solid transparent; background-clip: padding-box; }
+.panel::before, .acc::before, .tile::before {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: var(--rim); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.panel::after, .tile::after {
+  content: ""; position: absolute; inset: 5px; border-radius: 10px; pointer-events: none; opacity: .55;
+  background:
+    linear-gradient(var(--gold), var(--gold)) left top / 10px 1.5px no-repeat, linear-gradient(var(--gold), var(--gold)) left top / 1.5px 10px no-repeat,
+    linear-gradient(var(--gold), var(--gold)) right top / 10px 1.5px no-repeat, linear-gradient(var(--gold), var(--gold)) right top / 1.5px 10px no-repeat,
+    linear-gradient(var(--gold), var(--gold)) left bottom / 10px 1.5px no-repeat, linear-gradient(var(--gold), var(--gold)) left bottom / 1.5px 10px no-repeat,
+    linear-gradient(var(--gold), var(--gold)) right bottom / 10px 1.5px no-repeat, linear-gradient(var(--gold), var(--gold)) right bottom / 1.5px 10px no-repeat;
+}
+.panel h3 { background: linear-gradient(180deg, #fff4d0, #e8c070); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.panel h3[style*="color"] { -webkit-text-fill-color: currentColor; background: none; }
+.panel.nem h3, .panel.league h3 { -webkit-text-fill-color: currentColor; background: none; }
+
+/* Kacheln: Medaillon-Symbole */
+.tile { padding: 16px 10px 14px; transition: transform .12s, box-shadow .2s; }
+.tile:active { transform: scale(.96); }
+.tile .ti {
+  display: grid; place-items: center; width: 50px; height: 50px; margin-bottom: 6px; border-radius: 50%; font-size: 24px;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 230, 150, .35), rgba(90, 50, 160, .35) 60%, rgba(20, 10, 40, .8));
+  box-shadow: inset 0 0 0 1.5px rgba(255, 216, 77, .65), inset 0 0 12px rgba(255, 200, 80, .25), 0 0 16px rgba(255, 200, 80, .18);
+  text-shadow: 0 0 10px rgba(255, 216, 77, .8);
+}
+.tile .dot { animation: pulse 1.6s infinite; z-index: 2; }
+
+/* Buttons */
+.btn { position: relative; overflow: hidden; background: linear-gradient(180deg, rgba(60, 42, 104, .95), rgba(34, 22, 66, .95)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 4px 12px rgba(0, 0, 0, .3); }
+.btn.primary {
+  border: 1.5px solid #ffd84d; color: #fff8e0;
+  background: linear-gradient(180deg, #8a5a14 0%, #5a3208 48%, #3a1e04 52%, #6a4210 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 180, .55), inset 0 -2px 6px rgba(0, 0, 0, .4), 0 0 20px rgba(255, 190, 60, .35), 0 6px 16px rgba(0, 0, 0, .4);
+  text-shadow: 0 1px 2px #000, 0 0 10px rgba(255, 200, 80, .6);
+}
+.btn.primary::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 245, 200, .35) 50%, transparent 65%); background-size: 250% 100%;
+  animation: shine 4.5s ease-in-out infinite;
+}
+.btn.big.primary { font-family: "Cinzel Decorative", var(--serif); font-size: 22px; letter-spacing: 3px; padding: 18px 20px; }
+.btn.danger { background: linear-gradient(180deg, #5a1424, #2a0610); }
+
+/* Kopfzeile */
+.topbar { background: linear-gradient(180deg, rgba(14, 8, 30, .96), rgba(14, 8, 30, .82)); border-bottom: none; }
+.topbar::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 216, 77, .7), transparent); }
+.topbar h2 { background: var(--gold-grad); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 1px 0 #3a2008); }
+
+/* Balken mit Glanz */
+.bar { box-shadow: inset 0 2px 4px rgba(0, 0, 0, .6); }
+.bar i { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), 0 0 10px currentColor; }
+.bar i::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255, 255, 255, .3), transparent 55%); }
+
+/* Segment-Reiter */
+.seg { background: rgba(0, 0, 0, .35); box-shadow: inset 0 0 0 1px rgba(255, 216, 77, .12); }
+.seg button.on { background: linear-gradient(180deg, rgba(110, 70, 30, .9), rgba(60, 34, 12, .9)); color: #fff4d0; box-shadow: inset 0 0 0 1.5px rgba(255, 216, 77, .75), 0 0 10px rgba(255, 190, 60, .25); }
+
+/* Klassenkarten */
+.ccard { transition: transform .12s; }
+.ccard.sel { transform: translateY(-2px); background: radial-gradient(circle at 50% 20%, color-mix(in srgb, var(--cc) 30%, transparent), rgba(16, 10, 34, .95) 70%); }
+.ccard .cg { font-size: 30px; }
+
+/* Karte (Run-Route) */
+.mnode {
+  background: radial-gradient(circle at 35% 30%, #3a2a6a, #140e28 70%); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06), 0 4px 10px rgba(0, 0, 0, .5);
+}
+.mnode.can { background: radial-gradient(circle at 35% 30%, #6a4a20, #24140a 75%); }
+.mnode.t-boss { background: radial-gradient(circle at 35% 30%, #6a1a2a, #1a0610 75%); box-shadow: 0 0 22px rgba(255, 60, 90, .45); }
+.mlines line.hot { filter: drop-shadow(0 0 4px rgba(255, 216, 77, .9)); }
+
+/* Gegenstandskarten */
+.icard { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 0 14px color-mix(in srgb, var(--rc) 22%, transparent), 0 6px 16px rgba(0, 0, 0, .35); }
+.tcard { box-shadow: 0 0 14px color-mix(in srgb, var(--rc) 25%, transparent), inset 0 1px 0 rgba(255, 255, 255, .08); }
+
+/* Bildschirm-Übergänge */
+#ui.show > .pad > *, #ui.show > .hub > * { animation: rise .38s cubic-bezier(.2, .8, .2, 1) both; }
+#ui.show > .pad > :nth-child(2), #ui.show > .hub > :nth-child(2) { animation-delay: .03s; }
+#ui.show > .pad > :nth-child(3), #ui.show > .hub > :nth-child(3) { animation-delay: .06s; }
+#ui.show > .pad > :nth-child(4), #ui.show > .hub > :nth-child(4) { animation-delay: .09s; }
+#ui.show > .pad > :nth-child(5), #ui.show > .hub > :nth-child(5) { animation-delay: .12s; }
+#ui.show > .pad > :nth-child(n+6), #ui.show > .hub > :nth-child(n+6) { animation-delay: .15s; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+#modal.show .mbox { animation: pop .25s cubic-bezier(.2, 1.2, .3, 1) both; }
+@keyframes pop { from { opacity: 0; transform: scale(.9); } }
+#toast { box-shadow: 0 0 0 1px rgba(255, 216, 77, .4), 0 0 24px rgba(255, 190, 60, .25), 0 10px 30px rgba(0, 0, 0, .5); }
+
+/* Kampf-HUD */
+.hpb { box-shadow: 0 0 0 1.5px rgba(255, 216, 77, .45), 0 4px 14px rgba(0, 0, 0, .5); }
+#hTitle { font-family: var(--serif); letter-spacing: 1px; text-shadow: 0 1px 3px #000, 0 0 10px rgba(0, 0, 0, .8); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+.mbox {
+  position: relative; border: 1px solid rgba(255, 216, 77, .45);
+  background: radial-gradient(120% 60% at 50% 0%, rgba(140, 90, 255, .22), transparent 60%), linear-gradient(180deg, rgba(28, 18, 54, .98), rgba(14, 8, 30, .98));
+  box-shadow: 0 0 0 4px rgba(10, 6, 20, .8), 0 0 0 5px rgba(255, 216, 77, .22), 0 0 40px rgba(140, 90, 255, .3), 0 20px 60px rgba(0, 0, 0, .6);
+}
+.mbox h2 { background: var(--gold-grad); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 1px 0 #3a2008); }
+.hub { padding-top: 6px; }

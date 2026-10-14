@@ -50,6 +50,13 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 - Keystones wie *Glaskanone*, *Ruhiger Geist* (keine Krits, 30% mehr Schaden), *Henkerspräzision* (jeder 4. Treffer kritisch), *Seuchenfürst*, *Sternenseele* (Leben 1, riesige Barriere) verändern die Regeln.
 - 74 Unikate wie *Aschenrufer* (alles wird Feuer), *Echos der Leere* (alle Zauber doppelt), *Phönixfeder* (einmal pro Kampf wiederbeleben) oder *Gespaltener Himmel* (Projektile teilen sich).
 
+## Optik
+- Eigener Grafik-Renderer: handgezeichnete, prozedural erzeugte Sprites für alle 30 Gegnertypen, Bosse mit Runen-Corona, Spielfigur in Klassenfarbe
+- Neun Biome mit eigener Bodentextur (Steinplatten, Moor, Kristalle, Lavaadern, Leerenrunen, Asche, Spiegel, Seelenwasser) und Atmosphäre (Glut, Schnee, Sporen, Funkeln)
+- Dynamisches Licht, Schatten, Leuchtschweife, Funkenpartikel, Brandspuren und Schadenszahlen mit Pop-Effekt
+- Menüs mit Goldschrift (Cinzel, offline eingebunden), Runenring-Logo, animiertem Sternennebel und Ornament-Panels
+- Grafikqualität „Automatisch / Pracht / Schnell“ – schaltet bei Rucklern selbst um
+
 ## Technik
 Reines JavaScript (ES-Module), Canvas-Rendering, keine Abhängigkeiten. Spielstand in `localStorage`, Export/Import in den Einstellungen.
 `js/data/*` enthält alle Inhalte (Fertigkeiten, Gegenstände, Baum, Gegner) – leicht erweiterbar.

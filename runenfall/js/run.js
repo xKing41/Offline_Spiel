@@ -193,17 +193,17 @@ export function ascendMods(id) {
 export function actInfo(run) {
   if (run.mode === 'abyss') {
     const ids = Object.keys(BIOMES);
-    const b = BIOMES[ids[(run.floor - 1) % ids.length]];
-    return { ...ABYSS, tint: b.tint, floor: b.floor, hazard: run.floor > 10 ? b.hazard : null, biomeName: b.name, power: abyssPower(run.floor) };
+    const bid = ids[(run.floor - 1) % ids.length], b = BIOMES[bid];
+    return { ...ABYSS, biomeId: bid, tint: b.tint, floor: b.floor, hazard: run.floor > 10 ? b.hazard : null, biomeName: b.name, power: abyssPower(run.floor) };
   }
   if (run.act >= ACTS.length && run.atlas) {
     const reg = getAtlas().regions[run.atlas];
     const b = BIOMES[reg.biome];
-    return { ...b, name: reg.name, sub: 'Akt IV', power: atlasPower(reg.tier) * (1 + 0.08 * run.asc), boss: reg.boss, regionMods: reg.mods, tier: reg.tier };
+    return { ...b, biomeId: reg.biome, name: reg.name, sub: 'Akt IV', power: atlasPower(reg.tier) * (1 + 0.08 * run.asc), boss: reg.boss, regionMods: reg.mods, tier: reg.tier };
   }
   const A = ACTS[Math.min(run.act, ACTS.length - 1)];
-  const b = BIOMES[(run.biomes && run.biomes[run.act]) || A.biomes[0]];
-  return { ...b, sub: A.sub, power: A.power };
+  const bid = (run.biomes && run.biomes[run.act]) || A.biomes[0], b = BIOMES[bid];
+  return { ...b, biomeId: bid, sub: A.sub, power: A.power };
 }
 
 export function snapshot(run) {
@@ -318,7 +318,7 @@ export function combatCfg(run, node) {
     bossRage: mu('bossrage'), bossHpMult: mu('bossrage') ? 1.5 : 1,
     volatileCorpses: mu('volatile'), meteors: mu('hazards'), hazard: A.hazard || null, eliteLoot: atlasHas('aElite'),
     xpMult: 1 + (act - 1) * 0.35,
-    tint: A.tint, floorColor: A.floor,
+    tint: A.tint, floorColor: A.floor, biome: A.biomeId, clsColor: CLASSES[run.cls].color,
     label: run.mode === 'abyss' ? `Abgrund · Ebene ${run.floor} · ${A.biomeName}` : `${A.sub} · ${A.name}${A.tier ? ` · Stufe ${A.tier}` : ''}`,
   };
 }

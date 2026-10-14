@@ -499,12 +499,15 @@ export function showSettings() {
   const tg = (k, label) => `<button class="toggle ${st[k] ? 'on' : ''}" data-a="setTog" data-k="${k}"><span>${label}</span><i></i></button>`;
   screen(`${topbar('Einstellungen')}<div class="pad"><div class="panel">
     ${tg('sound', 'Ton')}${tg('vibrate', 'Vibration')}${tg('dmgNums', 'Schadenszahlen')}${tg('shake', 'Bildschirmwackeln')}</div>
+    <div class="panel"><h3>Grafik</h3><div class="seg">${[['auto', 'Automatisch'], ['high', 'Pracht'], ['low', 'Schnell']].map(([k, n]) => `<button class="${(st.gfx || 'auto') === k ? 'on' : ''}" data-a="setGfx" data-k="${k}">${n}</button>`).join('')}</div>
+    <p class="small muted">„Pracht“: Licht, Schatten und Atmosphäre. „Schnell“ für ältere Handys. „Automatisch“ wechselt bei Rucklern selbst.</p></div>
     <div class="panel"><h3>Spielstand</h3><p class="small muted">Dein Fortschritt liegt nur auf diesem Gerät. Sichere ihn gelegentlich als Text (z. B. in einer Notiz).</p>
     <div class="row"><button class="btn small" data-a="exp">Exportieren</button><button class="btn small" data-a="imp">Importieren</button></div>
     <button class="btn small danger" data-a="wipe">Alles löschen</button></div>
     <p class="muted small center">Runenfall · läuft komplett offline</p></div>`);
 }
 on('setTog', (d) => { save.settings[d.k] = !save.settings[d.k]; persist(); showSettings(); });
+on('setGfx', (d) => { save.settings.gfx = d.k; app.combat.lowGfx = d.k === 'low'; persist(); showSettings(); });
 on('exp', () => {
   const code = exportSave();
   modal(`<h3>Spielstand exportieren</h3><textarea class="code" readonly>${code}</textarea>

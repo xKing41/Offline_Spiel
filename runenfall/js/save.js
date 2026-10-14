@@ -50,7 +50,7 @@ function defaults() {
       playTime: 0, bestRun: null, enemyKills: {}, dailies: 0, quests: 0, maxProphWin: 0, flawless: 0,
       fastestWin: 1e9, lastCls: null, nemesisSlain: 0, nemesisMax: 0, beasts: 0, leagueRuns: 0, potionsBrewed: 0, buildingUps: 0, packsOpened: 0,
     },
-    settings: { sound: true, vibrate: true, dmgNums: true, shake: true },
+    settings: { sound: true, vibrate: true, dmgNums: true, shake: true, gfx: 'auto' },
     run: null,
   };
 }

@@ -213,7 +213,7 @@ function updateHud() {
   H.hp.style.width = `${(Math.max(0, p.hp) / tot) * 100}%`;
   H.bar.style.left = `${(Math.max(0, p.hp) / tot) * 100}%`;
   H.bar.style.width = `${(p.barrier / tot) * 100}%`;
-  H.hpTxt.textContent = `${fmt(Math.max(0, p.hp))}${P.maxBarrier ? ' + ' + fmt(p.barrier) : ''} / ${fmt(P.maxLife)}`;
+  H.hpTxt.textContent = `${fmt(Math.ceil(Math.max(0, p.hp)))}${P.maxBarrier ? " + " + fmt(Math.floor(p.barrier)) : ""} / ${fmt(Math.round(P.maxLife))}`;
   H.xp.style.width = `${(run.xp / xpNeed(run.lvl)) * 100}%`;
   H.lvl.textContent = `Stufe ${run.lvl}`;
   H.time.textContent = left !== null ? (left > 0 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` : '') : '';
@@ -249,11 +249,21 @@ window.addEventListener('pagehide', () => persist());
 
 // ===================================================================== Schleife
 let last = performance.now();
+// Automatische Grafikqualität: bei dauerhaft niedriger Bildrate auf „Schnell“ wechseln.
+let frameAvg = 1 / 60, slowT = 0;
+combat.lowGfx = save.settings.gfx === 'low';
+function autoGfx(dt) {
+  if (save.settings.gfx !== 'auto' || combat.lowGfx) return;
+  frameAvg = frameAvg * 0.96 + dt * 0.04;
+  slowT = frameAvg > 1 / 38 ? slowT + dt : 0;
+  if (slowT > 3) { combat.lowGfx = true; toast('Grafik automatisch auf „Schnell“ gestellt'); }
+}
 function frame(now) {
   let dt = (now - last) / 1000;
   last = now;
   if (dt > 0.05) dt = 0.05;
   if (combat.running) {
+    autoGfx(dt);
     combat.update(dt);
     combat.render();
     updateHud();
