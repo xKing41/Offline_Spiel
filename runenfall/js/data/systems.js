@@ -170,7 +170,7 @@ const BEAST_TITLE = ['der Weltenfresser', 'die Sternenmutter', 'der Leerenwurm',
   'der Frostkönig', 'die Gewitterbestie', 'der Knochenthron', 'das Auge im Nichts', 'der Splitterlord', 'die Seuchenkönigin'];
 const ELEM_COLORS = { fire: '#ff7a2a', cold: '#62d6ff', light: '#ffe34d', chaos: '#9cff5e', phys: '#e6dccb' };
 export const BEAST_PATTERNS = ['ring', 'spiral', 'barrage', 'charge', 'slam', 'summon', 'laser', 'blink', 'pools', 'firewall', 'cross', 'rain', 'vortex', 'clones'];
-export function makeBeast(seed) {
+export function makeBeast(seed, idx = null) {
   const rng = makeRng(seed);
   const elem = rng.pick(Object.keys(ELEM_COLORS));
   const pats = rng.shuffle([...BEAST_PATTERNS]);
@@ -183,16 +183,16 @@ export function makeBeast(seed) {
   }
   const summons = Object.keys(ENEMIES).filter((k) => !['nest', 'turret', 'wartotem', 'mite', 'slimelet'].includes(k));
   return {
-    name: `${rng.pick(BEAST_PRE)}${rng.pick(BEAST_MID)} ${rng.pick(BEAST_TITLE)}`,
+    name: `${rng.pick(BEAST_PRE)}${rng.pick(BEAST_MID)} ${idx === null ? rng.pick(BEAST_TITLE) : BEAST_TITLE[idx % BEAST_TITLE.length]}`,
     hp: Math.round(rng.range(2400, 3600)), dmg: Math.round(rng.range(20, 28)), speed: Math.round(rng.range(40, 72)),
     r: Math.round(rng.range(34, 50)), color: ELEM_COLORS[elem], elem, summon: rng.pick(summons),
     phases, patterns: phases[0].patterns, beast: true,
   };
 }
 /** Registriert eine Sternenbestie als Boss und gibt die Boss-ID zurück. */
-export function beastId(seed) {
+export function beastId(seed, idx = null) {
   const id = `beast_${seed >>> 0}`;
-  if (!BOSSES[id]) BOSSES[id] = makeBeast(seed >>> 0);
+  if (!BOSSES[id]) BOSSES[id] = makeBeast(seed >>> 0, idx);
   return id;
 }
 
@@ -215,7 +215,7 @@ export const BUILDINGS = {
     cost: (l) => ({ ore: 80 * (l + 1) ** 1.6, essence: 25 * (l + 1) ** 1.4, crystal: 20 * l ** 1.5 }), prod: (l) => ({ egg: l / 24 }) },
   library: { name: 'Bibliothek', icon: '📚', desc: '+5% Konto-Erfahrung je Stufe.', max: 10,
     cost: (l) => ({ ore: 60 * (l + 1) ** 1.5, essence: 15 * (l + 1) ** 1.4 }), prod: () => ({}) },
-  forge: { name: 'Meisterschmiede', icon: '⚒', desc: 'Schmieden im Run −5% Kosten je Stufe; ab Stufe 5 Mythisches Umschmieden.', max: 10,
+  forge: { name: 'Meisterschmiede', icon: '⚒', desc: 'Schmieden und Runenschliff im Run −5% Kosten je Stufe; ab Stufe 5 auch mythische Effekte umschmieden.', max: 10,
     cost: (l) => ({ ore: 70 * (l + 1) ** 1.6, crystal: 10 * (l + 1) ** 1.4 }), prod: () => ({}) },
   training: { name: 'Übungsplatz', icon: '🎯', desc: 'Starte Runs mit +1 Stufe je 2 Gebäudestufen.', max: 10,
     cost: (l) => ({ ore: 55 * (l + 1) ** 1.6, essence: 10 * (l + 1) ** 1.4 }), prod: () => ({}) },

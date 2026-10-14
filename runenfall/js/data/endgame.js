@@ -1,6 +1,7 @@
 // Langzeit-Systeme: Gefährten, Set-Gegenstände, Sternenatlas, Sternenmacht (Paragon), Juwelen.
 import { pick, weighted, uid, clamp, makeRng } from '../util.js';
 import { BIOMES, MUTATORS } from './content.js';
+import { beastId } from './systems.js';
 
 const inc = (s, v) => ({ s, t: 'inc', v });
 const more = (s, v) => ({ s, t: 'more', v });
@@ -144,6 +145,10 @@ export function getAtlas() {
   // Endbosse ganz rechts
   const pin = [['r5_0', 'fallenstar', 'Krater des Gefallenen Sterns'], ['r5_4', 'weaver', 'Netz der Weberin'], ['r5_2', 'eternal', 'Thron des Ewigen Königs']];
   pin.forEach(([id, boss, name], i) => Object.assign(regions[id], { boss, name, pinnacle: true, tier: [14, 15, 16][i], mods: rng.shuffle([...muts]).slice(0, 3) }));
+  // Sternenbestien: prozedurale Bosse in einigen Regionen
+  const brng = makeRng(777);
+  const cand = Object.values(regions).filter((g) => !g.pinnacle && g.tier >= 5);
+  brng.shuffle(cand).slice(0, 7).forEach((g, i) => Object.assign(g, { boss: beastId(brng.int(1, 2e9), i * 5 + 2), beast: true }));
   const nb = (reg) => {
     const out = [];
     for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {

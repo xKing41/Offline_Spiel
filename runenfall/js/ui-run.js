@@ -14,8 +14,13 @@ import {
 import { PETS } from './data/endgame.js';
 import { makeItem } from './data/items.js';
 import { sfx, buzz } from './audio.js';
+import { RUNE_TRAITS } from './data/systems.js';
+import { runeName } from './calc.js';
+import { grindPanel, systemsSummary } from './ui-systems.js';
 
 const R = () => save.run;
+const traitLines = (trs) => (trs || []).filter((t) => RUNE_TRAITS[t]).length
+  ? `<p class="small trait">${trs.filter((t) => RUNE_TRAITS[t]).map((t) => `✧ <b>${esc(RUNE_TRAITS[t].name)}:</b> ${RUNE_TRAITS[t].mods.map(modText).map(esc).join(', ')}`).join('<br>')}</p>` : '';
 
 // ===================================================================== Kopfzeile
 function runHeader() {
@@ -173,9 +178,11 @@ function skillsTab(run, snap) {
       return `<button class="sock ${fits === true ? 'fit' : fits === false ? 'nofit' : ''}" data-a="sockTap" data-s="${i}" data-j="${j}">+ Glyphe</button>`;
     }).join('');
     const lvlNote = S.lvl !== sk.lvl ? ` <small class="up">(+${S.lvl - sk.lvl})</small>` : '';
-    return `<div class="panel skill"><div class="row between"><h3>${esc(def.name)} <small>Stufe ${sk.lvl}${lvlNote}/${MAX_SKILL_LVL}</small></h3>
+    const trs = (sk.traits || []).filter((t) => RUNE_TRAITS[t]);
+    return `<div class="panel skill"><div class="row between"><h3>${esc(runeName(sk))} <small>Stufe ${sk.lvl}${lvlNote}/${MAX_SKILL_LVL}</small></h3>
       <button class="icon small" data-a="skInfo" data-id="${sk.id}">i</button></div>
       <div class="tags">${tagChips(catTags(def))}</div>
+      ${trs.length ? `<p class="small trait">${trs.map((t) => `✧ <b>${esc(RUNE_TRAITS[t].name)}:</b> ${RUNE_TRAITS[t].mods.map(modText).map(esc).join(', ')}`).join('<br>')}</p>` : ''}
       ${skillStatsLine(S)}<div class="socks">${sockets}</div></div>`;
   }).join('');
   const glyphs = run.glyphs.length ? run.glyphs.map((g, i) => `<button class="glyph ${glyphPick === i ? 'sel' : ''}" data-a="gPick" data-i="${i}"><span class="gem">◆</span>${esc(SUPPORTS[g].name)}</button>`).join('')
@@ -296,8 +303,8 @@ function choiceCard(run, c, i, action) {
     if (sk.lvl + 1 === 5 && SKILLS[sk.id].lvl5) body += `<p class="small up">${SKILLS[sk.id].lvl5.map(modText).join(', ')}</p>`;
   } else if (c.kind === 'newSkill') {
     col = '#ffd84d'; label = 'Neue Rune';
-    title = SKILLS[c.id].name;
-    body = `<div class="tags">${tagChips(catTags(SKILLS[c.id]))}</div><p class="small">${esc(SKILLS[c.id].desc)}</p>`;
+    title = runeName({ id: c.id, traits: c.traits });
+    body = `<div class="tags">${tagChips(catTags(SKILLS[c.id]))}</div><p class="small">${esc(SKILLS[c.id].desc)}</p>${traitLines(c.traits)}`;
   } else if (c.kind === 'glyph') {
     col = '#7aa8ff'; label = 'Glyphe';
     title = SUPPORTS[c.id].name;
@@ -350,7 +357,7 @@ export function showShop(fresh) {
     const btn = `<button class="btn small ${afford ? 'primary' : 'disabled'}" data-a="buy" data-i="${i}">● ${o.price}</button>`;
     if (o.kind === 'item') return itemCard(o.item, { compare: run.eq[o.item.slot] || null, actions: btn, small: true });
     if (o.kind === 'glyph') return glyphCard(o.id, btn);
-    if (o.kind === 'newSkill') return `<div class="panel"><div class="row between"><b>Neue Rune: ${esc(SKILLS[o.id].name)}</b>${btn}</div>${skillInfo(o.id)}</div>`;
+    if (o.kind === 'newSkill') return `<div class="panel"><div class="row between"><b>Neue Rune: ${esc(runeName({ id: o.id, traits: o.traits }))}</b>${btn}</div>${traitLines(o.traits)}${skillInfo(o.id)}</div>`;
     if (o.kind === 'heal') return `<div class="panel row between"><div><b>Heiltrank</b><p class="small muted">Heilt 50% Leben</p></div>${btn}</div>`;
     if (o.kind === 'lvlAny') return `<div class="panel row between"><div><b>Runenstein</b><p class="small muted">+1 Stufe für eine Rune deiner Wahl</p></div>${btn}</div>`;
     return '';
@@ -401,7 +408,7 @@ export function showForge() {
     detail = itemCard(it, { actions: `${it.rarity !== 'normal' ? b('reroll', 'Chaos', 'Alle Affixe neu würfeln') : ''}${it.affixes.length < 6 ? b('add', 'Erhebung', 'Neuen Affix hinzufügen') : ''}${it.affixes.length ? b('upgrade', 'Veredelung', 'Ein Affix +1 Stufe') : ''}` });
   }
   screen(`${runHeader()}<div class="pad"><h2>⚒ Schmiede</h2><p class="muted small">Gegenstandsstufe ${it ? it.ilvl : '–'} begrenzt die höchste erreichbare Affix-Stufe.</p>
-    <div class="bag">${list || '<p class="muted">Nichts zu schmieden.</p>'}</div>${detail}
+    <div class="bag">${list || '<p class="muted">Nichts zu schmieden.</p>'}</div>${detail}${grindPanel(run)}
     <button class="btn primary" data-a="leave">Weiterziehen ›</button></div>`, 'runscreen');
 }
 on('fSel', (d) => { forgeSel = d.u; showForge(); });
@@ -534,5 +541,5 @@ export function showSummary(res, relics) {
     ${extra}${acc.level > accBefore ? `<p class="up">Kontostufe ${accBefore} → ${acc.level}! +${acc.level - accBefore} Sternpunkt${acc.level - accBefore > 1 ? 'e' : ''}</p>` : ''}
     ${bar(acc.cur, acc.need, 'xp')}</div>
     ${res.win && res.mode !== 'abyss' ? `<p class="up">Sternenhöhe ${res.asc + 1} freigeschaltet!</p>` : ''}
-    ${atlas}${pets}${quests}${relicHtml}${jewelHtml}${ach}<button class="btn primary big" data-a="nav" data-to="hub">Zur Sternwarte</button></div>`);
+    ${systemsSummary(res)}${atlas}${pets}${quests}${relicHtml}${jewelHtml}${ach}<button class="btn primary big" data-a="nav" data-to="hub">Zur Sternwarte</button></div>`);
 }

@@ -10,6 +10,7 @@ import { getTree, findPath, removalSet, KEYSTONES } from './data/tree.js';
 import { modText } from './data/stats.js';
 import { buildSets, relicMods, ensureQuests, questText, dailyConfig } from './run.js';
 import { computePlayer, computeSkill } from './calc.js';
+import { systemTiles, leaguePanel, potionPanel, archiveTab } from './ui-systems.js';
 import { sfx } from './audio.js';
 import { jewelsTab, jewelSocketPanel, paragonPanel } from './ui-endgame.js';
 import { PETS, SETS, getAtlas } from './data/endgame.js';
@@ -46,6 +47,7 @@ export function showHub() {
         <button class="tile" data-a="nav" data-to="stats"><span class="ti">☷</span>Chronik<small>Statistik</small></button>
         <button class="tile" data-a="nav" data-to="atlas"><span class="ti">✷</span>Sternenatlas${(save.atlas?.points || 0) > Object.keys(save.atlas?.passives || {}).length ? '<i class="dot"></i>' : ''}<small>${Object.keys(save.atlas?.done || {}).length}/30 Regionen</small></button>
         <button class="tile" data-a="nav" data-to="pets"><span class="ti">🐾</span>Gefährten<small>${Object.keys(save.pets || {}).length}/12 gesammelt</small></button>
+        ${systemTiles()}
       </div>
       <button class="btn small ghost" data-a="nav" data-to="settings">⚙ Einstellungen</button>
       ${save.treeReset ? '<p class="note">Die Sternenkarte wurde überarbeitet – deine Punkte wurden zurückerstattet.</p>' : ''}
@@ -125,6 +127,8 @@ export function showSetup() {
       ${ascendPanel()}
       ${petPanel()}
       ${atlasPanel()}
+      ${leaguePanel(setup)}
+      ${potionPanel(setup)}
       ${prophPanel()}
       <button class="btn primary big" data-a="go">LOS</button>
     </div>`);
@@ -170,7 +174,7 @@ on('mode', (d) => { setup.mode = d.m; showSetup(); });
 on('asc', (d) => { setup.asc = Math.max(0, Math.min(save.ascUnlocked, setup.asc + Number(d.d))); showSetup(); });
 on('go', () => {
   save.lastCls = setup.cls;
-  app.startRun({ ...setup, pet: setup.pet || null, atlas: setup.mode === 'normal' ? (save.atlas?.target || null) : null });
+  app.startRun({ ...setup, pet: setup.pet || null, atlas: setup.mode === 'normal' ? (save.atlas?.target || null) : null, potion: setup.potion || null, league: setup.mode === 'normal' && !!setup.league });
 });
 function petPanel() {
   const own = Object.keys(save.pets || {});
@@ -182,6 +186,8 @@ function petPanel() {
     ${setup.pet ? `<p class="small">${esc(PETS[setup.pet].name)}: ${PETS[setup.pet].passive(save.pets[setup.pet].lvl).map(modText).map(esc).join(', ')}</p>` : ''}</div>`;
 }
 on('pickPet', (d) => { setup.pet = d.id || null; showSetup(); });
+on('togLeague', () => { setup.league = !setup.league; const y = document.getElementById('ui').scrollTop; showSetup(); document.getElementById('ui').scrollTop = y; });
+on('pickPot', (d) => { setup.potion = d.id || null; const y = document.getElementById('ui').scrollTop; showSetup(); document.getElementById('ui').scrollTop = y; });
 function atlasPanel() {
   if (setup.mode !== 'normal') return '';
   const t = save.atlas?.target;
@@ -305,7 +311,7 @@ export const treeTabLocked = () => !!save.run;
 // ===================================================================== Kodex
 let codexTab = 'skills';
 export function showCodex() {
-  const tabs = [['skills', 'Runen'], ['supports', 'Glyphen'], ['ascend', 'Aufstieg'], ['uniques', 'Unikate'], ['sets', 'Sets'], ['bestiary', 'Bestien']]
+  const tabs = [['skills', 'Runen'], ['supports', 'Glyphen'], ['ascend', 'Aufstieg'], ['uniques', 'Unikate'], ['sets', 'Sets'], ['archive', 'Archiv'], ['bestiary', 'Bestien']]
     .map(([k, n]) => `<button class="${codexTab === k ? 'on' : ''}" data-a="ctab" data-t="${k}">${n}</button>`).join('');
   let body = '';
   if (codexTab === 'skills') {
@@ -336,6 +342,8 @@ export function showCodex() {
       <ul class="mods">${st.pieces.map((p, i) => found.includes(`${sid}:${i}`) ? `<li class="u">✓ ${esc(p.name)} – ${p.mods.map(modText).map(esc).join(', ')}</li>` : '<li class="muted">○ ???</li>').join('')}</ul>
       ${Object.entries(st.bonus).map(([n, mods]) => `<p class="small setb">${n} Teile: ${mods.map(modText).map(esc).join(', ')}</p>`).join('')}</div>`).join('');
     body = `<p class="muted center small">Set-Teile findest du überall, wo es Beute gibt. Mehrere Teile desselben Sets schalten Boni frei.</p>${body}`;
+  } else if (codexTab === 'archive') {
+    body = archiveTab();
   } else if (codexTab === 'bestiary') {
     const kills = save.stats.enemyKills || {};
     const known = Object.keys(ENEMIES).filter((k) => kills[k] > 0).length;

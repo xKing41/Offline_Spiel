@@ -9,10 +9,11 @@ import { BOSSES } from './data/content.js';
 import { RARITY } from './data/items.js';
 import {
   newRun, snapshot, combatCfg, gainXp, xpNeed, rollRewards, healAfterFight, advanceAct, endRun, dropRelic, genAbyssChoices, priceMult,
-  dropJewel, completeAtlas, atlasHas, setCountMax,
+  dropJewel, completeAtlas, atlasHas, setCountMax, nemesisSlain,
 } from './run.js';
 import { showHub, showSetup, showTree, showCodex, showAltar, showRelics, showAch, showStats, showSettings } from './ui-meta.js';
 import { showAtlas, showPets } from './ui-endgame.js';
+import { showBase, showCards, showNemesis, showSeason } from './ui-systems.js';
 import { showMap, showBuild, showLevelUp, showRewards, showShop, showForge, showEvent, showRest, showSummary } from './ui-run.js';
 import { sfx, buzz } from './audio.js';
 
@@ -26,6 +27,7 @@ app.treeView = treeView;
 const SCREENS = {
   hub: showHub, setup: showSetup, tree: showTree, codex: showCodex, altar: showAltar, relics: showRelics,
   ach: showAch, stats: showStats, settings: showSettings, map: () => showMap(), atlas: showAtlas, pets: showPets,
+  base: showBase, cards: showCards, nemesis: showNemesis, season: showSeason,
 };
 app.nav = (to) => {
   closeModal();
@@ -98,6 +100,10 @@ app.startCombat = (node) => {
       const j = dropJewel(run, 0.03 + (atlasHas('aJewel') ? 0.04 : 0));
       if (j) { toast(`<b style="color:${RARITY[j.rarity].color}">⬢ Juwel gefunden!</b>`); sfx.loot(); }
     },
+    onNemesisKill(n) {
+      const r = nemesisSlain(run, n.uid);
+      if (r) { toast(`<b style="color:#ff5d5d">☠ Erzfeind ${n.name} vernichtet!</b><br>Mythischer Gegenstand erbeutet`); sfx.loot(); buzz(60); }
+    },
     onBoss(e) {
       $('#hBoss').classList.remove('hidden');
       $('#hBossName').textContent = e.name;
@@ -112,7 +118,7 @@ app.startCombat = (node) => {
       return false;
     },
     onWin(stats) { addStats(stats); fightWon(node, cfg); },
-    onLose(stats) { addStats(stats); $('#hud').classList.remove('show'); combat.cfg = null; finishRun('death'); },
+    onLose(stats) { addStats(stats); run.killer = combat.killer || null; $('#hud').classList.remove('show'); combat.cfg = null; finishRun('death'); },
   });
   last = performance.now();
 };
@@ -147,6 +153,8 @@ function fightWon(node, cfg) {
     if (dropJewel(run, 0.25 + (atlasHas('aJewel') ? 0.2 : 0))) toast('⬢ Juwel gefunden!');
     if (Math.random() < 0.08 + (atlasHas('aEgg') ? 0.1 : 0)) { run.eggs = (run.eggs || 0) + 1; toast('🥚 Ein Gefährten-Ei!'); }
     if (run.mode === 'normal' && run.act >= 3 && run.atlas) completeAtlas(run);
+    if (Math.random() < 0.3 + (BOSSES[cfg.bossId].beast ? 0.4 : 0)) { run.packs = (run.packs || 0) + 1; toast('🂠 Ein Schicksalskartenpack!'); }
+    if (BOSSES[cfg.bossId].beast) save.stats.beasts = (save.stats.beasts || 0) + 1;
     save.stats.bossKills[cfg.bossId] = (save.stats.bossKills[cfg.bossId] || 0) + 1;
     const r = dropRelic(run, 1);
     if (r) fightRelics.push(r);

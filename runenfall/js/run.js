@@ -7,7 +7,7 @@ import { makeItem, makeRelic, SLOTS, itemMods, UNIQUES, craftReroll, craftAdd, c
 import { getTree, treeMods } from './data/tree.js';
 import { PETS, PET_IDS, PET_MAX, petSkillDef, SETS, getAtlas, atlasPower, ATLAS_PASSIVES, PARAGON, makeJewel, jewelMods } from './data/endgame.js';
 import {
-  rollTraits, RUNE_TRAITS, makeNemesis, NEMESIS_MAX, NEMESIS_IDS, NEMESIS_TAUNTS, beastId, BUILDINGS, POTIONS, CARDS, CARD_IDS, cardMods,
+  rollTraits, RUNE_TRAITS, MYTHIC_EFFECTS, makeNemesis, NEMESIS_MAX, NEMESIS_IDS, NEMESIS_TAUNTS, beastId, BUILDINGS, POTIONS, CARDS, CARD_IDS, cardMods,
   deckSize, openPack, currentLeague, seasonKey, SEASON_TIERS, seasonXpFor,
 } from './data/systems.js';
 import { makeMythic } from './data/items.js';
@@ -37,7 +37,7 @@ function drawCards(run, n) {
   run.cards = run.cards || [];
   for (let i = 0; i < n && deck.length; i++) run.cards.push(deck.splice(Math.floor(Math.random() * deck.length), 1)[0]);
 }
-import { ModSet, computePlayer, computeSkill, flatSum } from './calc.js';
+import { ModSet, computePlayer, computeSkill, flatSum, runeName } from './calc.js';
 import { save, persist, altarLvl, checkAchievements, accountLevel } from './save.js';
 
 export const LAYERS = 8;
@@ -64,10 +64,12 @@ export function newRun({ cls, asc = 0, mode = 'normal', ascend = null, mutators 
     stats: { kills: 0, elites: 0, bosses: 0, nodes: 0, maxHit: 0, dmg: 0, relics: [], byType: {}, gold: 0 },
   };
   run.league = league ? currentLeague().key : null;
+  run.leagueBonus = league ? currentLeague().bonus : 0;
   if (potion && save.base && save.base.potions && save.base.potions[potion] > 0) {
     save.base.potions[potion]--;
     run.potion = potion;
   }
+  if (save.pendingMythic > 0) { save.pendingMythic--; run.bag.push(makeMythic(40)); run.gotMythic = true; }
   drawCards(run, 2);
   const tl = Math.floor(baseLvl('training') / 2);
   if (tl) { run.lvl += tl; run.pendingLvl += tl; }
@@ -452,7 +454,7 @@ export function genShop(run) {
 }
 
 export const forgeCost = (run, op, item) => {
-  const pm = priceMult(run) * (1 + item.ilvl / 40) * (atlasHas('aForge') ? 0.75 : 1);
+  const pm = priceMult(run) * (1 + item.ilvl / 40) * (atlasHas('aForge') ? 0.75 : 1) * (1 - 0.05 * baseLvl('forge'));
   return Math.round({ reroll: 25, add: 45, upgrade: 60 }[op] * pm);
 };
 export function forge(run, op, item) {
@@ -465,6 +467,30 @@ export function forge(run, op, item) {
   else if (op === 'upgrade') ok = craftUpgrade(item);
   if (ok) run.gold -= cost;
   return ok;
+}
+/** Runenschliff: Merkmale einer Rune neu würfeln (Anzahl bleibt, mindestens 1). */
+export const grindCost = (run) => Math.round(70 * priceMult(run) * (1 + run.act * 0.5) * (1 - 0.05 * baseLvl('forge')));
+export function grindRune(run, inst) {
+  const cost = grindCost(run);
+  if (run.gold < cost || !SKILLS[inst.id]) return false;
+  run.gold -= cost;
+  const n = Math.max(1, (inst.traits || []).length);
+  inst.traits = rollTraits(SKILLS[inst.id], n);
+  archiveRune(inst);
+  save.stats.grinds = (save.stats.grinds || 0) + 1;
+  return true;
+}
+/** Mythisches Umschmieden (Meisterschmiede Stufe 5+): einen Spezialeffekt neu würfeln. */
+export const mythForgeCost = (run) => Math.round(150 * priceMult(run) * (1 + run.act * 0.4));
+export function mythForge(run, item) {
+  if (item.rarity !== 'mythic' || baseLvl('forge') < 5) return false;
+  const cost = mythForgeCost(run);
+  if (run.gold < cost) return false;
+  const i = Math.floor(Math.random() * item.effects.length);
+  const pool = MYTHIC_EFFECTS.map((_, k) => k).filter((k) => !item.effects.includes(k));
+  item.effects[i] = pool[Math.floor(Math.random() * pool.length)];
+  run.gold -= cost;
+  return true;
 }
 export const sellValue = (run, item) => Math.round(itemValue(item) * 0.4 * priceMult(run));
 
@@ -516,7 +542,7 @@ export function applyEvent(run, fx) {
   if (fx.relic) { const r = dropRelic(run, 1); if (r) msgs.push(`Relikt „${r.title}“ erhalten!`); }
   if (fx.newSkill) {
     const id = run.skills.length < MAX_SKILLS ? newSkillChoice(run) : null;
-    if (id) { run.skills.push({ id, lvl: 1, sup: [null, null, null] }); msgs.push(`Neue Rune: ${SKILLS[id].name}!`); }
+    if (id) { const inst = { id, lvl: 1, sup: [null, null, null], traits: rollRuneTraits(run, id) }; run.skills.push(inst); archiveRune(inst); msgs.push(`Neue Rune: ${runeName(inst)}!`); }
     else { const g = randomGlyph(run); run.glyphs.push(g); msgs.push(`Kein Platz für eine Rune – stattdessen Glyphe „${SUPPORTS[g].name}“.`); }
   }
   if (fx.sacrifice) {
@@ -613,7 +639,7 @@ export function endRun(run, outcome) {
   let dust = (s.nodes * 5 + s.elites * 12 + s.bosses * 70 + (win ? 200 : 0)) * (1 + run.asc * 0.25);
   if (run.mode === 'abyss') { dust *= 1 + run.floor * 0.04; axp *= 1 + run.floor * 0.03; }
   const prophBonus = Math.round((run.mutators || []).reduce((sum, m) => sum + MUTATORS[m].reward, 0) * (atlasHas('aProph') ? 1.25 : 1));
-  dust *= 1 + prophBonus / 100;
+  dust *= 1 + (prophBonus + (run.leagueBonus || 0)) / 100;
   axp *= 1 + prophBonus / 200;
   dust += run.bonusDust || 0;
   let dailyBonus = false;
@@ -668,8 +694,13 @@ export function endRun(run, outcome) {
   // Kartenpacks aus dem Run
   const packs = [];
   for (let i = 0; i < (run.packs || 0); i++) packs.push(...openPack(3));
+  save.stats.packsOpened = (save.stats.packsOpened || 0) + (run.packs || 0);
   for (const c of packs) { save.cards = save.cards || {}; save.cards[c] = Math.min(5, (save.cards[c] || 0) + 1); }
-  if (run.league) save.stats.leagueRuns = (save.stats.leagueRuns || 0) + 1;
+  if (run.league) {
+    save.stats.leagueRuns = (save.stats.leagueRuns || 0) + 1;
+    if (!save.leagueBest || save.leagueBest.key !== run.league) save.leagueBest = { key: run.league, depth: 0 };
+    save.leagueBest.depth = Math.max(save.leagueBest.depth, depth + (win ? 1 : 0));
+  }
   const hatched = [];
   for (let i = 0; i < (run.eggs || 0); i++) hatched.push(hatchEgg());
   // Atlaspunkte aus Ereignissen
@@ -766,7 +797,7 @@ export function dropRelic(run, chanceMult = 1) {
 function pickNemesis(run, kind) {
   const list = (save.nemesis || []).filter((n) => !(run.nemesisSeen || []).includes(n.uid));
   if (!list.length || kind === 'boss' || run.daily) return null;
-  if (Math.random() > 0.1 + 0.02 * list.length) return null;
+  if (Math.random() > 0.05 + 0.01 * list.length) return null;
   const n = list[Math.floor(Math.random() * list.length)];
   run.nemesisSeen = [...(run.nemesisSeen || []), n.uid];
   return n;

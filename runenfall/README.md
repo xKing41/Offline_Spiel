@@ -18,6 +18,15 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 |---|---|
 | **Sternenkarte** | 525 Sterne, 60 bedeutende Sterne, 12 Keystones, 12 Juwelsockel, eigener Baum pro Klasse, jederzeit kostenlos umbaubar |
 | **Sternenatlas** | Endgame: 30 Regionen (Stufe 1–16) als Akt IV, Atlas-Kenntnisse, 3 Endbosse mit Phasen |
+| **Erzfeinde** | Wer dich tötet, bekommt einen Namen, steigt im Rang auf (bis zu 16 Merkmale wie Hydra, Blutsauger, Phasenwandler) und jagt dich in späteren Runs – Kopfgeld: mythische Beute |
+| **Mythische Gegenstände** | Prozedural erzeugt: maximale Affixe + 1–2 von über 50 Spezialeffekten, umschmiedbar |
+| **Runenmerkmale** | Jede Rune kann mit Merkmalen erscheinen (z. B. *Glühender Zwillings-Feuerball*) – über 1.000 Varianten im Runen-Archiv, Runenschliff in der Schmiede |
+| **Sternenbestien** | 7 prozedural generierte Atlas-Bosse mit eigenen Angriffsmustern und Phasen |
+| **Zitadelle** | 8 Gebäude, die auch offline produzieren (Staub, Erz, Kristalle, Essenz, Gefährten-Eier) |
+| **Alchemie** | 9 Tränke als Run-Verstärker |
+| **Schicksalskarten** | 80 sammelbare Karten in 4 Seltenheiten, eigenes Deck, Karten steigen bis ★5 |
+| **Ligen** | Wöchentlich wechselnde Liga mit eigenen Regeln und Bonus |
+| **Saison-Pass** | Monatlich neu: 40 Belohnungsstufen |
 | **Juwelen** | Dauerhafte Beute mit zufälligen Affixen zum Einsetzen in die Sternenkarte |
 | **Gefährten** | 12 sammelbare Begleiter mit Angriff und passivem Bonus, bis Stufe 10 |
 | **Sets** | 6 Sets mit Boni für 2 und 4 Teile |
@@ -32,8 +41,8 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 | **Prophezeiungen** | 12 frei kombinierbare Erschwernisse für mehr Sternenstaub |
 | **Tägliche Herausforderung** | Jeden Tag ein fester Run mit doppeltem Staub |
 | **Aufträge** | 3 wechselnde Ziele mit Staub- und Relikt-Belohnung |
-| **Bestiarium** | 30 Gegnerarten und 12 Bosse zum Erforschen |
-| **Erfolge** | 100 Erfolge mit Sternpunkten und Staub als Belohnung |
+| **Bestiarium** | 30 Gegnerarten, 12 Bosse und 7 Sternenbestien zum Erforschen |
+| **Erfolge** | 126 Erfolge mit Sternpunkten und Staub als Belohnung |
 
 ## Build-Tiefe
 - Schadensformel wie in PoE: Grundschaden × (1 + Σ erhöht) × Π mehr, mit Umwandlung (Physisch → Blitz → Kälte → Feuer → Chaos), Durchdringung und Widerständen.
