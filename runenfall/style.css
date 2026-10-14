@@ -537,3 +537,17 @@ h2.evt { text-align: center; color: var(--cyan); }
 }
 .mbox h2 { background: var(--gold-grad); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 1px 0 #3a2008); }
 .hub { padding-top: 6px; }
+
+/* Sternenkarte: Bedienleiste & Meisterschaften */
+.treebar { flex-wrap: wrap; background: linear-gradient(180deg, rgba(12, 8, 26, .92), rgba(12, 8, 26, .72)); }
+.treebar .ctabs { width: 100%; max-width: 100%; order: -1; }
+.treebar .icon { width: 36px; height: 36px; flex: none; }
+.tsinfo { text-align: center; font-size: 11px; color: var(--gold); text-shadow: 0 1px 2px #000; padding: 2px 0; min-height: 4px; }
+.mopts { display: flex; flex-direction: column; gap: 6px; }
+.mopt { text-align: left; padding: 8px 10px; border-radius: 10px; border: 1.5px solid var(--line); background: rgba(0, 0, 0, .3); display: flex; flex-direction: column; gap: 2px; }
+.mopt small { color: var(--muted); font-size: 12px; }
+.mopt.on { border-color: var(--gold); background: linear-gradient(180deg, rgba(110, 70, 30, .6), rgba(40, 22, 8, .6)); box-shadow: 0 0 12px rgba(255, 190, 60, .25); }
+.mopt.on small { color: #fff0c0; }
+.tnode.t-myth b { color: #ff9ae6; }
+.tnode.t-legend b { color: #fff2b0; }
+.tnode.t-mastery b { color: var(--gold); }

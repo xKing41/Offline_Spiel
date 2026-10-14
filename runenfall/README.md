@@ -16,7 +16,7 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 ## Dauerhafter Fortschritt
 | System | Was es bringt |
 |---|---|
-| **Sternenkarte** | 525 Sterne, 60 bedeutende Sterne, 12 Keystones, 12 Juwelsockel, eigener Baum pro Klasse, jederzeit kostenlos umbaubar |
+| **Sternenkarte** | Riesig: über 5.600 Sterne in drei Zonen (Heimat, Grenzland, Sternenrand), 9 Klassenreiche, über 700 einzigartige Notables, 137 Meisterschaften (wähle 1 von 3), 42 Keystones, 18 Sternbilder mit Krönungsstern, 37 Mythos-Sterne, 12 Sternentor-Paare, 45 Juwelsockel – kostenlos umbaubar, mit Suche und Gesamtansicht |
 | **Sternenatlas** | Endgame: 30 Regionen (Stufe 1–16) als Akt IV, Atlas-Kenntnisse, 3 Endbosse mit Phasen |
 | **Erzfeinde** | Wer dich tötet, bekommt einen Namen, steigt im Rang auf (bis zu 16 Merkmale wie Hydra, Blutsauger, Phasenwandler) und jagt dich in späteren Runs – Kopfgeld: mythische Beute |
 | **Mythische Gegenstände** | Prozedural erzeugt: maximale Affixe + 1–2 von über 50 Spezialeffekten, umschmiedbar |
@@ -42,7 +42,7 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 | **Tägliche Herausforderung** | Jeden Tag ein fester Run mit doppeltem Staub |
 | **Aufträge** | 3 wechselnde Ziele mit Staub- und Relikt-Belohnung |
 | **Bestiarium** | 30 Gegnerarten, 12 Bosse und 7 Sternenbestien zum Erforschen |
-| **Erfolge** | 126 Erfolge mit Sternpunkten und Staub als Belohnung |
+| **Erfolge** | 132 Erfolge mit Sternpunkten und Staub als Belohnung |
 
 ## Build-Tiefe
 - Schadensformel wie in PoE: Grundschaden × (1 + Σ erhöht) × Π mehr, mit Umwandlung (Physisch → Blitz → Kälte → Feuer → Chaos), Durchdringung und Widerständen.

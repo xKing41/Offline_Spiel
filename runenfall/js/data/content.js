@@ -750,6 +750,12 @@ export const ACHIEVEMENTS = [
   { id: 'grind', name: 'Schleifer', desc: 'Schleife 20 Runen neu', reward: { dust: 400 }, check: (s) => (s.stats.grinds || 0) >= 20 },
   { id: 'beast1', name: 'Bestienjäger', desc: 'Besiege eine Sternenbestie im Atlas', reward: { points: 1 }, check: (s) => (s.stats.beasts || 0) >= 1 },
   { id: 'beast2', name: 'Bestienbezwinger', desc: 'Besiege 15 Sternenbestien', reward: { points: 2 }, check: (s) => (s.stats.beasts || 0) >= 15 },
+  { id: 'tree1', name: 'Sternendeuter', desc: 'Vervollständige ein Sternbild (Krönungsstern)', reward: { points: 1 }, check: (s) => (s.stats.legends || 0) >= 1 },
+  { id: 'tree2', name: 'Himmelskartograf', desc: 'Weise 6 Krönungssterne zu', reward: { points: 2 }, check: (s) => (s.stats.legends || 0) >= 6 },
+  { id: 'tree3', name: 'Torwächter', desc: 'Durchschreite ein Sternentor', reward: { dust: 400 }, check: (s) => (s.stats.portals || 0) >= 1 },
+  { id: 'tree4', name: 'Meister aller Klassen', desc: 'Weise 10 Meisterschaften zu', reward: { points: 1 }, check: (s) => (s.stats.masteries || 0) >= 10 },
+  { id: 'tree5', name: 'Mythenjäger', desc: 'Weise einen Mythos-Stern zu', reward: { dust: 500 }, check: (s) => (s.stats.myths || 0) >= 1 },
+  { id: 'tree6', name: 'Weltenwanderer', desc: 'Habe 150 Sterne in einer Klasse zugewiesen', reward: { points: 3 }, check: (s) => (s.stats.maxTreeNodes || 0) >= 150 },
   { id: 'pack', name: 'Sammelwut', desc: 'Öffne 25 Kartenpacks', reward: { dust: 500 }, check: (s) => (s.stats.packsOpened || 0) >= 25 },
 ];
 

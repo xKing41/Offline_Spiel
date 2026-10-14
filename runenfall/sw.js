@@ -1,5 +1,5 @@
 // Service Worker: speichert alle Dateien lokal, damit Runenfall ohne Internet läuft.
-const CACHE = 'runenfall-v5';
+const CACHE = 'runenfall-v6';
 const ASSETS = [
   './', 'index.html', 'style.css', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/runering.svg', 'fonts/cinzel.woff2', 'fonts/cinzel-deco.woff2', 'js/gfx.js', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',

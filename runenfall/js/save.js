@@ -30,6 +30,7 @@ function defaults() {
     pets: {},
     jewels: [],
     jewelSock: {},
+    mastery: {},
     atlas: { done: {}, points: 0, passives: {}, target: null },
     paragon: {},
     quests: [],
@@ -70,7 +71,7 @@ function load() {
   let s;
   try { s = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { s = null; }
   s = fill(s || {}, defaults());
-  if (s.treeV !== TREE_VERSION) { s.alloc = {}; s.treeV = TREE_VERSION; s.treeReset = true; }
+  if (s.treeV !== TREE_VERSION) { s.alloc = {}; s.jewelSock = {}; s.mastery = {}; s.treeV = TREE_VERSION; s.treeReset = true; }
   // Startknoten sicherstellen
   const tree = getTree();
   for (const cls of Object.keys(CLASSES)) {
@@ -117,8 +118,9 @@ export function achievementPoints() {
   return p;
 }
 /** Verfügbare Sternpunkte gesamt (jede Klasse kann alle Punkte verteilen). */
-export const START_POINTS = 3;
-export const totalPoints = () => accountLevel().level - 1 + START_POINTS + achievementPoints();
+export const START_POINTS = 6;
+/** Pro Kontostufe 1 Punkt, alle 4 Stufen 1 Bonuspunkt – die Karte ist riesig. */
+export const totalPoints = () => { const l = accountLevel().level; return l - 1 + Math.floor(l / 4) + START_POINTS + achievementPoints(); };
 export const spentPoints = (cls) => save.alloc[cls].length - 1;
 
 export const altarLvl = (id) => save.altar[id] || 0;

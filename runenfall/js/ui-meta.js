@@ -220,14 +220,20 @@ function renderTreeUI() {
   const locked = !!save.run;
   screen(`${topbar('Sternenkarte', save.run ? 'map' : 'hub', `<b class="pts">${pts - spent}</b><small>/${pts}</small>`)}
     <div class="treebar"><div class="ctabs">${tabs}</div>
-      <input id="tsearch" type="search" placeholder="Suchen (z. B. Feuer, Krit) …" autocomplete="off">
+      <input id="tsearch" type="search" placeholder="Suchen (z. B. Feuer, Krit, Meisterschaft) …" autocomplete="off" enterkeyhint="search">
+      <button class="icon" data-a="tnext" title="Nächster Treffer">⌕</button>
       <button class="icon" data-a="tzoom" data-f="1.3">+</button><button class="icon" data-a="tzoom" data-f="0.77">−</button>
+      <button class="icon" data-a="tview" title="Gesamtansicht">◎</button><button class="icon" data-a="thome" title="Zum Ursprung">⌂</button>
       <button class="icon" data-a="tsum" title="Zusammenfassung">Σ</button></div>
+    <div id="tsinfo" class="tsinfo"></div>
     ${locked ? '<div class="lockbar">Während eines Runs kann die Karte nur angesehen werden.</div>' : ''}
     <div id="tpanel" class="tpanel"></div>`, 'treescreen');
   const inp = $('#tsearch');
   inp.value = app.treeView.search;
-  inp.addEventListener('input', () => app.treeView.setSearch(inp.value));
+  const info = () => { const n = app.treeView.matches.size; $('#tsinfo').textContent = app.treeView.search ? `${n} Treffer – ⌕ springt zum nächsten` : ''; };
+  inp.addEventListener('input', () => { app.treeView.setSearch(inp.value); info(); });
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); app.treeView.nextMatch(); inp.blur(); } });
+  info();
   renderTreePanel(app.treeView.preview);
 }
 function renderTreePanel(path) {
@@ -239,7 +245,7 @@ function renderTreePanel(path) {
   const tree = getTree();
   const on = alloc.has(n.id);
   const pts = totalPoints() - spentPoints(treeCls);
-  const typeName = { key: 'Keystone', notable: 'Bedeutender Stern', small: 'Stern', travel: 'Wegstern', hub: 'Sternenherz', start: 'Ursprung', jewel: 'Juwelsockel' }[n.type];
+  const typeName = { key: 'Keystone', notable: 'Bedeutender Stern', small: 'Stern', travel: 'Wegstern', hub: 'Sternenherz', start: 'Ursprung', jewel: 'Juwelsockel', mastery: 'Meisterschaft', const: 'Sternbild', legend: 'Krönungsstern', portal: 'Sternentor', myth: 'Mythos-Stern' }[n.type];
   let act = '';
   if (save.run) act = '';
   else if (n.type === 'start') act = '';
@@ -250,12 +256,29 @@ function renderTreePanel(path) {
     act = `<button class="btn small ${path.length > pts ? 'disabled' : 'primary'}" data-a="talloc" data-id="${n.id}">Zuweisen (${path.length} ${path.length === 1 ? 'Punkt' : 'Punkte'})</button>`;
   } else if (n.type === 'start') act = '';
   else act = '<small class="muted">Nicht erreichbar (Ursprung einer anderen Klasse)</small>';
-  const keyDesc = n.type === 'key' ? `<p class="small muted">${esc(KEYSTONES[n.key].desc)}</p>` : '';
+  let keyDesc = n.type === 'key' ? `<p class="small muted">${esc(KEYSTONES[n.key].desc)}</p>` : '';
+  if (n.type === 'mastery') {
+    const ch = ((save.mastery || {})[treeCls] || {})[n.id] || 0;
+    keyDesc = `<p class="small muted">Wähle eine Spezialisierung – jederzeit kostenlos wechselbar.</p><div class="mopts">${n.options.map((o, i) => `<button class="mopt ${ch === i ? 'on' : ''}" data-a="tmast" data-id="${n.id}" data-i="${i}"><b>${esc(o.name)}</b><small>${o.mods.map((m) => esc(modText(m))).join(' · ')}</small></button>`).join('')}</div>`;
+  } else if (n.type === 'legend' || n.type === 'const') keyDesc = `<p class="small muted">Sternbild „${esc(n.constName)}“${n.type === 'legend' ? ' – Krönungsstern' : ''}</p>`;
+  else if (n.type === 'portal') keyDesc = '<p class="small muted">Verbunden mit einem fernen Sternentor auf der anderen Seite der Karte.</p>';
+  else if (n.type === 'myth') keyDesc = '<p class="small muted">Ein einzigartiger Stern vom Rand der Karte.</p>';
   el.innerHTML = `<div class="tnode t-${n.type}"><div><b>${esc(n.name)}</b> <small class="muted">${typeName}</small></div>
     <ul class="mods">${n.mods.map((m) => `<li>${esc(modText(m))}</li>`).join('')}</ul>${keyDesc}${n.type === 'jewel' ? jewelSocketPanel(treeCls, n) : ''}<div class="row">${act}</div></div>`;
 }
 on('treeCls', (d) => { treeCls = d.c; treeSel = null; app.treeView.open(treeCls, save.alloc[treeCls]); renderTreeUI(); });
 on('tzoom', (d) => app.treeView.zoom(Number(d.f)));
+on('tview', () => app.treeView.overview());
+on('thome', () => app.treeView.home());
+on('tnext', () => { if (!app.treeView.nextMatch()) toast('Gib zuerst einen Suchbegriff ein.'); });
+on('tmast', (d) => {
+  save.mastery = save.mastery || {};
+  save.mastery[treeCls] = save.mastery[treeCls] || {};
+  save.mastery[treeCls][d.id] = Number(d.i);
+  persist(); sfx.click();
+  renderTreePanel(app.treeView.preview);
+});
+on('tgo', (d) => { const n = getTree().nodes.get(d.id); if (n) { app.treeView.focus(n); } });
 on('talloc', (d) => {
   const tree = getTree();
   const alloc = new Set(save.alloc[treeCls]);
@@ -264,6 +287,12 @@ on('talloc', (d) => {
   if (path.length > totalPoints() - spentPoints(treeCls)) { sfx.deny(); toast('Nicht genug Sternpunkte – steige im Konto auf oder hole Erfolge.'); return; }
   save.alloc[treeCls].push(...path);
   if (path.some((id) => tree.nodes.get(id).type === 'key')) save.stats.keystone++;
+  for (const id of path) {
+    const t = tree.nodes.get(id).type;
+    const k = { legend: 'legends', portal: 'portals', mastery: 'masteries', myth: 'myths' }[t];
+    if (k) save.stats[k] = (save.stats[k] || 0) + 1;
+  }
+  save.stats.maxTreeNodes = Math.max(save.stats.maxTreeNodes || 0, save.alloc[treeCls].length);
   checkAchievements();
   persist();
   sfx.levelup();
@@ -283,7 +312,9 @@ on('tsum', () => {
   const tree = getTree();
   const sums = new Map();
   for (const id of save.alloc[treeCls]) {
-    for (const m of tree.nodes.get(id).mods) {
+    const tn = tree.nodes.get(id);
+    const extraM = tn.type === 'mastery' ? tn.options[((save.mastery || {})[treeCls] || {})[id] || 0].mods : [];
+    for (const m of [...tn.mods, ...extraM]) {
       const k = m.s + '|' + (m.t || '');
       const e = sums.get(k) || { ...m, v: 0 };
       e.v = m.t === 'more' ? ((1 + e.v / 100) * (1 + m.v / 100) - 1) * 100 : e.v + m.v;

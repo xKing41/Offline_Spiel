@@ -118,7 +118,7 @@ export function boonMods(b) {
 export function buildSets(run, opts = {}) {
   const tree = getTree();
   const alloc = new Set(save.alloc[run ? run.cls : opts.cls]);
-  const sets = [new ModSet(treeMods(tree, alloc)), new ModSet(altarMods()), new ModSet(relicMods())];
+  const sets = [new ModSet(treeMods(tree, alloc, (save.mastery || {})[run ? run.cls : opts.cls] || {})), new ModSet(altarMods()), new ModSet(relicMods())];
   if (run) {
     const items = new ModSet();
     for (const s of SLOTS) if (run.eq[s]) items.addAll(itemMods(run.eq[s]));
