@@ -712,3 +712,15 @@ ul.mods li.corrtag { color: #ff4d6d; font-weight: 800; font-size: 11px; letter-s
 .anleg span { display: inline-flex; align-items: center; gap: 5px; }
 .anleg span i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .seg.tabs5 button { font-size: 13.5px; padding: 9px 3px; min-width: 0; }
+
+/* ---------------- Sicherung ---------------- */
+.backup h4 { font-family: var(--serif); font-size: 14px; margin-top: 6px; }
+.rpoint { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border-radius: 10px; background: rgba(0, 0, 0, .22); }
+.rpoint div { flex: 1; display: flex; flex-direction: column; }
+.rpoint small { color: var(--muted); font-size: 12px; }
+canvas.qrcv { position: static; inset: auto; width: min(78vw, 340px); height: auto; aspect-ratio: 1; display: block; margin: 6px auto; border-radius: 12px; image-rendering: pixelated; box-shadow: 0 0 0 4px #fff, 0 0 28px rgba(255, 255, 255, .25); }
+.qrcam { position: relative; width: 100%; max-width: 380px; margin: 6px auto; aspect-ratio: 3 / 4; border-radius: 14px; overflow: hidden; background: #000; }
+.qrcam video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.qrframe { position: absolute; inset: 14%; border: 3px solid rgba(255, 216, 77, .85); border-radius: 14px; box-shadow: 0 0 0 999px rgba(0, 0, 0, .35); animation: pulse 1.6s infinite; }
+#modal.qrmodal .mbox { gap: 8px; }
+.nag { width: 100%; background: rgba(255, 216, 77, .08); border: 1px dashed rgba(255, 216, 77, .45); border-radius: 12px; padding: 8px 12px; color: var(--gold); font-size: 13px; }

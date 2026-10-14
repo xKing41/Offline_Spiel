@@ -50,6 +50,7 @@ jobs:
           cp ../index.html ../style.css ../manifest.webmanifest www/
           cp ../icons/* www/icons/
           cp -r ../js www/js
+          cp -r ../fonts www/fonts
 
           npx cap add android
 
@@ -57,15 +58,16 @@ jobs:
           cp -r res/. android/app/src/main/res/
           cp MainActivity.java android/app/src/main/java/de/runenfall/game/MainActivity.java
 
-          # Hochformat und Vibration
+          # Hochformat, Vibration und Kamera (nur für die QR-Übertragung des Spielstands)
           MANIFEST=android/app/src/main/AndroidManifest.xml
           sed -i 's|android:name=".MainActivity"|android:name=".MainActivity"\n            android:screenOrientation="portrait"|' "$MANIFEST"
-          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.VIBRATE" />|' "$MANIFEST"
+          sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />|' "$MANIFEST"
 
           # Versionsnummer steigt mit jedem Build -> neue APK installiert sich als Update
           sed -i -E "s/versionCode [0-9]+/versionCode ${{ github.run_number }}/; s/versionName \"[^\"]+\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
 
-          grep -n "screenOrientation\|VIBRATE" "$MANIFEST"
+          grep -n "screenOrientation\|VIBRATE\|CAMERA\|fileprovider" "$MANIFEST"
+          ls www/fonts
           grep -n "versionCode\|versionName" android/app/build.gradle
 
       # Fester Signaturschlüssel für alle Builds: Ohne ihn ließe sich eine neue

@@ -34,13 +34,18 @@ export function screen(html, cls = '') {
 }
 export function hideScreen() { const ui = $('#ui'); ui.className = ''; ui.innerHTML = ''; }
 
+let closeHook = null;
+/** Einmalige Aufräum-Funktion, wenn das aktuelle Fenster geschlossen oder ersetzt wird (z. B. Kamera aus). */
+export function onModalClose(fn) { closeHook = fn; }
+const runCloseHook = () => { if (closeHook) { const h = closeHook; closeHook = null; h(); } };
 export function modal(html, cls = '') {
+  runCloseHook();
   const m = $('#modal');
   m.className = 'show ' + cls;
   m.innerHTML = `<div class="mbox">${html}</div>`;
   m.scrollTop = 0;
 }
-export function closeModal() { const m = $('#modal'); m.className = ''; m.innerHTML = ''; }
+export function closeModal() { const m = $('#modal'); m.className = ''; m.innerHTML = ''; runCloseHook(); }
 export const modalOpen = () => $('#modal').classList.contains('show');
 
 let toastT = null;

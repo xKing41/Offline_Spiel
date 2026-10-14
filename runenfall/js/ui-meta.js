@@ -18,6 +18,7 @@ import { modeGrid, modePanel, modeTiles, towerClaimPanel, modeWhere, resWhere } 
 import { modeLock } from './data/modes.js';
 import { factionTiles, storyPanel, giftsPanel } from './ui-factions.js';
 import { resetHints } from './coach.js';
+import { backupPanel } from './ui-backup.js';
 import { PETS, SETS, getAtlas } from './data/endgame.js';
 
 on('nav', (d) => app.nav(d.to));
@@ -58,12 +59,18 @@ export function showHub() {
         ${modeTiles()}
         ${factionTiles()}
       </div>
+      ${backupNag()}
       <button class="btn small ghost" data-a="nav" data-to="settings">⚙ Einstellungen</button>
       ${save.treeReset ? '<p class="note">Die Sternenkarte wurde überarbeitet – deine Punkte wurden zurückerstattet.</p>' : ''}
     </div>`, 'hubscreen');
   if (save.treeReset) { save.treeReset = false; persist(); }
 }
 on('continue', () => app.continueRun());
+/** Sanfte Erinnerung an eine Sicherung (ab Kontostufe 6, alle 14 Tage). */
+function backupNag() {
+  if (accountLevel().level < 6 || (save.lastBackup && Date.now() - save.lastBackup < 14 * 86400000)) return '';
+  return `<button class="nag" data-a="nav" data-to="settings">💾 Letzte Sicherung: ${save.lastBackup ? `vor ${Math.floor((Date.now() - save.lastBackup) / 86400000)} Tagen` : 'noch nie'} – jetzt sichern</button>`;
+}
 
 function dailyTile() {
   const d = dailyConfig();
@@ -619,9 +626,8 @@ export function showSettings() {
     <button class="btn small ghost" data-a="hintsReset">Alle Hinweise erneut zeigen</button></div>
     <div class="panel"><h3>Grafik</h3><div class="seg">${[['auto', 'Automatisch'], ['high', 'Pracht'], ['low', 'Schnell']].map(([k, n]) => `<button class="${(st.gfx || 'auto') === k ? 'on' : ''}" data-a="setGfx" data-k="${k}">${n}</button>`).join('')}</div>
     <p class="small muted">„Pracht“: Licht, Schatten und Atmosphäre. „Schnell“ für ältere Handys. „Automatisch“ wechselt bei Rucklern selbst.</p></div>
-    <div class="panel"><h3>Spielstand</h3><p class="small muted">Dein Fortschritt liegt nur auf diesem Gerät. Sichere ihn gelegentlich als Text (z. B. in einer Notiz).</p>
-    <div class="row"><button class="btn small" data-a="exp">Exportieren</button><button class="btn small" data-a="imp">Importieren</button></div>
-    <button class="btn small danger" data-a="wipe">Alles löschen</button></div>
+    ${backupPanel()}
+    <div class="panel"><h3>Neu beginnen</h3><button class="btn small danger" data-a="wipe">Alles löschen</button></div>
     <p class="muted small center">Runenfall · läuft komplett offline</p></div>`);
 }
 on('setTog', (d) => { save.settings[d.k] = !save.settings[d.k]; persist(); showSettings(); });

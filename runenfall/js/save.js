@@ -106,7 +106,10 @@ export function exportSave() {
 }
 export function importSave(text) {
   const json = decodeURIComponent(escape(atob(text.trim())));
-  const s = JSON.parse(json);
+  return importSaveObject(JSON.parse(json));
+}
+/** Spielstand-Objekt übernehmen (ersetzt den aktuellen Fortschritt). */
+export function importSaveObject(s) {
   if (!s || typeof s !== 'object' || s.alloc === undefined) throw new Error('Ungültiger Spielstand');
   localStorage.setItem(KEY, JSON.stringify(s));
   save = load();

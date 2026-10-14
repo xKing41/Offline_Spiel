@@ -20,6 +20,7 @@ import { towerCampAfter, RUSH_LEN, rushCampAfter, huntTile } from './data/modes.
 import { showFactions, showStory } from './ui-factions.js';
 import { coach, welcome } from './coach.js';
 import { mergeAn, analysisHtml } from './analysis.js';
+import { dailyBackup } from './backup.js';
 
 const combat = new Combat($('#cv'));
 const treeView = new TreeView($('#tree'));
@@ -335,6 +336,7 @@ if (cap && cap.Plugins && cap.Plugins.App) {
 
 checkAchievements();
 persist();
+dailyBackup();
 app.nav('hub');
 welcome(() => app.nav('setup'));
 requestAnimationFrame(frame);
