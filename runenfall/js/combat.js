@@ -391,7 +391,7 @@ export class Combat {
       chill: 0, chillEff: 0, frozen: 0, shock: 0, shockEff: 0, flash: 0,
       atk: d.ranged ? rand(0.6, d.ranged.cd) : 0, elite: false, affixes: [], cs: null, ct: rand(1, 3), dotAcc: 0, dotShow: 0.5,
       blinkT: d.blink ? rand(1, d.blink) : 0, spawnT: d.spawn ? rand(1, d.spawn.cd) : 0, leapT: d.leap ? rand(1.5, d.leap) : 0,
-      mineT: d.mines ? rand(1, d.mines) : 0, phaseT: d.phase ? rand(1, 3) : 0, phased: false, aimT: 0, shielded: false,
+      mineT: d.mines ? rand(1, d.mines) : 0, phaseT: d.phase ? rand(1, 3) : 0, phased: false, aimT: 0, shielded: false, ph: Math.random() * TAU,
     };
     if (c.enemySpeed) e.speed *= c.enemySpeed;
     if (ascHas(c.asc, 'res')) for (const el of ['fire', 'cold', 'light']) e.res[el] = (e.res[el] || 0) + 20;
@@ -654,7 +654,7 @@ export class Combat {
               for (let i = 0; i < R.ring; i++) this.shootE(e.x, e.y, off + (i * TAU) / R.ring, R.speed, e.dmg, R.elem);
             } else {
               const n = R.burst || 1;
-              for (let i = 0; i < n; i++) this.shootE(e.x, e.y, a + (i - (n - 1) / 2) * 0.22, R.speed, e.dmg, R.elem);
+              for (let i = 0; i < n; i++) this.shootE(e.x, e.y, a + (i - (n - 1) / 2) * 0.22, R.speed, e.dmg, R.elem, R.size || 7);
             }
           }
         }
@@ -709,7 +709,7 @@ export class Combat {
         e.ct -= dt;
         if (!e.cs && e.ct <= 0 && d < 380) { e.cs = 'wind'; e.ct = 0.55; e.cdx = dx; e.cdy = dy; }
         else if (e.cs === 'wind') { spd = 0; if (e.ct <= 0) { e.cs = 'dash'; e.ct = 0.5; } }
-        else if (e.cs === 'dash') { mx = e.cdx; my = e.cdy; spd = e.d.charge.speed; if (e.ct <= 0) { e.cs = null; e.ct = e.d.charge.cd * rand(0.8, 1.2); } }
+        else if (e.cs === 'dash') { mx = e.cdx; my = e.cdy; spd = e.d.charge.speed; if (e.ct <= 0) { e.cs = null; e.ct = e.d.charge.cd * rand(0.8, 1.2); if (e.d.stomp) this.teles.push({ src: e, x: e.x, y: e.y, r: e.d.stomp, t: 0.35, max: 0.35, dmg: e.dmg * 1.1, elem: 'phys' }); } }
       }
       if (e.d.explode) {
         if (!e.fuse && d < 48) e.fuse = 0.4;
@@ -727,6 +727,98 @@ export class Combat {
         }
       }
       if (e.affixes.includes('burning') && d < 80) this.damagePlayer(e.dmg * 0.6 * dt, 'fire', false);
+      // ---- Biom-Mechaniken
+      const D = e.d;
+      if (D.reflect) {
+        if (e.refOn > 0) { e.refOn -= dt; if (e.refOn <= 0) e.takenMult = e.baseTaken; }
+        else {
+          e.refT = (e.refT ?? rand(1.5, D.reflect.cd)) - dt;
+          if (e.refT <= 0 && e.frozen <= 0) { e.refT = D.reflect.cd * rand(0.9, 1.1); e.refOn = D.reflect.dur; e.baseTaken = e.takenMult; e.takenMult *= 0.08; this.ring(e.x, e.y, e.r + 16, '#e0f0ff', 0.35); }
+        }
+      }
+      if (D.burrow && !e.hunt) {
+        if (e.under > 0) {
+          e.under -= dt; spd *= 2.2; e.phased = true;
+          if (Math.random() < 0.3) this.part({ x: e.x + rand(-8, 8), y: e.y + rand(-8, 8), vx: rand(-40, 40), vy: rand(-40, 40), t: 0.5, color: '#5a4a30', s: rand(2, 4), k: 6, z: 1, vz: rand(60, 140) });
+          if (e.under <= 0) { e.phased = false; this.teles.push({ src: e, x: e.x, y: e.y, r: e.r + 42, t: 0.35, max: 0.35, dmg: e.dmg * 1.2, elem: D.burrow.elem || 'phys' }); }
+        } else {
+          e.burT = (e.burT ?? rand(2, D.burrow.cd)) - dt;
+          if (e.burT <= 0 && d < 500 && e.frozen <= 0) { e.burT = D.burrow.cd * rand(0.9, 1.2); e.under = D.burrow.dur; e.phased = true; this.burst(e.x, e.y, '#6a5a40', 10, 90); }
+        }
+      }
+      if (D.beam && e.frozen <= 0) {
+        if (e.beamAim > 0) {
+          e.beamAim -= dt; spd = 0;
+          if (e.beamAim <= 0) {
+            const a = e.beamA, ex = e.x + Math.cos(a) * D.beam.len, ey = e.y + Math.sin(a) * D.beam.len;
+            if (segDist(p.x, p.y, e.x, e.y, ex, ey) < D.beam.w + p.r) this.damagePlayer(e.dmg * 1.3, D.beam.elem, true, e);
+            this.fx.push({ type: 'beam', x: e.x, y: e.y, a, len: D.beam.len, t: 0.22, max: 0.22, color: ELEM[D.beam.elem].color });
+          }
+        } else {
+          e.beamT = (e.beamT ?? rand(1.5, D.beam.cd)) - dt;
+          if (e.beamT <= 0 && d < D.beam.len * 0.9) {
+            e.beamT = D.beam.cd * rand(0.9, 1.15); e.beamAim = D.beam.aim; e.beamA = Math.atan2(dy, dx);
+            this.fx.push({ type: 'line', x: e.x, y: e.y, a: e.beamA, len: D.beam.len, w: D.beam.w * 2, t: D.beam.aim, max: D.beam.aim, color: ELEM[D.beam.elem].color });
+          }
+        }
+      }
+      if (D.slowAura && d < D.slowAura) p.slowT = Math.max(p.slowT || 0, 0.2);
+      if (D.dmgAura && d < D.dmgAura.r + p.r) this.damagePlayer(e.dmg * 0.4 * dt, D.dmgAura.elem, false, e);
+      if (D.mortar && e.frozen <= 0 && !e.hunt) {
+        e.morT = (e.morT ?? rand(1, D.mortar.cd)) - dt;
+        if (e.morT <= 0 && d < 520) {
+          e.morT = D.mortar.cd * rand(0.85, 1.15);
+          for (let i = 0; i < D.mortar.n; i++) {
+            const tx = p.x + (i ? rand(-90, 90) : 0), ty = p.y + (i ? rand(-90, 90) : 0);
+            this.teles.push({ src: e, x: tx, y: ty, r: D.mortar.r, t: 1.1, max: 1.1, dmg: e.dmg * 1.1, elem: D.mortar.elem, bolt: !!D.mortar.bolt });
+            if (!D.mortar.bolt) this.fx.push({ type: 'fall', kind: D.mortar.elem === 'fire' ? 'fire' : 'star', x: tx, y: ty, sx: e.x, sy: e.y - 60, t: 1.1, max: 1.1 });
+          }
+        }
+      }
+      if (D.pull) {
+        if (e.pulling > 0) {
+          e.pulling -= dt; spd *= 0.3;
+          if (d < D.pull.r && d > e.r + 24) { p.x -= dx * 85 * dt; p.y -= dy * 85 * dt; }
+        } else {
+          e.pullT = (e.pullT ?? rand(2, D.pull.cd)) - dt;
+          if (e.pullT <= 0 && d < D.pull.r && e.frozen <= 0) { e.pullT = D.pull.cd * rand(0.9, 1.1); e.pulling = D.pull.dur; this.fx.push({ type: 'swirl', x: e.x, y: e.y, r: D.pull.r * 0.55, color: e.color, t: D.pull.dur, max: D.pull.dur }); }
+        }
+      }
+      if (D.drain) {
+        if (e.draining > 0) {
+          e.draining -= dt; spd *= 0.3;
+          if (d < D.drain.r) { const v = e.dmg * 0.55 * dt; this.damagePlayer(v, D.drain.elem, false, e); e.hp = Math.min(e.maxHp, e.hp + v * 3); }
+          else e.draining = 0;
+        } else {
+          e.drT = (e.drT ?? rand(1.5, D.drain.cd)) - dt;
+          if (e.drT <= 0 && d < D.drain.r && e.frozen <= 0) { e.drT = D.drain.cd * rand(0.9, 1.1); e.draining = D.drain.dur; }
+        }
+      }
+      if (D.trail && spd > 0 && !e.under) {
+        e.trailT = (e.trailT || 0) - dt;
+        if (e.trailT <= 0 && this.hazards.length < 140) { e.trailT = 0.45; this.hazards.push({ x: e.x, y: e.y, r: 22, t: 2.2, max: 2.2, dps: e.dmg * 0.5, elem: D.trail.elem }); }
+      }
+      if (D.twin) {
+        if (!e.link || e.link.dead) {
+          e.link = null;
+          for (const o of this.enemies) if (o !== e && !o.dead && o.d.twin && (!o.link || o.link.dead) && Math.hypot(o.x - e.x, o.y - e.y) < 260) { e.link = o; o.link = e; e.linkMain = true; o.linkMain = false; break; }
+        }
+        if (e.link && e.linkMain && segDist(p.x, p.y, e.x, e.y, e.link.x, e.link.y) < 9 + p.r) this.damagePlayer(e.dmg * 1.4 * dt, 'chaos', false, e);
+      }
+      if (D.cloner && !e.cloned && !e.illusion && e.hp < e.maxHp * 0.7) {
+        e.cloned = true;
+        this.fx.push({ type: 'flash', x: e.x, y: e.y, r: 50, color: e.color, t: 0.3, max: 0.3 });
+        for (let i = 0; i < D.cloner; i++) {
+          const a = Math.random() * TAU;
+          const c2 = this.spawn(e.id, e.x + Math.cos(a) * 40, e.y + Math.sin(a) * 40);
+          if (c2) { c2.illusion = true; c2.cloned = true; c2.hp = c2.maxHp = e.maxHp * 0.25; c2.xp = 0; c2.dmg *= 0.6; }
+        }
+      }
+      if (D.zigzag) {
+        const zz = Math.sin(this.t * 6 + e.ph * 3);
+        mx += -dy * zz * 0.9; my += dx * zz * 0.9;
+        const zl = Math.hypot(mx, my) || 1; mx /= zl; my /= zl;
+      }
       if (e.sumT !== undefined) {
         e.sumT -= dt;
         if (e.sumT <= 0) { e.sumT = 6; for (let i = 0; i < 2; i++) this.spawn('shade', e.x + rand(-40, 40), e.y + rand(-40, 40)); }
@@ -773,8 +865,24 @@ export class Combat {
         this.ring(e.x, e.y, 260, b.color, 0.8);
         this.eprojs = [];
         if (save.settings.shake) this.shake = 10;
-        sfx.boss();
+        sfx.boss(); sfx.bossPhase?.();
+        if (b.phases[ph].enter) this.bossMech(e, b.phases[ph].enter);
       }
+    }
+    // Schild durch Kristalle / Heilung durch Anker
+    if (e.shieldUp && !this.enemies.some((o) => !o.dead && o.crystalOf === e)) {
+      e.shieldUp = false; e.takenMult = e.baseTaken2; e.frozen = 1.6; e.vulnT = 4; e.takenMult *= 1.5;
+      this.text(e.x, e.y - 70, 'SCHILD ZERBROCHEN!', '#bfe8ff', 1.6);
+      this.fx.push({ type: 'shock', x: e.x, y: e.y, r: 260, color: '#bfe8ff', t: 0.6, max: 0.6 });
+      this.burst(e.x, e.y, '#bfe8ff', 40, 260);
+      sfx.shatter?.(); if (save.settings.shake) this.shake = Math.max(this.shake, 8);
+    }
+    if (e.vulnT > 0) { e.vulnT -= dt; if (e.vulnT <= 0) e.takenMult /= 1.5; }
+    for (const o of this.enemies) {
+      if (o.dead || o.anchorOf !== e) continue;
+      o.anchorT = (o.anchorT ?? 22) - dt;
+      if (o.anchorT <= 0) { o.dead = true; this.burst(o.x, o.y, o.color, 14, 140); continue; }
+      e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.006 * dt);
     }
     if (e.hp < e.maxHp * 0.5 && !e.rage) { e.rage = true; this.text(e.x, e.y - 50, 'WUT!', '#ff4d4d', 1.5); }
     // Laufende Muster
@@ -787,7 +895,7 @@ export class Combat {
         if (Math.hypot(p.x - e.x, p.y - e.y) < e.r + p.r) this.damagePlayer(e.dmg * 1.5, 'phys', true);
         if (ch.t <= 0) e.charge = null;
       }
-    } else if (e.frozen <= 0) {
+    } else if (e.frozen <= 0 && !e.shieldUp) {
       e.x += dx * spd * 0.8 * dt;
       e.y += dy * spd * 0.8 * dt;
     }
@@ -835,7 +943,7 @@ export class Combat {
     }
     const busy = e.charge || e.spiral || e.barr || e.lasers || e.vortex;
     for (const pt of e.pat) {
-      pt.t -= dt * (e.rage ? 1.45 : 1);
+      pt.t -= dt * (e.rage ? 1.45 : 1) * (e.shieldUp ? 0.55 : 1);
       if (pt.t > 0 || busy) continue;
       pt.t = pt.cd * rand(0.85, 1.15);
       const act = this.cfg.act || 3;
@@ -913,6 +1021,31 @@ export class Combat {
             if (c) { c.color = b.color; c.hp = c.maxHp = c.maxHp * 4; c.r *= 1.4; c.name = 'Schatten des Bosses'; }
           }
           break;
+        case 'checker': {
+          // Schachbrett: zwei versetzte Einschlagswellen
+          for (let gx = -4; gx <= 4; gx++) for (let gy = -4; gy <= 4; gy++) {
+            if (gx * gx + gy * gy > 17) continue;
+            const late = (gx + gy) & 1;
+            this.teles.push({ src: e, x: p.x + gx * 96, y: p.y + gy * 96, r: 40, t: late ? 2.05 : 1.1, max: late ? 2.05 : 1.1, dmg: e.dmg * 0.6, elem: b.elem });
+          }
+          break;
+        }
+        case 'safezones': {
+          // Alles um dich wird getroffen – außer in den sicheren Kreisen
+          const cx = p.x, cy = p.y, R0 = 430, base = Math.random() * TAU;
+          const safes = [0, 1, 2].map((i) => { const a = base + (i * TAU) / 3 + rand(-0.4, 0.4), r = rand(110, 210); return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r, r: 82 }; });
+          this.fx.push({ type: 'safezone', x: cx, y: cy, R: R0, safes, t: 2.5, max: 2.5, color: b.color });
+          this.delayed.push({ t: 2.5, fn: () => {
+            const pl = this.player;
+            const inside = Math.hypot(pl.x - cx, pl.y - cy) < R0;
+            const safe = safes.some((z) => Math.hypot(pl.x - z.x, pl.y - z.y) < z.r);
+            if (inside && !safe) this.damagePlayer(e.dmg * 1.6, b.elem, true, e);
+            this.fx.push({ type: 'shock', x: cx, y: cy, r: R0, color: ELEM[b.elem].color, t: 0.5, max: 0.5 });
+            for (let i = 0; i < 24; i++) { const a = Math.random() * TAU, rr = Math.random() * R0; this.part({ x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr, vx: 0, vy: -60, t: 0.6, color: ELEM[b.elem].color, s: 3, k: 2 }); }
+            if (save.settings.shake) this.shake = Math.max(this.shake, 7);
+          } });
+          break;
+        }
         case 'summon':
           for (let i = 0; i < 3 + act; i++) {
             const a = Math.random() * TAU;
@@ -921,6 +1054,32 @@ export class Combat {
           break;
       }
       break;
+    }
+  }
+
+  /** Einmalige Boss-Mechanik beim Phasenwechsel. */
+  bossMech(e, kind) {
+    const add = (id, n, dist, hpPct, towardPlayer = false) => {
+      const out = [];
+      const pa = Math.atan2(this.player.y - e.y, this.player.x - e.x);
+      for (let i = 0; i < n; i++) {
+        const a = towardPlayer ? pa + (i - (n - 1) / 2) * 1.1 : (i * TAU) / n + Math.random() * 0.5;
+        const x = clamp(e.x + Math.cos(a) * dist, -ARENA_R + 60, ARENA_R - 60), y = clamp(e.y + Math.sin(a) * dist, -ARENA_R + 60, ARENA_R - 60);
+        const o = this.makeEnemy(id, x, y);
+        o.hp = o.maxHp = e.maxHp * hpPct;
+        this.enemies.push(o);
+        this.fx.push({ type: 'flash', x, y, r: 40, color: o.color, t: 0.35, max: 0.35 });
+        out.push(o);
+      }
+      return out;
+    };
+    if (kind === 'shield') {
+      add('bosscrystal', 3, 210, 0.03).forEach((o) => { o.crystalOf = e; });
+      e.shieldUp = true; e.baseTaken2 = e.takenMult; e.takenMult *= 0.03;
+      this.text(e.x, e.y + e.r + 46, 'SCHILD! Zerstöre die Kristalle!', '#bfe8ff', 1.3);
+    } else if (kind === 'anchors') {
+      add('soulanchor', 2, 190, 0.03, true).forEach((o) => { o.anchorOf = e; });
+      this.text(e.x, e.y + e.r + 46, 'SEELENANKER heilen den Boss!', '#ff8ad8', 1.3);
     }
   }
 
@@ -1148,6 +1307,7 @@ export class Combat {
       sfx.kill();
     }
     // Belohnungen
+    if (e.illusion) { this.burst(e.x, e.y, e.color, 10, 120); return; }
     const eliteLoot = e.elite && c.eliteLoot ? 1.5 : 1;
     const xpv = e.xp * c.xpMult * eliteLoot;
     if (e.d.deathPool) { const dp = e.d.deathPool; this.hazards.push({ x: e.x, y: e.y, r: dp.r, t: dp.t, max: dp.t, dps: e.dmg * 0.6, elem: dp.elem }); }
@@ -1180,6 +1340,12 @@ export class Combat {
       this.burst(e.x, e.y, '#bff3ff', 16, 200);
     }
     if (P.spec.spec_frenzy) { this.frenzy = Math.min(30, this.frenzy + 1); this.frenzyT = 3; }
+    if (e.d.deathRing) { this._shooter = e; const off = Math.random() * TAU; for (let i = 0; i < e.d.deathRing; i++) this.shootE(e.x, e.y, off + (i * TAU) / e.d.deathRing, 170, e.dmg * 0.6, e.d.deathElem || 'phys'); }
+    this.query(e.x, e.y, 230, (o) => {
+      if (o === e || !o.d.enrage || (o.rage || 0) >= 3) return;
+      o.rage = (o.rage || 0) + 1; o.speed *= 1.12; o.dmg *= 1.1;
+      this.label(o.x, o.y - o.r - 14, 'Wut!', '#ff6a3a');
+    });
     if (c.volatileCorpses && !e.boss && Math.random() < 0.4) this.teles.push({ src: this._shooter, x: e.x, y: e.y, r: 45, t: 0.8, max: 0.8, dmg: e.dmg * 0.7, elem: 'fire' });
     if (e.affixes.includes('volatile')) this.teles.push({ src: this._shooter, x: e.x, y: e.y, r: 85, t: 0.8, max: 0.8, dmg: e.dmg * 1.5, elem: 'fire' });
     if (!e.boss && !e.elite && ascHas(c.asc, 'explode') && Math.random() < 0.35) this.teles.push({ src: this._shooter, x: e.x, y: e.y, r: 40, t: 0.7, max: 0.7, dmg: e.dmg * 0.6, elem: 'fire' });
@@ -1564,7 +1730,7 @@ export class Combat {
     if (this.over) return;
     const c = this.cfg;
     if (c.kind === 'boss') {
-      this.objective = this.bossSpawned ? '' : 'Etwas nähert sich …';
+      this.objective = this.bossSpawned ? (this.boss && this.boss.shieldUp ? 'Zerstöre die Schildkristalle!' : this.enemies.some((o) => !o.dead && o.anchorOf) ? 'Vernichte die Seelenanker!' : '') : 'Etwas nähert sich …';
       if (this.bossSpawned && this.boss.dead) this.win();
     } else if (this.t >= c.duration) {
       const elites = this.enemies.some((e) => e.elite && !e.dead) || this.eliteTimes.length;
@@ -1751,6 +1917,20 @@ export class Combat {
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.stroke();
         ctx.fillStyle = rgba(f.color, 0.18 * k);
         ctx.beginPath(); ctx.arc(f.x, f.y, f.r * k, 0, TAU); ctx.fill();
+      } else if (f.type === 'safezone') {
+        const k = 1 - f.t / f.max, col = '#ff3b3b';
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.R, 0, TAU);
+        for (const z of f.safes) { ctx.moveTo(z.x + z.r, z.y); ctx.arc(z.x, z.y, z.r, 0, TAU, true); }
+        ctx.fillStyle = rgba(col, 0.1 + 0.22 * k); ctx.fill('evenodd');
+        ctx.strokeStyle = rgba(col, 0.6 + 0.3 * Math.sin(this.t * 14)); ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.R, 0, TAU); ctx.stroke();
+        for (const z of f.safes) {
+          ctx.strokeStyle = rgba('#7dffb0', 0.8); ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.stroke();
+          ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.25 + 0.15 * Math.sin(this.t * 6);
+          ctx.drawImage(soft('#7dffb0'), z.x - z.r, z.y - z.r, z.r * 2, z.r * 2);
+          ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+        }
       } else if (f.type === 'line') {
         const k = 1 - f.t / f.max;
         ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.a);
@@ -1799,6 +1979,26 @@ export class Combat {
     }
     for (const m of this.minions) ctx.drawImage(shS, m.x - 12, m.y + 4, 24, 10);
     ctx.drawImage(shS, p.x - 20, p.y + 4, 40, 16);
+    // ---- Fesseln (Kristalle, Anker, Zwillinge, Lebensentzug)
+    ctx.lineCap = 'round';
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      let tx = null, ty = null, col = null, w = 3;
+      if (e.crystalOf && !e.crystalOf.dead) { tx = e.crystalOf.x; ty = e.crystalOf.y; col = '#bfe8ff'; }
+      else if (e.anchorOf && !e.anchorOf.dead) { tx = e.anchorOf.x; ty = e.anchorOf.y; col = '#ff8ad8'; }
+      else if (e.link && e.linkMain && !e.link.dead) { tx = e.link.x; ty = e.link.y; col = '#a070ff'; w = 4; }
+      else if (e.draining > 0) { tx = p.x; ty = p.y; col = e.d.drain.elem === 'cold' ? '#8fe4ff' : '#9cff5e'; }
+      if (tx === null) continue;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = rgba(col, 0.25); ctx.lineWidth = w * 4;
+      ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(tx, ty); ctx.stroke();
+      ctx.strokeStyle = rgba(col, 0.85); ctx.lineWidth = w;
+      ctx.beginPath(); ctx.moveTo(e.x, e.y);
+      const segs = 6;
+      for (let i = 1; i < segs; i++) { const q = i / segs; ctx.lineTo(e.x + (tx - e.x) * q + Math.sin(this.t * 12 + i) * 5, e.y + (ty - e.y) * q + Math.cos(this.t * 11 + i) * 5); }
+      ctx.lineTo(tx, ty); ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+    }
     // ---- Gegner
     for (const e of this.enemies) {
       if (e.dead) continue;
@@ -2071,13 +2271,29 @@ export class Combat {
   drawEnemy(ctx, e) {
     const r = e.r;
     if (e.ph === undefined) e.ph = Math.random() * TAU;
-    if (e.phased) ctx.globalAlpha = 0.25;
+    if (e.under > 0) {
+      // Erdhügel des eingegrabenen Gegners
+      ctx.fillStyle = '#3a2c1c';
+      ctx.beginPath(); ctx.ellipse(e.x, e.y, r * 1.1, r * 0.55, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = rgba(e.color, 0.6); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(e.x, e.y, r * (1.1 + 0.1 * Math.sin(this.t * 10)), r * 0.55, 0, 0, TAU); ctx.stroke();
+      return;
+    }
+    if (e.d.dmgAura) {
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.18 + 0.08 * Math.sin(this.t * 5 + e.ph);
+      ctx.drawImage(soft(ELEM[e.d.dmgAura.elem].color), e.x - e.d.dmgAura.r, e.y - e.d.dmgAura.r, e.d.dmgAura.r * 2, e.d.dmgAura.r * 2);
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = rgba(ELEM[e.d.dmgAura.elem].color, 0.4); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(e.x, e.y, e.d.dmgAura.r, 0, TAU); ctx.stroke();
+    }
+    if (e.d.slowAura) { ctx.strokeStyle = rgba('#8fb8ff', 0.22); ctx.lineWidth = 2; ctx.setLineDash([8, 8]); ctx.beginPath(); ctx.arc(e.x, e.y, e.d.slowAura, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
+    const ba = e.phased ? 0.25 : e.illusion ? 0.5 + 0.15 * Math.sin(this.t * 9 + e.ph) : 1;
+    ctx.globalAlpha = ba;
     // Auren
     const auraRing = (rad, col) => {
       ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(this.t * 0.5 + e.ph);
       ctx.globalAlpha = (e.phased ? 0.06 : 0.16);
       ctx.drawImage(runeCircle(col, 256, 16, 11), -rad, -rad, rad * 2, rad * 2);
-      ctx.restore(); ctx.globalAlpha = e.phased ? 0.25 : 1;
+      ctx.restore(); ctx.globalAlpha = ba;
     };
     if (e.d.shield || e.shieldAura) auraRing(e.d.shield || e.shieldAura, '#7aa8ff');
     if (e.d.heal) auraRing(e.d.heal, '#7dffb0');
@@ -2093,7 +2309,7 @@ export class Combat {
       ctx.save(); ctx.translate(e.x, e.y); ctx.rotate(-this.t * (e.boss ? 0.35 : 0.8));
       ctx.drawImage(runeCircle(col, e.boss ? 384 : 160, e.boss ? 20 : 8, e.boss ? 13 : 6), -R, -R, R * 2, R * 2);
       ctx.restore();
-      ctx.globalAlpha = e.phased ? 0.25 : 1;
+      ctx.globalAlpha = ba;
       ctx.globalCompositeOperation = 'source-over';
     }
     // Statusfarbe
@@ -2124,11 +2340,22 @@ export class Combat {
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.4 + 0.2 * Math.sin(this.t * 20 + e.ph);
       ctx.drawImage(soft(ELEM.fire.color), e.x - r * 1.3, e.y - r * 1.6, r * 2.6, r * 2.6);
-      ctx.globalAlpha = e.phased ? 0.25 : 1; ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = ba; ctx.globalCompositeOperation = 'source-over';
     }
     if (e.shielded) {
       ctx.strokeStyle = rgba('#bfd8ff', 0.8); ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(e.x, e.y, r + 5, 0, TAU); ctx.stroke();
+    }
+    if (e.refOn > 0 || e.shieldUp) {
+      const R2 = e.shieldUp ? r * 2.2 : r + 12;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.3 + 0.15 * Math.sin(this.t * 8);
+      ctx.drawImage(soft('#bfe8ff'), e.x - R2, e.y - R2, R2 * 2, R2 * 2);
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = rgba('#e8f8ff', 0.8); ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) { const a = this.t * 0.8 + (i * TAU) / 6; i ? ctx.lineTo(e.x + Math.cos(a) * R2, e.y + Math.sin(a) * R2) : ctx.moveTo(e.x + Math.cos(a) * R2, e.y + Math.sin(a) * R2); }
+      ctx.closePath(); ctx.stroke();
     }
     if (e.cs === 'wind' || e.fuse) {
       ctx.strokeStyle = rgba('#ff3b3b', 0.6 + 0.4 * Math.sin(this.t * 25)); ctx.lineWidth = 3;

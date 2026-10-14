@@ -443,9 +443,10 @@ export function showCodex() {
     body = archiveTab();
   } else if (codexTab === 'bestiary') {
     const kills = save.stats.enemyKills || {};
-    const known = Object.keys(ENEMIES).filter((k) => kills[k] > 0).length;
-    body = `<p class="muted center">${known}/${Object.keys(ENEMIES).length} Gegnerarten entdeckt</p>` +
-      Object.entries(ENEMIES).map(([k, e]) => kills[k] ? `<div class="srow"><span><b style="color:${e.color}">●</b> ${esc(e.name)}</span><b>${fmt(kills[k])}</b></div>` : `<div class="srow muted"><span>● ???</span><b>0</b></div>`).join('') +
+    const dex = Object.entries(ENEMIES).filter(([, e]) => !e.noDex);
+    const known = dex.filter(([k]) => kills[k] > 0).length;
+    body = `<p class="muted center">${known}/${dex.length} Gegnerarten entdeckt</p>` +
+      dex.map(([k, e]) => kills[k] ? `<div class="srow"><span><b style="color:${e.color}">●</b> ${esc(e.name)}</span><b>${fmt(kills[k])}</b></div>` : `<div class="srow muted"><span>● ???</span><b>0</b></div>`).join('') +
       `<h3>Bosse</h3>` + Object.entries(BOSSES).map(([k, b]) => `<div class="srow"><span><b style="color:${b.color}">♛</b> ${save.stats.bossKills[k] ? esc(b.name) : '???'}</span><b>${save.stats.bossKills[k] || 0}</b></div>`).join('');
     body = `<div class="panel">${body}</div>`;
   } else {

@@ -45,7 +45,7 @@ export const NEMESIS_TAUNTS = [
   '„Dein Staub gehört mir.“', '„Ich erinnere mich an dich.“', '„Das war erst der Anfang.“', '„Komm zurück, wenn du dich traust.“',
 ];
 export function makeNemesis(killer) {
-  const base = killer.boss || !ENEMIES[killer.id] || ['mite', 'swarm', 'slimelet', 'nest', 'turret', 'wartotem'].includes(killer.id) ? 'moloch' : killer.id;
+  const base = killer.boss || !ENEMIES[killer.id] || ['mite', 'swarm', 'slimelet', 'nest', 'turret', 'wartotem', 'bosscrystal', 'soulanchor', 'ashtree', 'forgeheart', 'moth'].includes(killer.id) ? 'moloch' : killer.id;
   const traits = [pick(NEMESIS_IDS)];
   return {
     uid: uid(), base, color: killer.color || ENEMIES[base].color, rank: 1, kills: 1, traits,

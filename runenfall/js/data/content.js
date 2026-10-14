@@ -49,45 +49,76 @@ export const ENEMIES = {
   archer: { name: 'Bogenschütze', hp: 20, dmg: 9, speed: 58, r: 12, xp: 2, color: '#d9b38c', shape: 'diamond', ranged: { cd: 2.2, speed: 330, elem: 'phys', burst: 2 }, keep: 250 },
   wartotem: { name: 'Kriegstotem', hp: 90, dmg: 0, speed: 0, r: 22, xp: 5, color: '#ff8a5c', shape: 'square', hasteAura: 170 },
   reaper: { name: 'Seelenschnitter', hp: 44, dmg: 18, speed: 82, r: 15, xp: 4, color: '#8affd8', shape: 'tri', leap: 3, vampHit: true },
+  // ---- Biom-Gegner (je drei pro Gebiet, mit eigenen Mechaniken)
+  gravewarden: { name: 'Grabwächter', hp: 60, dmg: 14, speed: 44, r: 19, xp: 4, color: '#9a8cff', reflect: { cd: 5, dur: 1.4 } },
+  moth: { name: 'Nachtfalter', hp: 4, dmg: 5, speed: 135, r: 8, xp: 0.5, color: '#d8c8ff', group: 5, zigzag: true },
+  cometling: { name: 'Kometenkind', hp: 16, dmg: 12, speed: 52, r: 12, xp: 2, color: '#ffe6a0', mortar: { cd: 3.4, r: 50, elem: 'fire', n: 1 }, keep: 260 },
+  bogmaw: { name: 'Moorschlund', hp: 40, dmg: 15, speed: 60, r: 18, xp: 3, color: '#6a8a3a', burrow: { cd: 5, dur: 2, elem: 'chaos' }, res: { chaos: 30 } },
+  swampwitch: { name: 'Sumpfhexe', hp: 26, dmg: 7, speed: 50, r: 13, xp: 3, color: '#8aff9a', drain: { cd: 4, dur: 2.5, r: 230, elem: 'chaos' }, keep: 200 },
+  willowisp: { name: 'Irrwicht', hp: 12, dmg: 9, speed: 95, r: 10, xp: 1, color: '#b8ff6a', phase: true, blink: 4, deathPool: { elem: 'chaos', r: 45, t: 3 } },
+  shardspider: { name: 'Splitterspinne', hp: 22, dmg: 11, speed: 80, r: 13, xp: 2, color: '#9fe7ff', leap: 3.5, deathRing: 6, deathElem: 'cold' },
+  prismward: { name: 'Prismawächter', hp: 34, dmg: 16, speed: 40, r: 15, xp: 3, color: '#e0c0ff', beam: { cd: 4, aim: 1, w: 16, len: 520, elem: 'light' }, keep: 240 },
+  facetcolossus: { name: 'Facettenkoloss', hp: 110, dmg: 20, speed: 36, r: 26, xp: 6, color: '#7ad8ff', reflect: { cd: 6, dur: 1.6 }, split: 'shardspider', splitN: 2, res: { cold: 40 } },
+  slagworm: { name: 'Schlackenwurm', hp: 36, dmg: 14, speed: 70, r: 15, xp: 3, color: '#ff7a3a', burrow: { cd: 4.5, dur: 1.6, elem: 'fire' }, trail: { elem: 'fire' }, res: { fire: 40 } },
+  forgeheart: { name: 'Glutesse', hp: 70, dmg: 14, speed: 0, r: 20, xp: 4, color: '#ff5a1a', mortar: { cd: 2.6, r: 55, elem: 'fire', n: 2 }, keep: 0, res: { fire: 50 } },
+  anvilknight: { name: 'Ambossritter', hp: 70, dmg: 20, speed: 48, r: 18, xp: 5, color: '#c8a080', charge: { cd: 4, speed: 420 }, stomp: 72, res: { phys: 25 } },
+  voideye: { name: 'Leerenauge', hp: 30, dmg: 10, speed: 45, r: 14, xp: 3, color: '#c070ff', pull: { cd: 6, dur: 1.8, r: 300 }, ranged: { cd: 2.4, speed: 200, elem: 'chaos' }, keep: 220 },
+  twinshade: { name: 'Schattenzwilling', hp: 24, dmg: 10, speed: 70, r: 12, xp: 2, color: '#8050c0', twin: true, group: 2 },
+  nullwalker: { name: 'Nichtser', hp: 34, dmg: 13, speed: 80, r: 13, xp: 3, color: '#e0d0ff', phase: true, cloner: 2 },
+  stormhawk: { name: 'Sturmfalke', hp: 18, dmg: 13, speed: 110, r: 11, xp: 2, color: '#ffe880', charge: { cd: 2.6, speed: 520 }, group: 2 },
+  thundershaman: { name: 'Donnerschamane', hp: 30, dmg: 14, speed: 46, r: 13, xp: 3, color: '#ffd84d', hasteAura: 160, mortar: { cd: 3, r: 40, elem: 'light', n: 1, bolt: true }, keep: 240 },
+  avalanche: { name: 'Lawinengolem', hp: 95, dmg: 22, speed: 34, r: 24, xp: 6, color: '#c8d8e8', ranged: { cd: 3.4, speed: 150, elem: 'phys', size: 20 }, res: { phys: 30 } },
+  emberwolf: { name: 'Glutwolf', hp: 20, dmg: 11, speed: 105, r: 12, xp: 2, color: '#ff9a5a', group: 3, trail: { elem: 'fire' } },
+  ashtree: { name: 'Aschebaum', hp: 90, dmg: 0, speed: 0, r: 24, xp: 5, color: '#8a6a5a', spawn: { id: 'sparkler', cd: 3.2, n: 1 }, slowAura: 170 },
+  charred: { name: 'Verkohlter', hp: 28, dmg: 13, speed: 62, r: 13, xp: 2, color: '#5a4a40', enrage: true, deathPool: { elem: 'fire', r: 50, t: 3 } },
+  mirrorling: { name: 'Spiegelbild', hp: 24, dmg: 12, speed: 80, r: 12, xp: 2, color: '#d0e0ff', cloner: 2, blink: 4 },
+  lightbreaker: { name: 'Lichtbrecher', hp: 32, dmg: 15, speed: 42, r: 14, xp: 3, color: '#fff0a0', beam: { cd: 3.6, aim: 0.9, w: 14, len: 560, elem: 'light' }, keep: 250 },
+  shardwarden: { name: 'Scherbenwächter', hp: 60, dmg: 14, speed: 46, r: 18, xp: 4, color: '#b0c8ff', reflect: { cd: 5, dur: 1.4 }, ranged: { cd: 3.2, speed: 180, elem: 'cold', ring: 8 } },
+  souljelly: { name: 'Seelenqualle', hp: 34, dmg: 9, speed: 40, r: 16, xp: 3, color: '#8affd8', dmgAura: { r: 85, elem: 'light' }, zigzag: true },
+  deepcaller: { name: 'Tiefenrufer', hp: 50, dmg: 12, speed: 38, r: 17, xp: 4, color: '#4ad8c8', pull: { cd: 7, dur: 1.6, r: 320 }, spawn: { id: 'slimelet', cd: 4, n: 2 } },
+  drowned: { name: 'Ertrunkener', hp: 36, dmg: 14, speed: 55, r: 14, xp: 3, color: '#7ab8c8', drain: { cd: 4.5, dur: 2, r: 200, elem: 'cold' }, slowAura: 120 },
+  // ---- Boss-Mechaniken (nicht im Bestiarium)
+  bosscrystal: { name: 'Schildkristall', hp: 1, dmg: 0, speed: 0, r: 18, xp: 0, color: '#bfe8ff', noDex: true },
+  soulanchor: { name: 'Seelenanker', hp: 1, dmg: 0, speed: 0, r: 16, xp: 0, color: '#ff8ad8', noDex: true },
 };
 
 export const BIOMES = {
   sternengrab: {
     name: 'Sternengrab', tint: '#1a1033', floor: '#221642', boss: 'shepherd',
-    pool: [['shade', 10], ['runner', 6], ['brute', 2], ['bomber', 3], ['seer', 2], ['swarm', 2]],
+    pool: [['shade', 10], ['runner', 6], ['brute', 2], ['bomber', 3], ['seer', 2], ['swarm', 2], ['gravewarden', 2], ['moth', 2], ['cometling', 2]],
   },
   nebelmoor: {
     name: 'Nebelmoor', tint: '#0f1a14', floor: '#16291f', boss: 'colossus', hazard: 'poison',
-    pool: [['shade', 7], ['runner', 4], ['slime', 3], ['bomber', 2], ['healer', 1], ['nest', 1]],
+    pool: [['shade', 7], ['runner', 4], ['slime', 3], ['bomber', 2], ['healer', 1], ['nest', 1], ['bogmaw', 2], ['swampwitch', 2], ['willowisp', 3]],
   },
   kristall: {
     name: 'Kristallschlund', tint: '#0c1a33', floor: '#132a4a', boss: 'queen',
-    pool: [['shade', 6], ['runner', 5], ['brute', 3], ['seer', 4], ['splitter', 4], ['charger', 3], ['golem', 1], ['shielder', 2], ['sniper', 2]],
+    pool: [['shade', 6], ['runner', 5], ['brute', 3], ['seer', 4], ['splitter', 4], ['charger', 3], ['golem', 1], ['shielder', 2], ['sniper', 2], ['shardspider', 3], ['prismward', 2], ['facetcolossus', 1]],
   },
   glutschmiede: {
     name: 'Glutschmiede', tint: '#22100a', floor: '#341a10', boss: 'wyrm', hazard: 'fire',
-    pool: [['bomber', 5], ['runner', 5], ['brute', 3], ['charger', 3], ['turret', 2], ['minelayer', 3], ['leaper', 2], ['shade', 4]],
+    pool: [['bomber', 5], ['runner', 5], ['brute', 3], ['charger', 3], ['turret', 2], ['minelayer', 3], ['leaper', 2], ['shade', 4], ['slagworm', 3], ['forgeheart', 1], ['anvilknight', 2]],
   },
   leere: {
     name: 'Thron der Leere', tint: '#1d0a24', floor: '#2b0f33', boss: 'voidlord',
-    pool: [['shade', 5], ['runner', 5], ['brute', 3], ['bomber', 3], ['charger', 4], ['wraith', 4], ['splitter', 3], ['golem', 2], ['phantom', 3], ['blinker', 3]],
+    pool: [['shade', 5], ['runner', 5], ['brute', 3], ['bomber', 3], ['charger', 4], ['wraith', 4], ['splitter', 3], ['golem', 2], ['phantom', 3], ['blinker', 3], ['voideye', 2], ['twinshade', 2], ['nullwalker', 2]],
   },
   sturmgipfel: {
     name: 'Sturmgipfel', tint: '#0e1424', floor: '#1a2238', boss: 'witch', hazard: 'lightning',
-    pool: [['runner', 5], ['seer', 4], ['sniper', 3], ['blinker', 3], ['shielder', 3], ['charger', 4], ['swarm', 3], ['golem', 2], ['leaper', 3]],
+    pool: [['runner', 5], ['seer', 4], ['sniper', 3], ['blinker', 3], ['shielder', 3], ['charger', 4], ['swarm', 3], ['golem', 2], ['leaper', 3], ['stormhawk', 3], ['thundershaman', 2], ['avalanche', 1]],
   },
 };
 BIOMES.aschewald = {
   name: 'Aschewald', tint: '#1c120c', floor: '#2a1a12', boss: 'hain', hazard: 'fire',
-  pool: [['shade', 6], ['runner', 5], ['sparkler', 3], ['archer', 3], ['bomber', 2], ['wartotem', 1], ['frostling', 2]],
+  pool: [['shade', 6], ['runner', 5], ['sparkler', 3], ['archer', 3], ['bomber', 2], ['wartotem', 1], ['frostling', 2], ['emberwolf', 3], ['ashtree', 1], ['charred', 3]],
 };
 BIOMES.spiegel = {
   name: 'Spiegellabyrinth', tint: '#101626', floor: '#1b2440', boss: 'mirror', hazard: 'lightning',
-  pool: [['lurker', 3], ['blinker', 4], ['phantom', 3], ['archer', 4], ['shielder', 2], ['sparkler', 3], ['moloch', 1], ['runner', 4]],
+  pool: [['lurker', 3], ['blinker', 4], ['phantom', 3], ['archer', 4], ['shielder', 2], ['sparkler', 3], ['moloch', 1], ['runner', 4], ['mirrorling', 3], ['lightbreaker', 2], ['shardwarden', 2]],
 };
 BIOMES.seelenmeer = {
   name: 'Seelenmeer', tint: '#0a1418', floor: '#10242a', boss: 'leviathan', hazard: 'poison',
-  pool: [['priest', 4], ['reaper', 3], ['wraith', 4], ['frostling', 3], ['moloch', 2], ['wartotem', 2], ['lurker', 3], ['swarm', 3], ['healer', 2]],
+  pool: [['priest', 4], ['reaper', 3], ['wraith', 4], ['frostling', 3], ['moloch', 2], ['wartotem', 2], ['lurker', 3], ['swarm', 3], ['healer', 2], ['souljelly', 2], ['deepcaller', 1], ['drowned', 3]],
 };
 export const ACTS = [
   { sub: 'Akt I', power: 1, biomes: ['sternengrab', 'nebelmoor', 'aschewald'] },
@@ -139,6 +170,22 @@ BOSSES.leviathan = {
   name: 'Der Leviathan', hp: 2700, dmg: 24, speed: 48, r: 44, color: '#5ce0c8', elem: 'chaos',
   patterns: [['pools', 5], ['spiral', 5.5], ['charge', 5], ['ring', 3.4], ['summon', 8]], summon: 'priest',
 };
+// Zweite (und dritte) Phase mit eigener Mechanik für alle regulären Bosse
+const BOSS_MECH = {
+  shepherd: [['anchors', [['checker', 9]]]], queen: [['shield', [['safezones', 12]]]],
+  voidlord: [['shield', [['safezones', 11]]], ['anchors', [['checker', 8]]]], colossus: [['anchors', [['checker', 10]]]],
+  wyrm: [['shield', [['checker', 9]]]], witch: [['anchors', [['safezones', 10]]]], hain: [['shield', [['checker', 10]]]],
+  mirror: [['anchors', [['safezones', 10]]]], leviathan: [['shield', [['safezones', 11]]], ['anchors', [['checker', 8]]]],
+};
+for (const [id, steps] of Object.entries(BOSS_MECH)) {
+  const b = BOSSES[id];
+  const phases = [{ at: 1, patterns: b.patterns }];
+  steps.forEach(([enter, extra], i) => {
+    const at = steps.length === 1 ? 0.5 : [0.6, 0.3][i];
+    phases.push({ at, enter, patterns: [...b.patterns, ...extra] });
+  });
+  b.phases = phases;
+}
 export const BOSS_IDS = Object.keys(BOSSES);
 // Endbosse des Sternenatlas: mehrere Phasen mit wechselnden Mustern
 export const PINNACLES = {
@@ -146,24 +193,24 @@ export const PINNACLES = {
     name: 'Der Gefallene Stern', hp: 3600, dmg: 26, speed: 56, r: 46, color: '#ffe066', elem: 'fire', summon: 'sparkler',
     phases: [
       { at: 1, patterns: [['ring', 2.8], ['slam', 3.6], ['charge', 5]] },
-      { at: 0.66, patterns: [['laser', 3.6], ['spiral', 5], ['firewall', 4.5], ['summon', 7]] },
-      { at: 0.33, patterns: [['laser', 2.8], ['ring', 2.4], ['blink', 3.2], ['firewall', 3.8], ['pools', 5]] },
+      { at: 0.66, enter: 'shield', patterns: [['laser', 3.6], ['spiral', 5], ['firewall', 4.5], ['summon', 7], ['checker', 10]] },
+      { at: 0.33, enter: 'anchors', patterns: [['laser', 2.8], ['ring', 2.4], ['blink', 3.2], ['firewall', 3.8], ['pools', 5], ['safezones', 9]] },
     ],
   },
   weaver: {
     name: 'Die Weberin der Leere', hp: 3400, dmg: 24, speed: 64, r: 38, color: '#c58bff', elem: 'chaos', summon: 'wraith',
     phases: [
       { at: 1, patterns: [['blink', 3.4], ['barrage', 2.8], ['pools', 5]] },
-      { at: 0.66, patterns: [['spiral', 4.4], ['summon', 6], ['blink', 2.8], ['laser', 4.8]] },
-      { at: 0.33, patterns: [['spiral', 3.6], ['pools', 3.6], ['ring', 2.6], ['blink', 2.4], ['barrage', 2.6]] },
+      { at: 0.66, enter: 'anchors', patterns: [['spiral', 4.4], ['summon', 6], ['blink', 2.8], ['laser', 4.8], ['safezones', 10]] },
+      { at: 0.33, enter: 'shield', patterns: [['spiral', 3.6], ['pools', 3.6], ['ring', 2.6], ['blink', 2.4], ['barrage', 2.6], ['checker', 8]] },
     ],
   },
   eternal: {
     name: 'Der Ewige König', hp: 4200, dmg: 30, speed: 50, r: 48, color: '#ff5c7a', elem: 'phys', summon: 'moloch',
     phases: [
       { at: 1, patterns: [['charge', 3.8], ['slam', 3.2], ['summon', 8]] },
-      { at: 0.66, patterns: [['charge', 3.2], ['firewall', 4], ['ring', 3.2], ['slam', 3]] },
-      { at: 0.33, patterns: [['charge', 2.6], ['laser', 3.4], ['firewall', 3.2], ['ring', 2.6], ['summon', 6]] },
+      { at: 0.66, enter: 'shield', patterns: [['charge', 3.2], ['firewall', 4], ['ring', 3.2], ['slam', 3], ['checker', 9]] },
+      { at: 0.33, enter: 'anchors', patterns: [['charge', 2.6], ['laser', 3.4], ['firewall', 3.2], ['ring', 2.6], ['summon', 6], ['safezones', 8]] },
     ],
   },
 };

@@ -135,8 +135,8 @@ export function checkAchievements() {
     level: accountLevel().level, uniques: Object.keys(UNIQUES).length,
     skills: Object.keys(SKILLS).length, supports: Object.keys(SUPPORTS).length,
     altarMaxed: ALTAR.filter((a) => (save.altar[a.id] || 0) >= a.max).length,
-    bestiary: Object.keys(ENEMIES).filter((k) => (save.stats.enemyKills || {})[k] > 0).length,
-    enemyTypes: Object.keys(ENEMIES).length,
+    bestiary: Object.keys(ENEMIES).filter((k) => !ENEMIES[k].noDex && (save.stats.enemyKills || {})[k] > 0).length,
+    enemyTypes: Object.keys(ENEMIES).filter((k) => !ENEMIES[k].noDex).length,
     atlasRegions: Object.keys(getAtlas().regions).length, pets: PET_IDS.length, setPieces: SET_PIECES.length,
   };
   for (const a of ACHIEVEMENTS) {
