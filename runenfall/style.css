@@ -358,3 +358,8 @@ h2.evt { text-align: center; color: var(--cyan); }
 .prow > div { flex: 1; }
 .prow .icon:disabled { opacity: .3; }
 .grid2 .tile:nth-last-child(1):nth-child(odd) { grid-column: span 2; }
+.ctabs { overflow-x: auto; max-width: 46vw; flex-shrink: 1; scrollbar-width: none; }
+.ctabs button { flex: none; }
+.treebar input { min-width: 90px; }
+.seg { overflow-x: auto; scrollbar-width: none; }
+.seg button { flex: 1 0 auto; padding-left: 10px; padding-right: 10px; }

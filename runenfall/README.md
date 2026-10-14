@@ -16,25 +16,30 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 ## Dauerhafter Fortschritt
 | System | Was es bringt |
 |---|---|
-| **Sternenkarte** | 504 Sterne, 60 bedeutende Sterne, 12 Keystones, eigener Baum pro Klasse, jederzeit kostenlos umbaubar |
-| **Kodex** | 33 Runen und 48 Glyphen – mehr Freischaltungen = mehr Build-Möglichkeiten |
-| **Aufstiegsklassen** | 12 Spezialisierungen (2 pro Klasse) mit je 5 starken Stufen |
+| **Sternenkarte** | 525 Sterne, 60 bedeutende Sterne, 12 Keystones, 12 Juwelsockel, eigener Baum pro Klasse, jederzeit kostenlos umbaubar |
+| **Sternenatlas** | Endgame: 30 Regionen (Stufe 1–16) als Akt IV, Atlas-Kenntnisse, 3 Endbosse mit Phasen |
+| **Juwelen** | Dauerhafte Beute mit zufälligen Affixen zum Einsetzen in die Sternenkarte |
+| **Gefährten** | 12 sammelbare Begleiter mit Angriff und passivem Bonus, bis Stufe 10 |
+| **Sets** | 6 Sets mit Boni für 2 und 4 Teile |
+| **Sternenmacht** | Unendliche Paragon-Stufen ab Kontostufe 20 |
+| **Kodex** | 46 Runen und 63 Glyphen – mehr Freischaltungen = mehr Build-Möglichkeiten |
+| **Aufstiegsklassen** | 18 Spezialisierungen (2 pro Klasse) mit je 5 starken Stufen |
 | **Altar** | 21 dauerhafte Verbesserungen (Schaden, Leben, Neuwürfeln, Wiederbeleben, Rabatte …) |
 | **Relikte** | Dauerhafte Ausrüstung über alle Runs, bis zu 5 Affixe, mit Staub auf Stufe 10 veredelbar |
-| **Klassen** | 6 Klassen, 3 davon freischaltbar |
+| **Klassen** | 9 Klassen, 6 davon freischaltbar |
 | **Sternenhöhe** | Unendliche Schwierigkeitsstufen mit besseren Belohnungen |
 | **Abgrund** | Endlosmodus nach dem ersten Sieg – wie tief kommst du? |
 | **Prophezeiungen** | 12 frei kombinierbare Erschwernisse für mehr Sternenstaub |
 | **Tägliche Herausforderung** | Jeden Tag ein fester Run mit doppeltem Staub |
 | **Aufträge** | 3 wechselnde Ziele mit Staub- und Relikt-Belohnung |
-| **Bestiarium** | 22 Gegnerarten und 6 Bosse zum Erforschen |
-| **Erfolge** | 60 Erfolge mit Sternpunkten und Staub als Belohnung |
+| **Bestiarium** | 30 Gegnerarten und 12 Bosse zum Erforschen |
+| **Erfolge** | 100 Erfolge mit Sternpunkten und Staub als Belohnung |
 
 ## Build-Tiefe
 - Schadensformel wie in PoE: Grundschaden × (1 + Σ erhöht) × Π mehr, mit Umwandlung (Physisch → Blitz → Kälte → Feuer → Chaos), Durchdringung und Widerständen.
 - Zustände: Entzünden (stapelbar per Keystone), Gift (stapelt), Blutung, Schock (mehr erlittener Schaden), Unterkühlung/Einfrieren.
 - Keystones wie *Glaskanone*, *Ruhiger Geist* (keine Krits, 30% mehr Schaden), *Henkerspräzision* (jeder 4. Treffer kritisch), *Seuchenfürst*, *Sternenseele* (Leben 1, riesige Barriere) verändern die Regeln.
-- 44 Unikate wie *Aschenrufer* (alles wird Feuer), *Echos der Leere* (alle Zauber doppelt), *Phönixfeder* (einmal pro Kampf wiederbeleben) oder *Gespaltener Himmel* (Projektile teilen sich).
+- 74 Unikate wie *Aschenrufer* (alles wird Feuer), *Echos der Leere* (alle Zauber doppelt), *Phönixfeder* (einmal pro Kampf wiederbeleben) oder *Gespaltener Himmel* (Projektile teilen sich).
 
 ## Technik
 Reines JavaScript (ES-Module), Canvas-Rendering, keine Abhängigkeiten. Spielstand in `localStorage`, Export/Import in den Einstellungen.
