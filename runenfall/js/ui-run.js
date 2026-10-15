@@ -581,6 +581,7 @@ on('arenaFight', () => {
 // ===================================================================== Schatzkammer
 function showTreasure() {
   const run = R();
+  sfx.chest?.();
   if (!run.treasure) {
     const luck = snapshot(run).P.luck;
     run.treasure = {

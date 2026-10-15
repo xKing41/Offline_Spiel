@@ -5,6 +5,7 @@ import { ELEM } from './data/stats.js';
 import { sfx, buzz } from './audio.js';
 import { save } from './save.js';
 import { bossLine } from './data/factions.js';
+import { music } from './music.js';
 
 /** Schadensanalyse eines Kampfes: je Rune, Element, Krit, Schaden über Zeit und erlittener Schaden. */
 const newAn = () => ({ sk: {}, el: {}, crit: [0, 0, 0, 0], dot: {}, other: 0, tk: {}, src: {}, dodged: 0 });
@@ -303,6 +304,7 @@ export class Combat {
     p.inv -= dt;
     p.hurt -= dt;
     p.leechAcc = Math.max(0, p.leechAcc - P.maxLife * 0.12 * dt);
+    if (p.hp > 0 && p.hp < P.maxLife * 0.3 && !this.over) sfx.heartbeat?.();
   }
 
   heal(amount) {
@@ -430,6 +432,7 @@ export class Combat {
 
   spawnElite() {
     const c = this.cfg;
+    if (this.t - (this.lastEliteSting || -99) > 12) { this.lastEliteSting = this.t; music.stinger('elite'); }
     const id = weighted(c.pool.filter((x) => !['mite', 'swarm', 'slimelet', 'nest', 'turret'].includes(x[0])), (x) => x[1])[0];
     const pos = this.spawnPos();
     const e = this.spawn(id, pos.x, pos.y);
@@ -459,6 +462,7 @@ export class Combat {
   }
 
   spawnNemesis(n) {
+    if (save.settings.musicVol > 0.01) music.stinger('nemesis'); else sfx.nemesis?.();
     const pos = this.spawnPos();
     const e = this.makeEnemy(n.base, pos.x, pos.y);
     const k = 6 + 2.5 * n.rank;
@@ -1464,7 +1468,7 @@ export class Combat {
             } });
           }
         }
-        if (falls) sfx.meteor?.(); else sfx.zap();
+        if (falls) sfx.meteor?.(0.2); else sfx.zap();
         return true;
       }
       case 'chain': {
@@ -1481,7 +1485,7 @@ export class Combat {
           t = this.nearest(t.x, t.y, 230, hit);
         }
         this.fx.push({ type: 'bolt', pts, t: 0.2, max: 0.2, color });
-        sfx.zap();
+        if (sfx.chain) sfx.chain(); else sfx.zap();
         return true;
       }
       case 'zone': {
@@ -1516,7 +1520,7 @@ export class Combat {
           const delay = (def.delay || 0.7) + i * 0.15;
           this.fx.push({ type: 'tele', x, y, r: S.area, t: delay, max: delay, color });
           fallFx(this, S, x, y, delay);
-          if (!i) sfx.meteor?.();
+          if (!i) sfx.meteor?.(delay);
           this.delayed.push({ t: delay, fn: () => {
             this.blast(S, x, y, S.area, color);
             this.burst(x, y, color, 26, 260);
@@ -1541,6 +1545,7 @@ export class Combat {
         const x = tg ? tg.x + rand(-30, 30) : p.x + rand(-80, 80);
         const y = tg ? tg.y + rand(-30, 30) : p.y + rand(-80, 80);
         this.traps.push({ x, y, sx: p.x, sy: p.y, fly: 0.25, arm: 0.45, life: 10, S, color });
+        sfx.trap?.();
         return true;
       }
     }

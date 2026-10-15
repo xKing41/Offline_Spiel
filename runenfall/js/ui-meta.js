@@ -12,7 +12,8 @@ import { buildSets, relicMods, ensureQuests, questText, dailyConfig } from './ru
 import { computePlayer, computeSkill } from './calc.js';
 import { systemTiles, leaguePanel, potionPanel, archiveTab } from './ui-systems.js';
 import { EVOLUTIONS, evoOf } from './data/evolutions.js';
-import { sfx } from './audio.js';
+import { sfx, applyVolumes } from './audio.js';
+import { music } from './music.js';
 import { jewelsTab, jewelSocketPanel, paragonPanel } from './ui-endgame.js';
 import { modeGrid, modePanel, modeTiles, towerClaimPanel, modeWhere, resWhere } from './ui-modes.js';
 import { modeLock } from './data/modes.js';
@@ -622,15 +623,22 @@ export function showSettings() {
   const st = save.settings;
   const tg = (k, label) => `<button class="toggle ${st[k] ? 'on' : ''}" data-a="setTog" data-k="${k}"><span>${label}</span><i></i></button>`;
   screen(`${topbar('Einstellungen')}<div class="pad"><div class="panel">
-    ${tg('sound', 'Ton')}${tg('vibrate', 'Vibration')}${tg('dmgNums', 'Schadenszahlen')}${tg('shake', 'Bildschirmwackeln')}${tg('hints', 'Hinweise & Einführung')}
+    ${tg('sound', 'Ton')}
+    <label class="slider"><span>Musik</span><input type="range" min="0" max="100" step="5" value="${Math.round((st.musicVol ?? 0.6) * 100)}" data-vol="musicVol"><b>${Math.round((st.musicVol ?? 0.6) * 100)}</b></label>
+    <label class="slider"><span>Effekte</span><input type="range" min="0" max="100" step="5" value="${Math.round((st.sfxVol ?? 1) * 100)}" data-vol="sfxVol"><b>${Math.round((st.sfxVol ?? 1) * 100)}</b></label>
+    ${tg('vibrate', 'Vibration')}${tg('dmgNums', 'Schadenszahlen')}${tg('shake', 'Bildschirmwackeln')}${tg('hints', 'Hinweise & Einführung')}
     <button class="btn small ghost" data-a="hintsReset">Alle Hinweise erneut zeigen</button></div>
     <div class="panel"><h3>Grafik</h3><div class="seg">${[['auto', 'Automatisch'], ['high', 'Pracht'], ['low', 'Schnell']].map(([k, n]) => `<button class="${(st.gfx || 'auto') === k ? 'on' : ''}" data-a="setGfx" data-k="${k}">${n}</button>`).join('')}</div>
     <p class="small muted">„Pracht“: Licht, Schatten und Atmosphäre. „Schnell“ für ältere Handys. „Automatisch“ wechselt bei Rucklern selbst.</p></div>
     ${backupPanel()}
     <div class="panel"><h3>Neu beginnen</h3><button class="btn small danger" data-a="wipe">Alles löschen</button></div>
     <p class="muted small center">Runenfall · läuft komplett offline</p></div>`);
+  for (const el of document.querySelectorAll('[data-vol]')) {
+    el.addEventListener('input', () => { save.settings[el.dataset.vol] = Number(el.value) / 100; el.nextElementSibling.textContent = el.value; applyVolumes(); });
+    el.addEventListener('change', () => { persist(); if (el.dataset.vol === 'sfxVol') sfx.loot(); });
+  }
 }
-on('setTog', (d) => { save.settings[d.k] = !save.settings[d.k]; persist(); showSettings(); });
+on('setTog', (d) => { save.settings[d.k] = !save.settings[d.k]; persist(); if (d.k === 'sound') { applyVolumes(); if (save.settings.sound) { music.play('menu'); music.setIntensity(0.3); } else music.stop(0.2); } showSettings(); });
 on('hintsReset', () => { resetHints(); save.hints.welcome = true; persist(); toast('Hinweise werden wieder angezeigt.'); showSettings(); });
 on('setGfx', (d) => { save.settings.gfx = d.k; app.combat.lowGfx = d.k === 'low'; persist(); showSettings(); });
 on('exp', () => {

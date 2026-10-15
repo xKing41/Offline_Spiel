@@ -724,3 +724,7 @@ canvas.qrcv { position: static; inset: auto; width: min(78vw, 340px); height: au
 .qrframe { position: absolute; inset: 14%; border: 3px solid rgba(255, 216, 77, .85); border-radius: 14px; box-shadow: 0 0 0 999px rgba(0, 0, 0, .35); animation: pulse 1.6s infinite; }
 #modal.qrmodal .mbox { gap: 8px; }
 .nag { width: 100%; background: rgba(255, 216, 77, .08); border: 1px dashed rgba(255, 216, 77, .45); border-radius: 12px; padding: 8px 12px; color: var(--gold); font-size: 13px; }
+.slider { display: flex; align-items: center; gap: 10px; padding: 8px 2px; }
+.slider span { width: 64px; font-weight: 600; }
+.slider input { flex: 1; accent-color: var(--gold); height: 28px; }
+.slider b { width: 30px; text-align: right; color: var(--gold); font-size: 13px; }

@@ -7,11 +7,26 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 (Link in der **normalen Chrome-App** öffnen, nicht im eingebauten Browser einer anderen App.)
 
 ## Der Kreislauf
-1. **Run starten:** Klasse und Sternenhöhe wählen.
-2. **Karte:** 3 Akte mit je 8 Orten – Kampf, Elite, Prüfung, Schatzkammer, Schrein, Händler, Schmiede, Ereignis, Lager, Boss. Jeder Akt spielt in einem von zwei Biomen mit eigenen Gegnern, Gefahren und Bossen.
+1. **Run starten:** Klasse, Modus und Sternenhöhe wählen.
+2. **Karte:** 3 Akte mit je 8 Orten – Kampf, Elite, Prüfung, Schatzkammer, Schrein, Händler, Schmiede, Ereignis, Lager, Boss. Jeder Akt spielt in einem von drei Biomen mit eigenen Gegnern, Gefahren und Bossen.
 3. **Kampf:** Mit dem Daumen laufen, deine Runen feuern automatisch. Beim Stufenaufstieg wählst du Segen.
 4. **Build:** Bis zu 4 Runen mit je 3 Glyphen-Sockeln, 8 Ausrüstungsplätze, Schmiede zum Würfeln von Affixen.
 5. **Nach dem Run:** Konto-Erfahrung → Sternpunkte, Sternenstaub → Altar, Kodex, Klassen und Relikte.
+
+## Spielmodi
+| Modus | Worum es geht |
+|---|---|
+| **Feldzug** | Drei Akte, drei Bosse – der klassische Run (plus Akt IV aus dem Sternenatlas) |
+| **Abgrund** | Endlos in die Tiefe, jede 5. Ebene ein Boss, ab Ebene 25 Sternenbestien |
+| **Sternenturm** | Jede Woche ein neuer Turm, für alle gleich: feste Etagen mit eigenen Gesetzen, Boss alle 5 Etagen, Rastplätze, Turmtruhen – und eine **Wochen-Bestenliste** gegen 15 Rivalen, die im Laufe der Woche weiterklettern. Am Wochenende gibt es Belohnungen nach Platz |
+| **Boss-Rush** | Alle 9 Bosse plus ein Endgegner am Stück, mit Startausrüstung, freien Stufen und Heilung zwischen den Kämpfen – gewertet wird die reine Kampfzeit |
+| **Sternenjagd** | Eine verhüllte Karte selbst erkunden: Spuren zum Hort der Bestie folgen, Sternsplitter schwächen sie, gehen die Schritte aus, findet die Bestie dich. Jagdstufen schalten sich nacheinander frei |
+
+## Die Häuser & die Sage
+- **Orden der Glut, Zirkel der Sternseher, Leerenwandler:** je 5 Ruf-Stufen mit dauerhaften Boni, ein eigener Auftrag und ein Händler mit 6 Waren gegen Gunst (Gaben für den nächsten Run, Relikte, Juwelen, Eier, Atlaspunkte, mythische Gegenstände)
+- **Begegnungen im Run:** 9 Ereignisse der Häuser mit echten Entscheidungen – wer einem Haus hilft, verärgert manchmal ein anderes
+- **Die Sage:** 20 Kapitel der Geschichte schalten sich mit Meilensteinen frei – was geschah in der Nacht, als der Himmel brach?
+- **Bosse sprechen** beim Erscheinen
 
 ## Dauerhafter Fortschritt
 | System | Was es bringt |
@@ -32,6 +47,9 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 | **Sets** | 6 Sets mit Boni für 2 und 4 Teile |
 | **Sternenmacht** | Unendliche Paragon-Stufen ab Kontostufe 20 |
 | **Kodex** | 46 Runen und 63 Glyphen – mehr Freischaltungen = mehr Build-Möglichkeiten |
+| **Runen-Evolution** | Ab Stufe 7 entwickelt sich jede Rune in eine von 2 Formen – 92 Evolutionen mit eigener Optik und eigenen Regeln |
+| **Handwerk** | Affix sperren, Gegenstände verschmelzen, korrumpieren (riskant!) und Unikate bis ★3 aufwerten |
+| **Gespeicherte Builds** | 4 Plätze pro Klasse für komplette Sternenkarten-Builds, mit einem Tipp wechseln |
 | **Aufstiegsklassen** | 18 Spezialisierungen (2 pro Klasse) mit je 5 starken Stufen |
 | **Altar** | 21 dauerhafte Verbesserungen (Schaden, Leben, Neuwürfeln, Wiederbeleben, Rabatte …) |
 | **Relikte** | Dauerhafte Ausrüstung über alle Runs, bis zu 5 Affixe, mit Staub auf Stufe 10 veredelbar |
@@ -41,8 +59,11 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 | **Prophezeiungen** | 12 frei kombinierbare Erschwernisse für mehr Sternenstaub |
 | **Tägliche Herausforderung** | Jeden Tag ein fester Run mit doppeltem Staub |
 | **Aufträge** | 3 wechselnde Ziele mit Staub- und Relikt-Belohnung |
-| **Bestiarium** | 30 Gegnerarten, 12 Bosse und 7 Sternenbestien zum Erforschen |
-| **Erfolge** | 132 Erfolge mit Sternpunkten und Staub als Belohnung |
+| **Bestiarium** | 57 Gegnerarten (je Biom eigene mit Mechaniken wie Reflexion, Eingraben, Strahlen, Sog, Spiegelklonen), 12 Bosse und Sternenbestien |
+| **Erfolge** | 155 Erfolge mit Sternpunkten und Staub als Belohnung |
+
+## Bosse mit Mechaniken
+Ab der Hälfte ihres Lebens setzt jeder Boss eine eigene Mechanik ein: **Schildkristalle** zerstören (der Schild bricht → Betäubung und Verwundbarkeit), **heilende Seelenanker** ausschalten, bei **Sternenschlägen** in die sicheren Kreise flüchten oder einem **Schachbrett** aus Einschlägen ausweichen.
 
 ## Build-Tiefe
 - Schadensformel wie in PoE: Grundschaden × (1 + Σ erhöht) × Π mehr, mit Umwandlung (Physisch → Blitz → Kälte → Feuer → Chaos), Durchdringung und Widerständen.
@@ -50,15 +71,25 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 - Keystones wie *Glaskanone*, *Ruhiger Geist* (keine Krits, 30% mehr Schaden), *Henkerspräzision* (jeder 4. Treffer kritisch), *Seuchenfürst*, *Sternenseele* (Leben 1, riesige Barriere) verändern die Regeln.
 - 74 Unikate wie *Aschenrufer* (alles wird Feuer), *Echos der Leere* (alle Zauber doppelt), *Phönixfeder* (einmal pro Kampf wiederbeleben) oder *Gespaltener Himmel* (Projektile teilen sich).
 
-## Optik
-- Eigener Grafik-Renderer: handgezeichnete, prozedural erzeugte Sprites für alle 30 Gegnertypen, Bosse mit Runen-Corona, Spielfigur in Klassenfarbe
+## Optik & Kampfgefühl
+- Eigener Grafik-Renderer: prozedural erzeugte Sprites für alle 57 Gegnertypen, Bosse mit Runen-Corona, Spielfigur in Klassenfarbe
+- Jede Rune hat ihre eigene Animation (Meteore fallen vom Himmel, Ketten springen, Klingen kreisen …), Evolutionen verändern das Aussehen
+- Treffer fühlen sich an: Rückstoß, kurzes Einfrieren bei vernichtenden Krits, Zeitlupe beim Boss-Tod, Krater und Spuren am Boden
+- **Prozedurale Musik:** eigenes Thema für jedes der 9 Biome, dazu Boss, Endgegner, Abgrund, Menü, Sieg und Niederlage – im Kampf wird sie mit dem Getümmel dichter (Arpeggien, Schlagwerk), kurze Einwürfe bei Stufenaufstieg, Elite, Erzfeind und Boss-Tod. Alles wird live erzeugt, keine Audiodateien
+- Über 30 synthetische Soundeffekte je Element (Zauber, Explosion, Meteor, Kette, Splittern …), Mischpult mit Hall und Limiter, getrennte Regler für Musik und Effekte
 - Neun Biome mit eigener Bodentextur (Steinplatten, Moor, Kristalle, Lavaadern, Leerenrunen, Asche, Spiegel, Seelenwasser) und Atmosphäre (Glut, Schnee, Sporen, Funkeln)
 - Dynamisches Licht, Schatten, Leuchtschweife, Funkenpartikel, Brandspuren und Schadenszahlen mit Pop-Effekt
 - Menüs mit Goldschrift (Cinzel, offline eingebunden), Runenring-Logo, animiertem Sternennebel und Ornament-Panels
 - Grafikqualität „Automatisch / Pracht / Schnell“ – schaltet bei Rucklern selbst um
 
+## Komfort
+- **Einführung:** Willkommen beim ersten Start, sanfterer erster Run und kurze Hinweise beim ersten Kontakt mit jedem System (abschaltbar)
+- **Schadensanalyse:** Wer macht wie viel Schaden? Pro Rune, Element, Krit-Anteil, Schaden über Zeit und erlittener Schaden nach Quelle – im Pausemenü, im Build und am Run-Ende
+- **Sicherung ohne Cloud:** Sicherungsdatei speichern/teilen (z. B. Drive, Mail, Messenger) und laden, kompakter Text-Code, tägliche Wiederherstellungspunkte und **Übertragung aufs neue Handy per QR-Code** (Kamera scannt die QR-Folge)
+
 ## Technik
-Reines JavaScript (ES-Module), Canvas-Rendering, keine Abhängigkeiten. Spielstand in `localStorage`, Export/Import in den Einstellungen.
+Reines JavaScript (ES-Module), Canvas-Rendering, keine Build-Schritte. Spielstand in `localStorage`, Sicherung in den Einstellungen.
+Einzige Fremdbibliotheken (nur für die QR-Übertragung): qrcode-generator (MIT) und jsQR (Apache 2.0) in `js/vendor/`.
 `js/data/*` enthält alle Inhalte (Fertigkeiten, Gegenstände, Baum, Gegner) – leicht erweiterbar.
 
 Lokal starten: `cd runenfall && python3 -m http.server 8000` → http://localhost:8000

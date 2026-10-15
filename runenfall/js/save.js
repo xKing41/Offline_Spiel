@@ -60,7 +60,7 @@ function defaults() {
       fastestWin: 1e9, lastCls: null, nemesisSlain: 0, nemesisMax: 0, beasts: 0, leagueRuns: 0, potionsBrewed: 0, buildingUps: 0, packsOpened: 0,
       maxTower: 0, towerWins: 0, rushBest: 0, rushClears: 0, rushFastest: 1e9, huntWins: 0, maxHunt: 0,
     },
-    settings: { sound: true, vibrate: true, dmgNums: true, shake: true, gfx: 'auto', hints: true },
+    settings: { sound: true, vibrate: true, dmgNums: true, shake: true, gfx: 'auto', hints: true, musicVol: 0.6, sfxVol: 1 },
     hints: {},
     run: null,
   };

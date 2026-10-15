@@ -5,11 +5,11 @@ import { fmt } from './util.js';
 import { save, persist, checkAchievements, altarLvl } from './save.js';
 import { Combat } from './combat.js';
 import { TreeView } from './treeview.js';
-import { BOSSES } from './data/content.js';
+import { BOSSES, PINNACLES } from './data/content.js';
 import { RARITY } from './data/items.js';
 import {
   newRun, snapshot, combatCfg, gainXp, xpNeed, rollRewards, healAfterFight, advanceAct, endRun, dropRelic, genAbyssChoices, priceMult,
-  dropJewel, completeAtlas, atlasHas, setCountMax, nemesisSlain,
+  dropJewel, completeAtlas, atlasHas, setCountMax, nemesisSlain, actInfo,
 } from './run.js';
 import { showHub, showSetup, showTree, showCodex, showAltar, showRelics, showAch, showStats, showSettings } from './ui-meta.js';
 import { showAtlas, showPets } from './ui-endgame.js';
@@ -21,6 +21,7 @@ import { showFactions, showStory } from './ui-factions.js';
 import { coach, welcome } from './coach.js';
 import { mergeAn, analysisHtml } from './analysis.js';
 import { dailyBackup } from './backup.js';
+import { music } from './music.js';
 
 const combat = new Combat($('#cv'));
 const treeView = new TreeView($('#tree'));
@@ -40,7 +41,16 @@ app.nav = (to) => {
   if (to === 'map' && !save.run) to = 'hub';
   (SCREENS[to] || showHub)();
   if (['setup', 'tree', 'codex', 'altar', 'relics', 'base', 'cards', 'nemesis', 'season', 'atlas', 'pets', 'factions', 'story'].includes(to)) coach(to);
+  if (to === 'map') runMusic(0.15); else if (to !== 'tree' || !save.run) { music.play('menu'); music.setIntensity(0.3); }
 };
+/** Musik des laufenden Runs (Biom bzw. Abgrund) in ruhiger oder wilder Fassung. */
+function runMusic(x) {
+  const run = save.run;
+  if (!run) return;
+  music.play(run.mode === 'abyss' ? 'abyss' : actInfo(run).biomeId);
+  music.setIntensity(x);
+}
+app.runMusic = runMusic;
 app.resetClock = () => { last = performance.now(); };
 app.showMap = () => app.nav('map');
 
@@ -48,12 +58,14 @@ app.startRun = (opts) => {
   save.run = newRun(opts);
   persist();
   sfx.levelup();
+  runMusic(0.15);
   showMap();
 };
 
 app.continueRun = () => {
   const run = save.run;
   if (!run) return showHub();
+  runMusic(0.15);
   afterLevels(() => {
     const node = run.curNode;
     if (!node) return showMap();
@@ -90,12 +102,17 @@ app.startCombat = (node) => {
   $('#hud').classList.add('show');
   $('#hBoss').classList.add('hidden');
   $('#hTitle').textContent = cfg.kind === 'boss' ? BOSSES[cfg.bossId].name : cfg.label;
+  // Musik: Boss-Thema, Endgegner/Bestie, sonst das Biom in Kampf-Fassung
+  if (cfg.kind === 'boss') music.play(PINNACLES[cfg.bossId] || String(cfg.bossId).startsWith('beast_') ? 'pinnacle' : 'boss');
+  else music.play(run.mode === 'abyss' ? 'abyss' : cfg.biome);
+  music.setIntensity(cfg.kind === 'fight' ? 0.4 : 0.65);
   combat.start(cfg, snap.P, snap.skills, run.hp, {
     onXp(v) {
       const ups = gainXp(run, v * combat.P.xpMult);
       if (ups && !combat.over) {
         combat.paused = true;
         buzz(30);
+        music.stinger('levelup');
         setTimeout(() => showLevelUp(() => { refreshCombatStats(); combat.paused = false; }), 120);
       }
     },
@@ -126,7 +143,7 @@ app.startCombat = (node) => {
       return false;
     },
     onWin(stats) { if (run.rush) run.rush.time += combat.t; addStats(stats); fightWon(node, cfg); },
-    onLose(stats) { if (run.rush) run.rush.time += combat.t; addStats(stats); run.killer = combat.killer || null; $('#hud').classList.remove('show'); combat.cfg = null; finishRun('death'); },
+    onLose(stats) { music.stinger('death'); if (run.rush) run.rush.time += combat.t; addStats(stats); run.killer = combat.killer || null; $('#hud').classList.remove('show'); combat.cfg = null; finishRun('death'); },
   });
   last = performance.now();
   // Einführung im ersten Kampf
@@ -159,6 +176,8 @@ function fightWon(node, cfg) {
   combat.cfg = null;
   run.stats.nodes++;
   const boss = cfg.kind === 'boss';
+  if (boss) music.stinger('bossdown');
+  runMusic(0.15);
   if (run.shrine && run.shrine.fights > 0) { run.shrine.fights--; if (run.shrine.fights <= 0) run.shrine = null; }
   if (boss) {
     run.stats.bosses++;
@@ -229,6 +248,7 @@ function finishRun(outcome) {
   const relics = run.stats.relics.map((u) => save.relics.find((r) => r.uid === u)).filter(Boolean);
   res.jewelList = jewelIds.map((u) => (save.jewels || []).find((j) => j.uid === u)).filter(Boolean);
   if (outcome === 'win') sfx.win();
+  music.play(outcome === 'win' ? 'victory' : 'defeat');
   showSummary(res, relics);
   if (outcome !== 'win') coach('death');
 }
@@ -291,6 +311,7 @@ window.addEventListener('pagehide', () => persist());
 
 // ===================================================================== Schleife
 let last = performance.now();
+let musicT = 0;
 // Automatische Grafikqualität: bei dauerhaft niedriger Bildrate auf „Schnell“ wechseln.
 let frameAvg = 1 / 60, slowT = 0;
 combat.lowGfx = save.settings.gfx === 'low';
@@ -309,6 +330,9 @@ function frame(now) {
     combat.update(dt);
     combat.render();
     updateHud();
+    // Musik-Intensität folgt dem Getümmel
+    musicT -= dt;
+    if (musicT <= 0) { musicT = 0.5; music.setIntensity(Math.min(1, 0.3 + combat.enemies.length / 45 + (combat.boss && !combat.boss.dead ? 0.35 : 0) + (combat.player && combat.player.hp < combat.P.maxLife * 0.35 ? 0.15 : 0))); }
   } else if (treeView.active) {
     treeView.render();
   } else {
