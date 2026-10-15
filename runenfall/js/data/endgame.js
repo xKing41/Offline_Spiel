@@ -37,6 +37,12 @@ export const PETS = {
   phoenix: { name: 'Phönixküken', glyph: '🐦', color: '#ff5c3d', ranged: true, dmg: { fire: [8, 14] }, cd: 1.4, tags: ['fire', 'proj'], ign: 30,
     passive: (l) => [flat('res_fire', 3 + l), inc('life', r1(1 + 0.8 * l)), ...(l >= 10 ? [flat('spec_rebirth', 1)] : [])] },
 };
+// Passive Boni der Gefährten: allgemeine Werte halbiert (Glück, Gold, Erfahrung, Magnet und Sonderwirkungen bleiben)
+const PET_KEEP = new Set(['luck', 'gold', 'xp', 'magnet', 'poisonChance']);
+for (const pet of Object.values(PETS)) {
+  const p0 = pet.passive;
+  pet.passive = (l) => p0(l).map((m) => (PET_KEEP.has(m.s) || m.s.startsWith('spec_') ? m : { ...m, v: r1(m.v * 0.5) }));
+}
 export const PET_IDS = Object.keys(PETS);
 export const PET_EGG_COST = 900;
 
@@ -171,8 +177,8 @@ export const ATLAS_PASSIVES = [
   { id: 'aEgg', name: 'Nistplätze', desc: 'Bosse: +10% Chance auf ein Gefährten-Ei', cost: 2 },
   { id: 'aSet', name: 'Wappenkunde', desc: 'Set-Gegenstände fallen doppelt so oft', cost: 2 },
   { id: 'aUnique', name: 'Schatzsucher', desc: 'Einzigartige Gegenstände fallen 50% öfter', cost: 2 },
-  { id: 'aPower', name: 'Atlasmacht', desc: 'In Akt IV: 15% mehr Schaden', cost: 2 },
-  { id: 'aGuard', name: 'Atlaswacht', desc: 'In Akt IV: 15% mehr Leben', cost: 2 },
+  { id: 'aPower', name: 'Atlasmacht', desc: 'In Akt IV: 8% mehr Schaden', cost: 2 },
+  { id: 'aGuard', name: 'Atlaswacht', desc: 'In Akt IV: 8% mehr Leben', cost: 2 },
   { id: 'aShop', name: 'Händlergilde', desc: 'Händler bieten 2 zusätzliche Waren an', cost: 1 },
   { id: 'aForge', name: 'Meisterschmiede', desc: 'Schmieden kostet 25% weniger', cost: 1 },
   { id: 'aShrine', name: 'Schreinkunde', desc: 'Schreine wirken 3 statt 2 Kämpfe', cost: 1 },
@@ -189,12 +195,12 @@ export const ATLAS_PASSIVES = [
 // ===================================================================== Sternenmacht (Paragon)
 // Unendliche Stufen. Punkte gibt es ab Kontostufe 20 (alle 2 Stufen einer).
 export const PARAGON = [
-  { id: 'dmg', name: 'Macht', per: (n) => [inc('dmg', n * 1)], desc: '+1% Schaden' },
-  { id: 'life', name: 'Ausdauer', per: (n) => [inc('life', n * 1)], desc: '+1% maximales Leben' },
-  { id: 'speed', name: 'Schnelligkeit', per: (n) => [inc('speed', r1(n * 0.5))], desc: '+0,5% Fertigkeitstempo' },
-  { id: 'crit', name: 'Schärfe', per: (n) => [inc('crit', n * 2), flat('critMulti', n * 1)], desc: '+2% Krit-Chance, +1% Krit-Multiplikator' },
-  { id: 'area', name: 'Weite', per: (n) => [inc('area', r1(n * 0.6))], desc: '+0,6% Wirkungsbereich' },
-  { id: 'def', name: 'Bollwerk', per: (n) => [inc('armor', n * 2), inc('evasion', n * 2), inc('barrier', n * 2)], desc: '+2% Rüstung, Ausweichen und Barriere' },
+  { id: 'dmg', name: 'Macht', per: (n) => [inc('dmg', r1(n * 0.5))], desc: '+0,5% Schaden' },
+  { id: 'life', name: 'Ausdauer', per: (n) => [inc('life', r1(n * 0.5))], desc: '+0,5% maximales Leben' },
+  { id: 'speed', name: 'Schnelligkeit', per: (n) => [inc('speed', r1(n * 0.25))], desc: '+0,25% Fertigkeitstempo' },
+  { id: 'crit', name: 'Schärfe', per: (n) => [inc('crit', n * 1), flat('critMulti', r1(n * 0.5))], desc: '+1% Krit-Chance, +0,5% Krit-Multiplikator' },
+  { id: 'area', name: 'Weite', per: (n) => [inc('area', r1(n * 0.3))], desc: '+0,3% Wirkungsbereich' },
+  { id: 'def', name: 'Bollwerk', per: (n) => [inc('armor', n * 1), inc('evasion', n * 1), inc('barrier', n * 1)], desc: '+1% Rüstung, Ausweichen und Barriere' },
   { id: 'res', name: 'Widerstand', per: (n) => [flat('res_elem', r1(Math.min(30, n * 0.3)))], desc: '+0,3% Elementarwiderstände (max. 30%)' },
   { id: 'dust', name: 'Staubgier', per: (n) => [inc('dust', n * 1)], desc: '+1% Sternenstaub' },
   { id: 'luck', name: 'Fortuna', per: (n) => [inc('luck', r1(n * 1.5))], desc: '+1,5% Gegenstandsseltenheit' },
@@ -227,8 +233,9 @@ export const JEWEL_SPECIALS = [
 ];
 export const JEWEL_TIERS = 8;
 export const JEWEL_AFFIX = Object.fromEntries(JEWEL_AFFIXES.map((a) => [a.id, a]));
+export const JEWEL_K = 0.6;
 export const jewelTierRange = (a, tier) => {
-  const f = 1 + 0.38 * tier;
+  const f = (1 + 0.38 * tier) * JEWEL_K;
   return [r1(a.base[0] * f), r1(a.base[1] * f)];
 };
 export function makeJewel(level, luck = 0) {

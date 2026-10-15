@@ -1,6 +1,6 @@
 // Einstiegspunkt: Spielschleife, Navigation, Kampfablauf, HUD.
 import { app } from './app.js';
-import { $, on, screen, hideScreen, modal, closeModal, modalOpen, toast } from './ui.js';
+import { $, on, screen, hideScreen, modal, closeModal, modalOpen, toast, helpBtn } from './ui.js';
 import { fmt } from './util.js';
 import { save, persist, checkAchievements, altarLvl } from './save.js';
 import { Combat } from './combat.js';
@@ -367,6 +367,23 @@ checkAchievements();
 persist();
 dailyBackup();
 app.nav('hub');
-welcome(() => app.nav('setup'));
+if (!welcome(() => app.nav('setup'))) updateNotice();
+
+/** Einmaliger Hinweis nach dem Umbau „Tiefe statt Breite“. */
+function updateNotice() {
+  if (!save.metaNote) return;
+  const refund = save.metaNote.refund || 0;
+  modal(`<h2 class="center">✦ Großes Update ✦</h2><p class="center small muted">Builds entstehen jetzt im Run – nicht mehr im Konto.</p>
+    <ul class="mods updlist">
+      <li><b>Segen-Pfade:</b> Zehn Pfade (Glut, Frost, Geschosse, Legion …) mit je vier Stufen. Ab Stufe II verändern sie, wie dein Build funktioniert. Bis zu drei Pfade pro Run, zwei Pfade auf Stufe II schalten Bund-Segen frei.</li>
+      <li><b>Runen gezielt:</b> Angebote passen zu deinen Pfaden. Sind alle Plätze voll, kannst du eine Rune austauschen.</li>
+      <li><b>Sternenkarte neu:</b> kompakt, Keystones nach rund 20 Punkten erreichbar, Notables mit Bedingungen. Deine Punkte wurden zurückerstattet.</li>
+      <li><b>Kontomacht neu:</b> Altar, Relikte, Juwelen, Sternenmacht, Häuser, Gefährten, Karten und Tränke geben weniger allgemeine Werte – deine Entscheidungen im Run zählen jetzt.${refund ? ` Für Altar-Stufen über dem neuen Höchstwert hast du <b class="dust">✦ ${fmt(refund)}</b> Sternenstaub zurückbekommen.` : ''}</li>
+    </ul>
+    <div class="row between helprow"><span class="small muted">Alles über Pfade</span>${helpBtn('boons')}</div>
+    <button class="btn primary" data-a="_close">Verstanden</button>`, 'helpmodal');
+  save.metaNote = null; save.treeReset = false;
+  persist();
+}
 requestAnimationFrame(frame);
 if (location.hash === '#debug') window.__rf = { app, save: () => save, combat, treeView, snapshot };

@@ -1,6 +1,6 @@
 # RUNENFALL ✦
 
-Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilder, Beute mit Affix-Stufen wie in Path of Exile und eine riesige Sternenkarte für dauerhaften Fortschritt. Läuft komplett offline.
+Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilder, Beute mit Affix-Stufen wie in Path of Exile und Builds, die im Run entstehen: Segen-Pfade, die Regeln verändern, und eine Sternenkarte mit Schlüsselsteinen in Reichweite. Läuft komplett offline.
 
 ## 📲 APK herunterladen
 **https://github.com/xKing41/Offline_Spiel/releases/download/runenfall/Runenfall.apk**
@@ -9,8 +9,8 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 ## Der Kreislauf
 1. **Run starten:** Klasse, Modus und Sternenhöhe wählen.
 2. **Karte:** 3 Akte mit je 8 Orten – Kampf, Elite, Prüfung, Schatzkammer, Schrein, Händler, Schmiede, Ereignis, Lager, Boss. Jeder Akt spielt in einem von drei Biomen mit eigenen Gegnern, Gefahren und Bossen.
-3. **Kampf:** Mit dem Daumen laufen, deine Runen feuern automatisch. Beim Stufenaufstieg wählst du Segen.
-4. **Build:** Bis zu 4 Runen mit je 3 Glyphen-Sockeln, 8 Ausrüstungsplätze, Schmiede zum Würfeln von Affixen.
+3. **Kampf:** Mit dem Daumen laufen, deine Runen feuern automatisch. Beim Stufenaufstieg wählst du Segen – meist aus einem von zehn **Pfaden**.
+4. **Build:** Bis zu 4 Runen mit je 3 Glyphen-Sockeln (Runen-Angebote passen zu deinen Pfaden, volle Plätze lassen sich tauschen), 8 Ausrüstungsplätze, Schmiede zum Würfeln von Affixen.
 5. **Nach dem Run:** Konto-Erfahrung → Sternpunkte, Sternenstaub → Altar, Kodex, Klassen und Relikte.
 
 ## Spielmodi
@@ -31,7 +31,7 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 ## Dauerhafter Fortschritt
 | System | Was es bringt |
 |---|---|
-| **Sternenkarte** | Riesig: über 5.600 Sterne in drei Zonen (Heimat, Grenzland, Sternenrand), 9 Klassenreiche, über 700 einzigartige Notables, 137 Meisterschaften (wähle 1 von 3), 42 Keystones, 18 Sternbilder mit Krönungsstern, 37 Mythos-Sterne, 12 Sternentor-Paare, 45 Juwelsockel – kostenlos umbaubar, mit Suche und Gesamtansicht |
+| **Sternenkarte** | Kompakt: rund 1.700 Sterne, 9 Klassenreiche mit je 4–5 thematischen Keystones (die ersten rund 20 Punkte vom Ursprung entfernt), Notables mit Bedingungen (gegen brennende Gegner, in Bewegung, nach Tötungen …), Meisterschaften, 18 Sternbilder mit Krönungsstern, Sternentore und Juwelsockel – kostenlos umbaubar, mit Suche und Gesamtansicht |
 | **Sternenatlas** | Endgame: 30 Regionen (Stufe 1–16) als Akt IV, Atlas-Kenntnisse, 3 Endbosse mit Phasen |
 | **Erzfeinde** | Wer dich tötet, bekommt einen Namen, steigt im Rang auf (bis zu 16 Merkmale wie Hydra, Blutsauger, Phasenwandler) und jagt dich in späteren Runs – Kopfgeld: mythische Beute |
 | **Mythische Gegenstände** | Prozedural erzeugt: maximale Affixe + 1–2 von über 50 Spezialeffekten, umschmiedbar |
@@ -66,6 +66,9 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 Ab der Hälfte ihres Lebens setzt jeder Boss eine eigene Mechanik ein: **Schildkristalle** zerstören (der Schild bricht → Betäubung und Verwundbarkeit), **heilende Seelenanker** ausschalten, bei **Sternenschlägen** in die sicheren Kreise flüchten oder einem **Schachbrett** aus Einschlägen ausweichen.
 
 ## Build-Tiefe
+- **Segen-Pfade:** Glut, Frost, Sturm, Seuche, Klinge, Geschosse, Erschütterung, Legion, Präzision und Bollwerk – je vier Stufen, ab Stufe II mit neuen Regeln (Brände stapeln sich und explodieren, Geschosse teilen sich und kehren zurück, jeder 4. Flächentreffer wird zum Großbeben, Begleiter markieren Gegner …). Höchstens drei Pfade pro Run, Vertiefungen für begonnene Pfade.
+- **18 Bund-Segen** für Pfad-Paare ab Stufe II, z. B. *Brandpfeile* (Glut + Geschosse), *Supraleiter* (Frost + Sturm), *Seuchenträger* (Seuche + Legion).
+- **Dauerhafte Macht formt, die Entscheidungen tragen:** Konto-Boni (Altar, Relikte, Juwelen, Sternenmacht, Häuser, Gefährten, Karten, Tränke) sind bewusst klein – geprüft per Simulation: Auf Sternenhöhe 5 gewinnt ein durchdachter Build deutlich häufiger als ein zufälliger.
 - Schadensformel wie in PoE: Grundschaden × (1 + Σ erhöht) × Π mehr, mit Umwandlung (Physisch → Blitz → Kälte → Feuer → Chaos), Durchdringung und Widerständen.
 - Zustände: Entzünden (stapelbar per Keystone), Gift (stapelt), Blutung, Schock (mehr erlittener Schaden), Unterkühlung/Einfrieren.
 - Keystones wie *Glaskanone*, *Ruhiger Geist* (keine Krits, 30% mehr Schaden), *Henkerspräzision* (jeder 4. Treffer kritisch), *Seuchenfürst*, *Sternenseele* (Leben 1, riesige Barriere) verändern die Regeln.

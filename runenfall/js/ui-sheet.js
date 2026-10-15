@@ -9,7 +9,8 @@ import { PETS, SETS } from './data/endgame.js';
 import { FACTIONS, REP_RANKS, repRank, facIcon } from './data/factions.js';
 import { towerFloor, lawName, lawDesc } from './data/modes.js';
 import { snapshot, boonMods, ascendMods, actInfo, xpNeed } from './run.js';
-import { skillLocal, flatSum, runeName, BASE_LIFE, LIFE_PER_LVL } from './calc.js';
+import { PATHS, ROMAN, boonDef, pathTiers, pathIcon } from './data/boons.js';
+import { skillLocal, flatSum, runeName, BASE_LIFE, LIFE_PER_LVL, COND_KEYS } from './calc.js';
 
 const R = () => save.run;
 const nz = (v) => Math.abs(v) > 1e-6;
@@ -55,6 +56,11 @@ const incMore = (sets, key) => {
   return [nz(inc) ? `${inc >= 0 ? '+' : '−'}${fmtV(Math.abs(inc))}%` : '', nz(more - 1) ? moreTxt(more) : ''].filter(Boolean).join(' · ') || '±0%';
 };
 
+/** Name einer Bedingung, z. B. „Schaden gegen brennende Gegner“. */
+const condName = (key) => modText({ s: key, t: 'inc', v: 1 }).replace(/^\+1% /, '');
+const condGroups = () => Object.values(COND_KEYS).map((k) => [condName(k), [k]]);
+const condCount = (sets) => Object.values(COND_KEYS).filter((k) => sets.some((s) => { const e = s.m.get(k); return e && (nz(e.inc) || nz(e.more - 1)); })).length;
+
 // Werte im Build: Name, Gruppen, Kompendium-Artikel, Erklärung, Anzeige
 const STATS = {
   life: { name: 'Leben', g: [['', ['life']]], help: 'life', text: 'Dein maximales Leben: Grundwert je Run-Stufe plus flache Boni, dann „erhöht“ (addiert sich) und „mehr“ (multipliziert sich).', show: (P, run) => `${fmt(run.hp)} / ${fmt(P.maxLife)}` },
@@ -69,6 +75,7 @@ const STATS = {
   crit: { name: 'Kritische Treffer', g: [['Krit-Chance (Basis der Rune + flache Boni, dann erhöht)', ['critBase', 'crit'], '%'], ['Krit-Multiplikator (Grundwert 150%)', ['critMulti'], '%']], help: 'crit', text: 'Krit-Chance: Basiswert der Rune plus flache Boni, mal „erhöhte kritische Trefferchance“. Kritische Treffer verursachen Schaden mal Krit-Multiplikator.', show: (P, run, sets) => incMore(sets, 'crit') },
   speed: { name: 'Fertigkeitstempo', g: [['', ['speed']]], help: 'speedarea', text: 'Runen feuern öfter. Boni nur für bestimmte Runenarten siehst du bei der jeweiligen Rune.', show: (P, run, sets) => incMore(sets, 'speed') },
   area: { name: 'Wirkungsbereich', g: [['', ['area']]], help: 'speedarea', text: 'Größere Flächen – der Radius wächst mit der Wurzel des Bonus.', show: (P, run, sets) => incMore(sets, 'area') },
+  cond: { name: 'Bedingter Schaden', g: condGroups(), help: 'tree', text: 'Mehr Schaden unter Bedingungen – gegen brennende, unterkühlte, geschockte, vergiftete oder blutende Gegner, in Bewegung, bei vollem oder wenig Leben, mit Barriere, kurz nach einer Tötung, gegen nahe oder entfernte Gegner. Fließt nicht in die Schadensschätzung ein.', show: (P, run, sets) => { const n = condCount(sets); return n ? `${n} ${n === 1 ? 'Bedingung' : 'Bedingungen'}` : '–'; } },
   proj: { name: 'Projektile & Ketten', g: [['Zusätzliche Projektile', ['proj']], ['Durchbohren', ['pierce']], ['Kettensprünge', ['chain']]], help: 'speedarea', text: 'Mehr Geschosse, Durchbohren (fliegt durch Gegner) und Kettensprünge (springt zum nächsten Gegner). Hier stehen Boni für alle Runen – Glyphen wirken nur auf ihre eigene Rune.', show: (P, run, sets) => {
     const [n, p, c] = ['proj', 'pierce', 'chain'].map((k) => flatSum(sets, k));
     return [nz(n) ? `${flatTxt(n, '')} Geschosse` : '', nz(p) ? `${fmtV(p)}× Durchbohren` : '', nz(c) ? `${fmtV(c)}× Kette` : ''].filter(Boolean).join(' · ') || 'keine Boni';
@@ -91,7 +98,7 @@ export function sheetHtml(run, snap) {
   const spec = Object.keys(P.spec).length ? `<div class="panel"><h3>Besondere Effekte</h3><ul class="mods">${Object.entries(P.spec).map(([k, v]) => `<li>${esc(modText({ s: k, v }))}</li>`).join('')}</ul></div>` : '';
   return `<p class="small muted center">Tippe einen Wert oder eine Rune an, um zu sehen, woher er kommt.</p>
     <div class="panel"><h3>Angriff</h3><div class="statrow plain"><span>Geschätzter Gesamtschaden</span><b class="dps">${fmt(total)}/s</b></div>${skills}
-      ${['dmg', 'crit', 'speed', 'area', 'proj'].map(row).join('')}</div>
+      ${['dmg', 'cond', 'crit', 'speed', 'area', 'proj'].map(row).join('')}</div>
     <div class="panel"><h3>Verteidigung</h3>${['life', 'barrier', 'armor', 'evasion', 'regen', 'res', 'dmgTaken'].map(row).join('')}</div>
     <div class="panel"><h3>Sonstiges</h3>${['move', 'magnet', 'xp', 'luck', 'gold', 'heal'].map(row).join('')}
       <div class="statrow plain"><span>Run-Erfahrung</span><b>${fmt(run.xp)} / ${fmt(xpNeed(run.lvl))}</b></div></div>${spec}`;
@@ -135,6 +142,7 @@ on('skillSrc', (d) => {
     ${S.noCrit ? '' : `${sec('Krit-Chance', [...scoped('crit', S.cat), 'critBase'], { skip, unit: '%' })}${sec('Krit-Multiplikator', ['critMulti'], { skip: 0, unit: '%' })}`}
     ${sec('Tempo', scoped('speed', S.cat))}
     ${S.area || S.explode ? sec('Wirkungsbereich', scoped('area', S.cat)) : ''}
+    ${(() => { const c = Object.values(COND_KEYS).map((k) => { const r = sourceRows(all, [k]); return r ? `<h4>${esc(condName(k))}</h4><div class="srclist">${r}</div>` : ''; }).join(''); return c ? `<h3>Bedingter Schaden</h3>${c}` : ''; })()}
     <div class="row between helprow"><span class="small muted">Wie Schaden berechnet wird</span>${helpBtn('damage')}</div>
     <button class="btn" data-a="_close">Schließen</button>`, 'helpmodal');
 });
@@ -143,7 +151,20 @@ on('skillSrc', (d) => {
 export function effectsHtml(run) {
   const sec = [];
   const lis = (mods) => mods.map((m) => `<li>${esc(modText(m))}</li>`).join('');
-  if (run.boons.length) sec.push(`<h3>Segen (${run.boons.length})</h3><ul class="mods">${run.boons.map((b) => `<li style="color:${BOON_RARITY[b.r].color}">${boonMods(b).map(modText).map(esc).join(', ')}</li>`).join('')}</ul>`);
+  // Pfade mit ihren Stufen, Bund-Segen, übrige Segen
+  const tiers = pathTiers(run);
+  if (Object.keys(tiers).length) {
+    sec.push(`<h3>Pfade</h3>${Object.entries(tiers).map(([pid, t]) => {
+      const list = run.boons.map((b) => boonDef(b.id)).filter((d) => d && d.path === pid && d.tier).sort((a, b) => a.tier - b.tier);
+      const deep = run.boons.filter((b) => b.id === `${pid}_v`).length;
+      return `<div class="pathbox" style="--pc:${PATHS[pid].color}"><b>${pathIcon(pid)} ${esc(PATHS[pid].name)} · Stufe ${ROMAN[t]}${deep ? ` <small>· ${deep}× vertieft</small>` : ''}</b>
+        <ul class="mods">${list.map((d) => `<li><b>${ROMAN[d.tier]} ${esc(d.name)}:</b> ${d.mods.map(modText).map(esc).join(', ')}</li>`).join('')}</ul></div>`;
+    }).join('')}`);
+  }
+  const bunds = run.boons.map((b) => boonDef(b.id)).filter((d) => d && d.bund);
+  if (bunds.length) sec.push(`<h3>Bund-Segen</h3><ul class="mods">${bunds.map((d) => `<li><b>${pathIcon('bund')} ${esc(d.name)}</b> <small class="muted">(${d.bund.map((x) => esc(PATHS[x].name)).join(' + ')})</small>: ${d.mods.map(modText).map(esc).join(', ')}</li>`).join('')}</ul>`);
+  const rest = run.boons.filter((b) => { const d = boonDef(b.id); return !d || d.generic || d.deep; });
+  if (rest.length) sec.push(`<h3>Weitere Segen (${rest.length})</h3><ul class="mods">${rest.map((b) => { const d = boonDef(b.id); return `<li style="color:${BOON_RARITY[b.r || 0].color}">${d ? `<b>${esc(d.name)}:</b> ` : ''}${boonMods(b).map(modText).map(esc).join(', ')}</li>`; }).join('')}</ul>`);
   if (run.runMods.length) sec.push(`<h3>Aus Ereignissen & Gaben</h3><ul class="mods">${lis(run.runMods)}</ul>`);
   if (run.shrine && run.shrine.fights > 0) sec.push(`<h3>Schrein: ${esc(run.shrine.name)}</h3><p class="small muted">Noch ${run.shrine.fights === 1 ? 'ein Kampf' : `${run.shrine.fights} Kämpfe`}</p><ul class="mods">${lis(run.shrine.mods)}</ul>`);
   if (run.potion && POTIONS[run.potion]) sec.push(`<h3>Trank: ${esc(POTIONS[run.potion].name)}</h3><ul class="mods">${lis(POTIONS[run.potion].mods)}</ul>`);

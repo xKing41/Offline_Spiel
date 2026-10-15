@@ -280,6 +280,7 @@ export class Combat {
     p.moving = mv.m > 0.05;
     p.slowT -= dt;
     if (this.frenzyT > 0) { this.frenzyT -= dt; if (this.frenzyT <= 0) this.frenzy = 0; }
+    if (this.killT > 0) this.killT -= dt;
     if (mv.m > 0.05) {
       const mspd = P.move * (p.slowT > 0 ? 0.65 : 1);
       p.x += mv.x * mspd * dt;
@@ -343,12 +344,16 @@ export class Combat {
       dmg -= ab;
     }
     p.hp -= dmg;
-    p.bdelay = 2;
+    p.bdelay = P.spec.spec_bulwark ? 1 : 2;
     if (isHit) {
       this.stats.hitsTaken++;
       if (src && P.spec.spec_thorns && !src.dead) {
         const th = (P.armor * P.spec.spec_thorns) / 100;
-        if (th > 0) { this.dealDamage(src, th * src.takenMult, false, null); if (src.hp <= 0) this.kill(src, null); }
+        if (th > 0) {
+          this.dealDamage(src, th * src.takenMult, false, null);
+          if (P.spec.spec_thornsBleed && (!src.bleed || src.bleed.dps < th * 0.4)) src.bleed = { dps: th * 0.4, t: 4 };
+          if (src.hp <= 0) this.kill(src, null);
+        }
       }
       p.inv = 0.35;
       p.hurt = 0.2;
@@ -405,7 +410,7 @@ export class Combat {
       id, d, x, y, r: d.r, hp, maxHp: hp, dmg: d.dmg * Math.pow(c.power, 0.72) * c.dmgMult,
       speed: d.speed * (ascHas(c.asc, 'fast') ? 1.1 : 1) * rand(0.9, 1.1), xp: d.xp, color: d.color,
       res: { ...(d.res || {}) }, takenMult: 1, burns: [], poisons: [], bleed: null,
-      chill: 0, chillEff: 0, frozen: 0, shock: 0, shockEff: 0, flash: 0,
+      chill: 0, chillEff: 0, frozen: 0, shock: 0, shockEff: 0, flash: 0, mark: 0,
       atk: d.ranged ? rand(0.6, d.ranged.cd) : 0, elite: false, affixes: [], cs: null, ct: rand(1, 3), dotAcc: 0, dotShow: 0.5,
       blinkT: d.blink ? rand(1, d.blink) : 0, spawnT: d.spawn ? rand(1, d.spawn.cd) : 0, leapT: d.leap ? rand(1.5, d.leap) : 0,
       mineT: d.mines ? rand(1, d.mines) : 0, phaseT: d.phase ? rand(1, 3) : 0, phased: false, aimT: 0, shielded: false, ph: Math.random() * TAU,
@@ -599,7 +604,7 @@ export class Combat {
         e.phaseT -= dt;
         if (e.phaseT <= 0) { e.phased = !e.phased; e.phaseT = e.phased ? 1.4 : rand(2.5, 3.5); }
       }
-      e.flash -= dt; e.chill -= dt; e.frozen -= dt; e.shock -= dt;
+      e.flash -= dt; e.chill -= dt; e.frozen -= dt; e.shock -= dt; e.mark -= dt;
       let dx = p.x - e.x, dy = p.y - e.y;
       const d = Math.hypot(dx, dy) || 1;
       dx /= d; dy /= d;
@@ -629,6 +634,7 @@ export class Combat {
         let m = e.takenMult;
         if (e.shock > 0) m *= 1 + e.shockEff;
         if (e.poisons.length && P.spec.spec_poisonVuln) m *= 1 + P.spec.spec_poisonVuln / 100;
+        m *= this.vuln(e);
         const v = dot * m * dt;
         e.hp -= v;
         this.stats.dmgDone += v;
@@ -1145,21 +1151,50 @@ export class Combat {
   }
 
   // ---------------------------------------------------------------- Treffer
+  /** Verwundbarkeiten durch Pfade und Bund-Segen (für Treffer und Schaden über Zeit). */
+  vuln(e) {
+    const sp = this.P.spec;
+    let m = 1;
+    if (e.chill > 0 && sp.spec_chillVuln) m *= 1 + sp.spec_chillVuln / 100;
+    if (e.frozen > 0 && sp.spec_frozenVuln) m *= 1 + sp.spec_frozenVuln / 100;
+    if (e.chill > 0 && e.shock > 0 && sp.spec_superconduct) m *= 1 + sp.spec_superconduct / 100;
+    if (e.burns.length && e.poisons.length && sp.spec_toxicFire) m *= 1 + sp.spec_toxicFire / 100;
+    if (e.mark > 0 && sp.spec_minionMark) m *= 1 + sp.spec_minionMark / 100;
+    return m;
+  }
+
   hitEnemy(e, S, mult = 1, chained = false) {
     if (e.dead || e.phased) return 0;
     const P = this.P, p = this.player;
+    const fc = this._first || 0;
+    this._first = 0;
     if (e.shielded) mult *= 0.5;
     if (P.spec.spec_berserk) mult *= 1 + 0.4 * (1 - Math.max(0, p.hp) / P.maxLife);
     if (P.spec.spec_stillness && !p.moving) mult *= 1.3;
     let crit = false;
     if (S.nthCrit) { S._n = (S._n || 0) + 1; crit = S._n % S.nthCrit === 0; }
-    else if (S.crit > 0) crit = Math.random() * 100 < S.crit;
+    else if ((S.crit > 0 || fc) && !S.noCrit) crit = Math.random() * 100 < S.crit + fc;
     if (crit) mult *= S.critMulti / 100;
     if (e.hp < e.maxHp * 0.35) mult *= S.vsLow;
+    const C = S.cond;
+    if (C) {
+      if (C.burn && e.burns.length) mult *= C.burn;
+      if (C.chill && e.chill > 0) mult *= C.chill;
+      if (C.shock && e.shock > 0) mult *= C.shock;
+      if (C.poison && e.poisons.length) mult *= C.poison;
+      if (C.bleed && e.bleed) mult *= C.bleed;
+      if (C.moving && p.moving) mult *= C.moving;
+      if (C.full && p.hp >= P.maxLife * 0.99) mult *= C.full;
+      if (C.low && p.hp < P.maxLife * 0.5) mult *= C.low;
+      if (C.barrier && p.barrier > 0) mult *= C.barrier;
+      if (C.kill && this.killT > 0) mult *= C.kill;
+      if (C.near || C.far) { const dd = Math.hypot(e.x - p.x, e.y - p.y); if (C.near && dd < 200) mult *= C.near; if (C.far && dd > 320) mult *= C.far; }
+    }
     if (e.elite || e.boss) mult *= S.vsBoss;
     if (e.burns.length || e.poisons.length || e.bleed || e.chill > 0 || e.shock > 0 || e.frozen > 0) mult *= S.vsAil;
     if (e.shock > 0) mult *= 1 + e.shockEff;
     if (e.poisons.length && this.P.spec.spec_poisonVuln) mult *= 1 + this.P.spec.spec_poisonVuln / 100;
+    mult *= this.vuln(e);
     if (S.ruthless) { S._r = (S._r || 0) + 1; if (S._r % 3 === 0) mult *= 1 + S.ruthless / 100; }
     let total = 0;
     const raw = {};
@@ -1182,6 +1217,7 @@ export class Combat {
       if (rs > 0) for (const t in raw) A.el[t] = (A.el[t] || 0) + (total * raw[t]) / rs;
     }
     const hadAil = { frozen: e.frozen > 0, burn: e.burns.length > 0, shock: e.shock > 0, poison: e.poisons.length > 0, bleed: !!e.bleed };
+    const wasShocked = e.shock > 0;
     this._inHit = true;
     this.dealDamage(e, total, crit, S);
     this._inHit = false;
@@ -1212,13 +1248,40 @@ export class Combat {
     }
     if (raw.light && S.shk && Math.random() * 100 < S.shk) { e.shock = 3 * ad; e.shockEff = Math.max(e.shockEff, Math.min(0.5, 0.2 * S.shockEff)); }
     const pc = (raw.phys || 0) + (raw.chaos || 0);
-    if (pc && S.psn && Math.random() * 100 < S.psn) {
+    const vir = P.spec.spec_virulent && e.poisons.length && !P.spec.spec_noAil ? 100 : 0;
+    if (pc && (S.psn || vir) && Math.random() * 100 < S.psn + vir) {
       e.poisons.push({ dps: pc * 0.3 * S.poisonMult, t: 3 * ad });
       if (e.poisons.length > 40) e.poisons.shift();
     }
     if (raw.phys && S.bld && Math.random() * 100 < S.bld) {
       const dps = raw.phys * 0.6 * S.bleedMult;
       if (!e.bleed || e.bleed.dps < dps) e.bleed = { dps, t: 4 * ad };
+    }
+    // Pfade & Bund-Segen
+    {
+      const sp = P.spec;
+      if (crit && sp.spec_critShock) { e.shock = Math.max(e.shock, 3 * ad); e.shockEff = Math.max(e.shockEff, Math.min(0.5, 0.2 * S.shockEff)); }
+      if (crit && sp.spec_critBleed && raw.phys) { const dps = raw.phys * 0.6 * S.bleedMult; if (!e.bleed || e.bleed.dps < dps) e.bleed = { dps, t: 4 * ad }; }
+      if (S.def.tags.includes('minion')) {
+        if (sp.spec_minionPoison) { e.poisons.push({ dps: ((total * sp.spec_minionPoison) / 100) * S.poisonMult, t: 3 * ad }); if (e.poisons.length > 40) e.poisons.shift(); }
+        if (sp.spec_minionBurn) {
+          const b = { dps: total * 0.3 * S.burnMult, t: 4 * ad };
+          if (S.burnStack) { e.burnStack = true; e.burns.push(b); if (e.burns.length > 10) e.burns.shift(); }
+          else if (!e.burns.length || e.burns[0].dps < b.dps) e.burns = [b];
+        }
+        if (sp.spec_minionChill) { e.chill = Math.max(e.chill, 2 * ad); e.chillEff = Math.max(e.chillEff, Math.min(0.5, 0.3 * S.chillEff)); if (Math.random() < 0.1) e.frozen = Math.max(e.frozen, (e.boss ? 0.3 : 1.1) * ad); }
+        if (sp.spec_minionShock) { e.shock = Math.max(e.shock, 3 * ad); e.shockEff = Math.max(e.shockEff, Math.min(0.5, 0.2 * S.shockEff)); }
+        if (sp.spec_minionMark) e.mark = 2;
+        if (sp.spec_minionBarrier && P.maxBarrier > 0) p.barrier = Math.min(P.maxBarrier, p.barrier + (total * sp.spec_minionBarrier) / 100);
+      }
+      if (wasShocked && sp.spec_stormCall && !chained && Math.random() * 100 < sp.spec_stormCall) {
+        const tx = e.x, ty = e.y, v = total * 0.5;
+        this.delayed.push({ t: 0.08, fn: () => {
+          this.aoeFlat(tx, ty, 70, v, 'light');
+          this.fx.push({ type: 'bolt', pts: [[tx + rand(-20, 20), ty - 200], [tx + rand(-12, 12), ty - 90], [tx, ty]], t: 0.2, max: 0.2, color: ELEM.light.color });
+          sfx.zap();
+        } });
+      }
     }
     // Neu verursachte Zustände kurz anzeigen (sparsam)
     if (!crit && save.settings.dmgNums && this.t - this.lastAil > 0.35 && (e.elite || e.boss || Math.random() < 0.3)) {
@@ -1290,14 +1353,28 @@ export class Combat {
   }
 
   areaHit(S, x, y, r, mult = 1) {
+    const av = this.P.spec.spec_avalanche, ap = this.P.spec.spec_areaPoison;
     this.query(x, y, r + 30, (e) => {
-      if (Math.hypot(e.x - x, e.y - y) <= r + e.r * 0.6) this.hitEnemy(e, S, mult);
+      if (Math.hypot(e.x - x, e.y - y) > r + e.r * 0.6) return;
+      const t = this.hitEnemy(e, S, av && e.frozen > 0 ? mult * 2 : mult);
+      if (ap && t > 0 && !e.dead && !this.P.spec.spec_noAil) { e.poisons.push({ dps: ((t * ap) / 100) * S.poisonMult, t: 3 * S.ailDur }); if (e.poisons.length > 40) e.poisons.shift(); }
     });
   }
 
   /** Flächentreffer inklusive Nachbeben (Glyphe/Effekt). */
   blast(S, x, y, r, color) {
-    this.areaHit(S, x, y, r);
+    let m = 1;
+    if (this.P.spec.spec_quake) {
+      // Großbeben: jeder vierte Flächentreffer einer Rune
+      S._q = (S._q || 0) + 1;
+      if (S._q % 4 === 0) {
+        m = 2; r *= 1.5;
+        this.fx.push({ type: 'shock', x, y, r: r * 1.25, color: '#ffb36b', t: 0.45, max: 0.45 });
+        this.decal({ x, y, r: r * 0.7, kind: 'crater', t: 6 });
+        if (save.settings.shake) this.shake = Math.max(this.shake, 6);
+      }
+    }
+    this.areaHit(S, x, y, r, m);
     if (!blastFx(this, S, x, y, r, color)) this.ring(x, y, r, color, 0.3, true);
     if (S.aftershock) {
       this.delayed.push({ t: 0.4, fn: () => { this.areaHit(S, x, y, r * 1.1, 0.5); this.ring(x, y, r * 1.1, color, 0.3); } });
@@ -1314,7 +1391,7 @@ export class Combat {
         parts[t] = avg * secs * (1 - (this.resOf(e, t) - S.pen[t]) / 100);
         total += parts[t];
       }
-      let m = e.takenMult;
+      let m = e.takenMult * this.vuln(e);
       if (e.shock > 0) m *= 1 + e.shockEff;
       if (e.elite || e.boss) m *= S.vsBoss;
       total *= m;
@@ -1336,6 +1413,7 @@ export class Combat {
     e.dead = true;
     const c = this.cfg, P = this.P;
     this.stats.kills++;
+    this.killT = 3;
     if (e.boss && !silent) {
       this.slowmo = 1.5; this.whiteFlash = 0.35;
       this.fx.push({ type: 'shock', x: e.x, y: e.y, r: 520, color: '#ffffff', t: 1.1, max: 1.1 });
@@ -1370,6 +1448,22 @@ export class Combat {
     }
     // Besondere Effekte
     if (S && S.killExplode) this.aoeFlat(e.x, e.y, 75, (e.maxHp * S.killExplode) / 100, 'fire');
+    if (P.spec.spec_burnExplode && e.burns.length) {
+      const ex = e.x, ey = e.y, v = (e.maxHp * P.spec.spec_burnExplode) / 100;
+      this.fx.push({ type: 'flash', x: ex, y: ey, r: 95, color: '#ff8a3a', t: 0.18, max: 0.18 });
+      this.delayed.push({ t: 0.06, fn: () => { this.aoeFlat(ex, ey, 85, v, 'fire'); this.burst(ex, ey, '#ffb040', 12, 200); } });
+    }
+    if (P.spec.spec_poisonSpread && e.poisons.length) {
+      const top = [...e.poisons].sort((a, b) => b.dps - a.dps).slice(0, 5);
+      this.query(e.x, e.y, 115, (o) => {
+        if (o === e || o.dead || Math.hypot(o.x - e.x, o.y - e.y) > 115) return;
+        for (const ps of top) o.poisons.push({ dps: ps.dps, t: 3 });
+        if (o.poisons.length > 40) o.poisons.splice(0, o.poisons.length - 40);
+        if (!o.lastS) o.lastS = e.lastS;
+      });
+      this.ring(e.x, e.y, 115, ELEM.chaos.color, 0.3);
+    }
+    if (e.elite && P.spec.spec_bulwark) this.player.barrier = P.maxBarrier;
     if (P.spec.spec_burnSpread && e.burns.length) {
       const b = e.burns.reduce((a, x) => (x.dps > a.dps ? x : a));
       this.query(e.x, e.y, 110, (o) => { if (o !== e && Math.hypot(o.x - e.x, o.y - e.y) < 110) o.burns.push({ dps: b.dps, t: 3 }); });
@@ -1586,7 +1680,7 @@ export class Combat {
       if (pr.ret) {
         const p = this.player;
         if (!pr.back && (Math.hypot(pr.x - pr.ox, pr.y - pr.oy) > (pr.S.def.range || 450) * 0.75 || pr.life < 0.15)) {
-          pr.back = true; pr.hit.clear(); pr.pierce = Math.max(pr.pierce, 99); pr.life = 3;
+          pr.back = true; pr.hit.clear(); pr.pierce = Math.max(pr.pierce, 99); pr.life = 3; pr.m = (pr.m || 1) * 0.6;
         }
         if (pr.back) {
           const sp = Math.hypot(pr.vx, pr.vy), a = Math.atan2(p.y - pr.y, p.x - pr.x);
@@ -1622,25 +1716,39 @@ export class Combat {
   }
 
   projHit(pr, e) {
-    const S = pr.S;
+    const S = pr.S, spec = this.P.spec;
     pr.hit.add(e);
+    if (spec.spec_firstCrit && pr.hit.size === 1) this._first = spec.spec_firstCrit;
     if (S.explode > 0) {
-      this.areaHit(S, e.x, e.y, S.explode);
+      this.areaHit(S, e.x, e.y, S.explode, pr.m || 1);
       this.ring(e.x, e.y, S.explode, pr.color, 0.25, true);
       this.fx.push({ type: 'flash', x: e.x, y: e.y, r: S.explode * 1.2, color: pr.color, t: 0.14, max: 0.14 });
       for (let i = 0; i < 10; i++) { const a = Math.random() * TAU, v = rand(60, 220); this.part({ x: e.x, y: e.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: rand(0.3, 0.6), color: Math.random() < 0.5 ? '#ffb040' : pr.color, s: rand(1.5, 3.2), k: 2 }); }
       this.part({ x: e.x, y: e.y, vx: 0, vy: 0, t: 0.8, color: '#3a2a24', s: S.explode * 0.35, k: 4 });
       this.decal({ x: e.x, y: e.y, r: S.explode * 0.7, kind: 'scorch', col: pr.color, t: 4 });
       sfx.explode?.(elemOf(S.dmg));
-    } else this.hitEnemy(e, S);
+    } else {
+      this.hitEnemy(e, S, pr.m || 1);
+      if (spec.spec_projBurst) {
+        this.areaHit(S, e.x, e.y, 48, spec.spec_projBurst / 100);
+        this.ring(e.x, e.y, 48, '#ff9a3a', 0.2, true);
+        this.fx.push({ type: 'flash', x: e.x, y: e.y, r: 55, color: '#ff9a3a', t: 0.12, max: 0.12 });
+      }
+    }
+    this._first = 0;
+    if (spec.spec_projArc) {
+      const n = this.nearest(e.x, e.y, 170, pr.hit);
+      if (n) { this.hitEnemy(n, S, spec.spec_projArc / 100, true); this.fx.push({ type: 'bolt', pts: [[e.x, e.y], [n.x, n.y]], t: 0.12, max: 0.12, color: ELEM.light.color }); }
+    }
     if (pr.fork) {
       pr.fork = false;
       const a = Math.atan2(pr.vy, pr.vx), sp = Math.hypot(pr.vx, pr.vy);
       for (const da of [-0.55, 0.55]) {
         if (this.projs.length >= MAX_PROJ) break;
-        this.projs.push({ ...pr, x: e.x, y: e.y, vx: Math.cos(a + da) * sp, vy: Math.sin(a + da) * sp, hit: new Set([e]), fork: false, life: Math.max(0.6, pr.life), dead: false });
+        this.projs.push({ ...pr, x: e.x, y: e.y, vx: Math.cos(a + da) * sp, vy: Math.sin(a + da) * sp, hit: new Set([e]), fork: false, life: Math.max(0.6, pr.life), dead: false, m: (pr.m || 1) * 0.6 });
       }
     }
+    if (spec.spec_iceShards && e.chill > 0 && !e.boss) return;
     if (pr.pierce > 0) { pr.pierce--; return; }
     if (pr.chain > 0) {
       const n = this.nearest(e.x, e.y, 260, pr.hit);
@@ -2404,6 +2512,11 @@ export class Combat {
       ctx.beginPath();
       for (let i = 0; i < 6; i++) { const a = this.t * 0.8 + (i * TAU) / 6; i ? ctx.lineTo(e.x + Math.cos(a) * R2, e.y + Math.sin(a) * R2) : ctx.moveTo(e.x + Math.cos(a) * R2, e.y + Math.sin(a) * R2); }
       ctx.closePath(); ctx.stroke();
+    }
+    if (e.mark > 0) {
+      const my = e.y - r * 1.55 - 17, ms = 5;
+      ctx.strokeStyle = rgba('#c58bff', 0.9); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(e.x, my - ms); ctx.lineTo(e.x + ms, my); ctx.lineTo(e.x, my + ms); ctx.lineTo(e.x - ms, my); ctx.closePath(); ctx.stroke();
     }
     if (e.cs === 'wind' || e.fuse) {
       ctx.strokeStyle = rgba('#ff3b3b', 0.6 + 0.4 * Math.sin(this.t * 25)); ctx.lineWidth = 3;

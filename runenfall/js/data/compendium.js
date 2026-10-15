@@ -130,11 +130,14 @@ export const ARTICLES = [
     'Eine Glyphe passt nur zu Runen mit passenden Tags. Im Build tippst du eine Glyphe im Beutel an: **grüne Sockel passen**, rote nicht. Dieselbe Glyphe kann nicht zweimal in einer Rune stecken.',
     'Glyphen findest du als Belohnung, beim Händler, im Lager und in Ereignissen. Neue Glyphen-Arten schaltest du im Kodex frei.',
   ], see: ['runes', 'codex'] },
-  { id: 'boons', cat: 'build', title: 'Segen', text: [
-    'Bei jedem Stufenaufstieg im Run wählst du einen **Segen** – er gilt bis zum Ende des Runs. Segen bevorzugen Themen, die zu deinen Runen passen.',
-    'Die Farbe zeigt die Seltenheit: **Gewöhnlich** (×1), **Selten** (×1,8), **Episch** (×3 Wirkung).',
-    '**Neu würfeln** zeigt andere Segen, **Verbannen** entfernt einen Segen für den Rest des Runs aus dem Pool. Beides bekommst du über Altar und Atlas.',
-  ], list: 'boonRarity', see: ['effects'] },
+  { id: 'boons', cat: 'build', title: 'Segen & Pfade', text: [
+    'Bei jedem Stufenaufstieg wählst du einen **Segen** – er gilt bis zum Ende des Runs. Die meisten Segen gehören zu einem von zehn **Pfaden** (Glut, Frost, Sturm, Seuche, Klinge, Geschosse, Erschütterung, Legion, Präzision, Bollwerk).',
+    'Jeder Pfad hat **vier Stufen**. Stufe I ist ein kräftiger Grundbonus, **ab Stufe II verändert der Pfad, wie dein Build funktioniert** – Brände stapeln sich, Geschosse teilen sich, Begleiter markieren Gegner. Höhere Stufen gibt es erst ab Run-Stufe 4, 9 und 15.',
+    'Du kannst **höchstens drei Pfade** pro Run beschreiten. Begonnene Pfade werden bevorzugt angeboten – wer sich festlegt, wird belohnt. Pfade, die zu deinen Runen passen, erscheinen häufiger.',
+    'Sind zwei deiner Pfade auf Stufe II, kann ein **Bund-Segen** erscheinen: eine besondere Wirkung genau dieser Kombination (z. B. Glut + Geschosse = Brandpfeile).',
+    '**Vertiefungen** verstärken einen begonnenen Pfad beliebig oft, **Grundsegen** geben allgemeine Werte. Bei beiden zeigt die Farbe die Seltenheit: Gewöhnlich (×1), Selten (×1,8), Episch (×3).',
+    '**Neu würfeln** zeigt andere Segen, **Verbannen** entfernt einen Segen für den Rest des Runs – verbannst du die erste Stufe eines Pfads, erscheint dieser Pfad nicht mehr.',
+  ], list: 'paths', see: ['effects', 'runes'] },
   { id: 'evolution', cat: 'build', title: 'Runen-Evolution', text: [
     'Erreicht eine Rune **Stufe 7**, kann sie sich weiterentwickeln. Du wählst **eine von zwei Formen** – jede verändert Aussehen und Regeln der Rune (z. B. Feuerball wird zum Kometen oder zur Splitterbombe).',
     'Die Wahl gilt für diesen Run. Alle entdeckten Formen sammelt der Kodex.',
@@ -185,7 +188,8 @@ export const ARTICLES = [
     'Mit jeder Kontostufe bekommst du einen **Sternpunkt**, alle 4 Stufen einen zusätzlichen. Dazu kommen 6 Startpunkte und Punkte aus Erfolgen. Ab Kontostufe 20 gibt es **Sternenmacht** (unendliche Zusatzstufen).',
   ], see: ['tree', 'achievements'] },
   { id: 'tree', cat: 'meta', title: 'Die Sternenkarte', text: [
-    'Die Sternenkarte ist dein riesiger Talentbaum mit über 5.600 Sternen. Jede Klasse hat ein eigenes Startgebiet, die Punkte gelten für alle Runs dieser Klasse.',
+    'Die Sternenkarte ist dein Talentbaum mit rund 1.700 Sternen. Jede Klasse hat ein eigenes Startgebiet, die Punkte gelten für alle Runs dieser Klasse. Die Karte **formt** deinen Build – getragen wird er von deinen Entscheidungen im Run.',
+    'In jedem Klassengebiet liegen **Keystones in Reichweite** (rund 15–25 Punkte vom Ursprung), weitere am äußeren Ring. Viele **Notables** wirken unter **Bedingungen**: gegen brennende, unterkühlte oder vergiftete Gegner, während du dich bewegst, bei vollem Leben oder kurz nach einer Tötung.',
     '**Kleine Sterne** geben kleine Boni, **Notables** (größer, mit Namen) starke Kombinationen, **Meisterschaften** lassen dich 1 von 3 Boni wählen, **Keystones** verändern Regeln. **Sternbilder** belohnen mit einem Krönungsstern, **Sternentore** verbinden weit entfernte Bereiche, **Juwelsockel** nehmen Juwelen auf.',
     'Umverteilen ist **kostenlos** (außerhalb eines Runs). Mit ⎘ speicherst du bis zu 4 Builds pro Klasse. Mit ⌕ suchst du Begriffe, ◎ zeigt die ganze Karte, Σ fasst alle Boni zusammen.',
   ], list: 'keystones', see: ['keystones', 'jewels', 'account'] },

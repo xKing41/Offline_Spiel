@@ -193,8 +193,9 @@ export const RELIC_AFFIXES = [
   { id: 'r_xp', s: 'xp', t: 'inc', base: [2, 4] },
 ];
 export const RELIC_AFFIX = Object.fromEntries(RELIC_AFFIXES.map((a) => [a.id, a]));
+export const RELIC_K = 0.5;
 export const relicTierRange = (a, tier) => {
-  const f = 1 + 0.42 * tier;
+  const f = (1 + 0.42 * tier) * RELIC_K;
   const r = (x) => (x * f >= 10 ? Math.round(x * f) : Math.round(x * f * 10) / 10);
   return [r(a.base[0]), r(a.base[1])];
 };

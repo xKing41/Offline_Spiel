@@ -2,7 +2,8 @@
 // Meta-Belohnungen am Ende. Reine Logik ohne DOM.
 import { makeRng, pick, rand, randi, weighted, clamp, shuffle } from './util.js';
 import { SKILLS, SUPPORTS, supportFits, MAX_SKILLS, SOCKETS, MAX_SKILL_LVL } from './data/skills.js';
-import { ACTS, ABYSS, BIOMES, BOSS_IDS, BOONS, BOON_RARITY, EVENTS, ALTAR, CLASSES, ASCENDANCIES, MUTATORS, QUEST_TEMPLATES, ENEMIES, ascHas, ascHpMult, ascDmgMult } from './data/content.js';
+import { BOONS, PATHS, PATH_IDS, MAX_PATHS, TIER_LVL, boonDef, pathTiers, LEGACY_BOONS, LEGACY_FIXED } from './data/boons.js';
+import { ACTS, ABYSS, BIOMES, BOSS_IDS, BOON_RARITY, EVENTS, ALTAR, CLASSES, ASCENDANCIES, MUTATORS, QUEST_TEMPLATES, ENEMIES, ascHas, ascHpMult, ascDmgMult } from './data/content.js';
 import { makeItem, makeRelic, SLOTS, itemMods, UNIQUES, craftReroll, craftAdd, craftUpgrade, canCraft, itemValue, craftLockReroll, craftFuse, craftCorrupt, craftUniqueUp, UQ_MAX } from './data/items.js';
 import { getTree, treeMods } from './data/tree.js';
 import { PETS, PET_IDS, PET_MAX, petSkillDef, SETS, getAtlas, atlasPower, ATLAS_PASSIVES, PARAGON, makeJewel, jewelMods } from './data/endgame.js';
@@ -137,8 +138,15 @@ export function altarMods() {
   return out;
 }
 export function boonMods(b) {
-  const def = BOONS.find((x) => x.id === b.id);
-  const mult = def.minRarity ? 1 : BOON_RARITY[b.r].mult;
+  const def = boonDef(b.id);
+  if (!def) {
+    // Segen aus der Zeit vor den Pfaden: Werte bleiben im laufenden Run erhalten
+    const old = LEGACY_BOONS[b.id];
+    if (!old) return [];
+    const m0 = LEGACY_FIXED.has(b.id) ? 1 : BOON_RARITY[b.r || 0].mult;
+    return old.map((m) => ({ ...m, v: Math.round(m.v * m0 * 10) / 10 }));
+  }
+  const mult = def.fixed ? 1 : BOON_RARITY[b.r || 0].mult;
   return def.mods.map((m) => ({ ...m, v: Math.round(m.v * mult * 10) / 10 }));
 }
 
@@ -157,8 +165,8 @@ export function buildSets(run, opts = {}) {
     boons.addAll(run.runMods);
     if (run.shrine && run.shrine.fights > 0) boons.addAll(run.shrine.mods);
     if (run.mode === 'normal' && run.act >= 3) {
-      if (atlasHas('aPower')) boons.add({ s: 'dmg', t: 'more', v: 15 });
-      if (atlasHas('aGuard')) boons.add({ s: 'life', t: 'more', v: 15 });
+      if (atlasHas('aPower')) boons.add({ s: 'dmg', t: 'more', v: 8 });
+      if (atlasHas('aGuard')) boons.add({ s: 'life', t: 'more', v: 8 });
     }
     // Set-Boni
     const setCount = {};
@@ -535,24 +543,65 @@ function skillTags(run) {
   return t;
 }
 
+/** Passt ein Pfad zu den Runen des Runs? (Bollwerk passt immer) */
+export const pathFits = (run, pid, tags = skillTags(run)) => !PATHS[pid].tags.length || PATHS[pid].tags.some((t) => tags.has(t));
+
+/**
+ * Segen-Auswahl beim Stufenaufstieg: begonnene Pfade fortsetzen, neue Pfade (max. 3) beginnen,
+ * Bund-Segen für Pfad-Paare ab Stufe II, Vertiefungen und wenige Grundsegen.
+ */
 export function rollBoons(run) {
   const tags = skillTags(run);
   const n = 3 + altarLvl('choice') - (run.mutators && run.mutators.includes('blind') ? 1 : 0);
-  const pool = BOONS.filter((b) => !run.banned.includes(b.id));
-  const out = [];
-  const used = new Set();
-  for (let i = 0; i < n && used.size < pool.length; i++) {
-    const r = weighted(BOON_RARITY.map((x, k) => ({ ...x, k })), (x) => x.w * (x.k ? 1 + run.asc * 0.02 : 1)).k;
-    const cands = pool.filter((b) => !used.has(b.id) && (b.minRarity || 0) <= r);
-    if (!cands.length) continue;
-    const b = weighted(cands, (b) => (!b.tags.length ? 1 : b.tags.some((t) => tags.has(t)) ? 2.6 : 0.25));
-    used.add(b.id);
-    out.push({ kind: 'boon', id: b.id, r: b.minRarity ? Math.max(r, b.minRarity) : r });
+  const owned = new Set(run.boons.map((b) => b.id));
+  const tiers = pathTiers(run);
+  const started = Object.keys(tiers);
+  const free = started.length < MAX_PATHS;
+  const ok = (d) => !run.banned.includes(d.id);
+  const cands = [];
+  for (const d of BOONS) {
+    if (!ok(d)) continue;
+    if (d.tier) {
+      const cur = tiers[d.path] || 0;
+      if (d.tier !== cur + 1 || run.lvl < TIER_LVL[d.tier]) continue;
+      if (cur === 0) { if (!free) continue; cands.push({ d, w: d.path === 'bollwerk' ? 1.6 : pathFits(run, d.path, tags) ? 3 : 0.5, cont: false }); }
+      else cands.push({ d, w: 6, cont: true });
+    } else if (d.bund) {
+      if (owned.has(d.id) || (tiers[d.bund[0]] || 0) < 2 || (tiers[d.bund[1]] || 0) < 2) continue;
+      cands.push({ d, w: 8, cont: true });
+    } else if (d.deep) {
+      if (!tiers[d.path]) continue;
+      cands.push({ d, w: 1.6, cont: false });
+    } else if (d.generic) {
+      if (d.minRarity && run.lvl < 6) continue;
+      cands.push({ d, w: d.rare ? 0.25 : 0.5, cont: false });
+    }
   }
-  // Gelegentlich: Fertigkeit verbessern statt Segen
+  const out = [];
+  const take = (c) => {
+    const d = c.d;
+    let r = 0;
+    if (!d.fixed) r = weighted(BOON_RARITY.map((x, k) => ({ ...x, k })), (x) => x.w * (x.k ? 1 + run.asc * 0.02 : 1)).k;
+    else if (d.minRarity) r = d.minRarity;
+    out.push({ kind: 'boon', id: d.id, r });
+  };
+  const pool = [...cands];
+  while (out.length < n && pool.length) {
+    const c = weighted(pool, (x) => x.w);
+    pool.splice(pool.indexOf(c), 1);
+    take(c);
+  }
+  // Mindestens eine Fortsetzung anbieten, wenn es eine gibt
+  const contLeft = pool.filter((c) => c.cont);
+  if (contLeft.length && !out.some((o) => cands.find((c) => c.d.id === o.id).cont)) {
+    out.pop();
+    take(weighted(contLeft, (x) => x.w));
+  }
+  // Gelegentlich: Rune verbessern statt eines Grundsegens/einer Vertiefung
   if (Math.random() < 0.3) {
     const s = run.skills.filter((x) => x.lvl < MAX_SKILL_LVL);
-    if (s.length && out.length) out[out.length - 1] = { kind: 'skillLvl', idx: run.skills.indexOf(pick(s)) };
+    const k = out.map((o, i) => [o, i]).reverse().find(([o]) => { const d = boonDef(o.id); return d && (d.generic || d.deep); });
+    if (s.length && k) out[k[1]] = { kind: 'skillLvl', idx: run.skills.indexOf(pick(s)) };
   }
   return out;
 }
@@ -560,11 +609,26 @@ export function rollBoons(run) {
 export function applyChoice(run, c) {
   if (c.kind === 'boon') run.boons.push({ id: c.id, r: c.r });
   else if (c.kind === 'skillLvl') run.skills[c.idx].lvl = Math.min(MAX_SKILL_LVL, run.skills[c.idx].lvl + 1);
-  else if (c.kind === 'newSkill') { const inst = { id: c.id, lvl: 1, sup: [null, null, null], traits: c.traits || [] }; run.skills.push(inst); archiveRune(inst); }
+  else if (c.kind === 'newSkill') {
+    if (run.skills.length >= MAX_SKILLS) { if (c.replace == null) return false; replaceRune(run, c.replace, c); }
+    else { const inst = { id: c.id, lvl: 1, sup: [null, null, null], traits: c.traits || [] }; run.skills.push(inst); archiveRune(inst); }
+  }
   else if (c.kind === 'glyph') run.glyphs.push(c.id);
   else if (c.kind === 'item') addItem(run, c.item);
   else if (c.kind === 'gold') run.gold += c.v;
+  return true;
 }
+
+/** Rune ersetzen: Die neue Rune übernimmt die halbe Stufe, Glyphen kommen zurück in den Beutel. */
+export function replaceRune(run, idx, c) {
+  const old = run.skills[idx];
+  if (!old) return;
+  for (const g of old.sup || []) if (g) run.glyphs.push(g);
+  const inst = { id: c.id, lvl: Math.max(1, Math.floor(old.lvl / 2)), sup: [null, null, null], traits: c.traits || [] };
+  run.skills[idx] = inst;
+  archiveRune(inst);
+}
+export const replaceLvl = (inst) => Math.max(1, Math.floor(inst.lvl / 2));
 
 // ---------------------------------------------------------------- Belohnungen
 export function randomGlyph(run) {
@@ -576,10 +640,20 @@ export function randomGlyph(run) {
   }).id;
 }
 
+/** Neue Rune anbieten – bevorzugt solche, die zu deinen Pfaden und Runen passen. */
 function newSkillChoice(run) {
   const own = new Set(run.skills.map((s) => s.id));
   const pool = save.codex.skills.filter((id) => SKILLS[id] && !own.has(id));
-  return pool.length ? pick(pool) : null;
+  if (!pool.length) return null;
+  const paths = Object.keys(pathTiers(run)).filter((p) => PATHS[p].tags.length);
+  const tags = skillTags(run);
+  const weak = new Set(['hit', 'spell', 'attack']);
+  return weighted(pool.map((id) => ({ id })), ({ id }) => {
+    const t = SKILLS[id].tags;
+    const ph = paths.filter((p) => PATHS[p].tags.some((x) => t.includes(x))).length;
+    const share = t.filter((x) => tags.has(x) && !weak.has(x)).length;
+    return 0.6 + 2.5 * ph + 0.5 * share;
+  }).id;
 }
 
 export function noteUnique(item) {
@@ -617,7 +691,7 @@ export function rollRewards(run, kind) {
     out.push({ kind: 'item', item: mk({ ilvl, luck }) });
   }
   const opts = [];
-  if (run.skills.length < MAX_SKILLS) { const id = newSkillChoice(run); if (id) opts.push({ kind: 'newSkill', id, traits: rollRuneTraits(run, id) }); }
+  if (run.skills.length < MAX_SKILLS || Math.random() < 0.35) { const id = newSkillChoice(run); if (id) opts.push({ kind: 'newSkill', id, traits: rollRuneTraits(run, id) }); }
   opts.push({ kind: 'glyph', id: randomGlyph(run) });
   const up = run.skills.filter((s) => s.lvl < MAX_SKILL_LVL);
   if (up.length) opts.push({ kind: 'skillLvl', idx: run.skills.indexOf(pick(up)) });
@@ -643,7 +717,7 @@ export function genShop(run) {
     offers.push({ kind: 'item', item, price: Math.round(itemValue(item) * 1.6 * pm) });
   }
   for (let i = 0; i < 2; i++) offers.push({ kind: 'glyph', id: randomGlyph(run), price: Math.round(55 * pm) });
-  const ns = run.skills.length < MAX_SKILLS ? newSkillChoice(run) : null;
+  const ns = newSkillChoice(run);
   if (ns) offers.push({ kind: 'newSkill', id: ns, traits: rollRuneTraits(run, ns), price: Math.round(90 * pm) });
   offers.push({ kind: 'heal', price: Math.round(30 * pm) });
   offers.push({ kind: 'lvlAny', price: Math.round(80 * pm) });

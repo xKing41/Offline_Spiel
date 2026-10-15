@@ -1,10 +1,10 @@
 // Speicherstand: Konto (Meta-Fortschritt) + laufender Run.
 // Alles liegt lokal (localStorage). Export/Import als Text für Backups.
 import { SKILLS, SUPPORTS } from './data/skills.js';
-import { CLASSES, ACHIEVEMENTS, ALTAR } from './data/content.js';
-import { UNIQUES } from './data/items.js';
+import { CLASSES, ACHIEVEMENTS, ALTAR, altarCost } from './data/content.js';
+import { UNIQUES, RELIC_K } from './data/items.js';
 import { ENEMIES } from './data/content.js';
-import { getAtlas, PET_IDS, SET_PIECES, paragonPoints } from './data/endgame.js';
+import { getAtlas, PET_IDS, SET_PIECES, paragonPoints, JEWEL_K } from './data/endgame.js';
 import { TREE_VERSION, getTree } from './data/tree.js';
 
 const KEY = 'runenfall.save.v1';
@@ -19,6 +19,7 @@ function defaults() {
     alloc: {},
     unlockedCls: Object.keys(CLASSES).filter((c) => CLASSES[c].unlock === 0),
     lastCls: 'pyro',
+    lastAsc: 0,
     codex: {
       skills: Object.keys(SKILLS).filter((k) => !SKILLS[k].cost),
       supports: Object.keys(SUPPORTS).filter((k) => !SUPPORTS[k].cost),
@@ -81,10 +82,25 @@ function load() {
   let s;
   try { s = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { s = null; }
   const oldSave = !!s && s.hints === undefined && s.stats && s.stats.runs > 0;
+  const oldMeta = !!s && (s.metaV || 0) < 2;
   s = fill(s || {}, defaults());
+  // Umbau „Tiefe statt Breite“: weniger allgemeine Kontomacht. Altar-Stufen über dem neuen Höchstwert
+  // werden in Sternenstaub erstattet, Relikte und Juwelen auf die neuen Werte umgerechnet.
+  if (oldMeta) {
+    let refund = 0;
+    for (const a of ALTAR) {
+      const lv = s.altar[a.id] || 0;
+      if (lv > a.max) { for (let l = a.max; l < lv; l++) refund += altarCost(a, l); s.altar[a.id] = a.max; }
+    }
+    s.dust += refund;
+    for (const r of s.relics || []) for (const af of r.affixes || []) af.v = Math.round(af.v * RELIC_K * 10) / 10;
+    for (const j of s.jewels || []) for (const af of j.affixes || []) af.v = Math.round(af.v * JEWEL_K * 10) / 10;
+    s.metaNote = { refund };
+  }
+  s.metaV = 2;
   // Bestehende Spieler kennen die Grundlagen schon: nur Hinweise zu neuen Systemen zeigen
   if (oldSave) for (const k of ['welcome', 'setup', 'map', 'move', 'orbs', 'levelup', 'rewards', 'build', 'glyph', 'boss', 'shop', 'forge', 'death', 'tree', 'codex', 'altar', 'relics', 'abyss', 'base', 'cards', 'nemesis', 'season', 'atlas', 'pets']) s.hints[k] = true;
-  if (s.treeV !== TREE_VERSION) { s.alloc = {}; s.jewelSock = {}; s.mastery = {}; s.treeV = TREE_VERSION; s.treeReset = true; }
+  if (s.treeV !== TREE_VERSION) { s.alloc = {}; s.jewelSock = {}; s.mastery = {}; s.loadouts = {}; s.treeV = TREE_VERSION; s.treeReset = true; }
   // Startknoten sicherstellen
   const tree = getTree();
   for (const cls of Object.keys(CLASSES)) {

@@ -253,62 +253,7 @@ export const ascHas = (asc, key) => ASC_MODS.some((m) => m.key === key && asc >=
 export const ascHpMult = (asc) => Math.pow(1.12, asc);
 export const ascDmgMult = (asc) => Math.pow(1.07, asc);
 
-// ---------- Segen (Level-up-Karten) ----------
-// tags: passen zu Fertigkeiten mit diesen Tags (werden dann häufiger angeboten)
-export const BOONS = [
-  { id: 'b_dmg', mods: [inc('dmg', 8)], tags: [] },
-  { id: 'b_fire', mods: [inc('dmg_fire', 14)], tags: ['fire'] },
-  { id: 'b_cold', mods: [inc('dmg_cold', 14)], tags: ['cold'] },
-  { id: 'b_light', mods: [inc('dmg_light', 14)], tags: ['light'] },
-  { id: 'b_phys', mods: [inc('dmg_phys', 14)], tags: ['phys'] },
-  { id: 'b_chaos', mods: [inc('dmg_chaos', 14)], tags: ['chaos'] },
-  { id: 'b_spell', mods: [inc('dmg_spell', 12)], tags: ['spell'] },
-  { id: 'b_attack', mods: [inc('dmg_attack', 12)], tags: ['attack'] },
-  { id: 'b_proj', mods: [inc('dmg_proj', 12)], tags: ['proj'] },
-  { id: 'b_area', mods: [inc('area', 10)], tags: ['area', 'aura'] },
-  { id: 'b_minion', mods: [inc('dmg_minion', 15)], tags: ['minion'] },
-  { id: 'b_dot', mods: [inc('dmg_dot', 14)], tags: ['dot'] },
-  { id: 'b_speed', mods: [inc('speed', 6)], tags: [] },
-  { id: 'b_crit', mods: [inc('crit', 20)], tags: ['hit'] },
-  { id: 'b_critm', mods: [flat('critMulti', 15)], tags: ['hit'] },
-  { id: 'b_life', mods: [inc('life', 8)], tags: [] },
-  { id: 'b_armor', mods: [flat('armor', 40)], tags: [] },
-  { id: 'b_eva', mods: [flat('evasion', 40)], tags: [] },
-  { id: 'b_barrier', mods: [flat('barrier', 15)], tags: [] },
-  { id: 'b_regen', mods: [flat('lifeRegen', 1.5)], tags: [] },
-  { id: 'b_res', mods: [flat('res_elem', 8)], tags: [] },
-  { id: 'b_move', mods: [inc('move', 6)], tags: [] },
-  { id: 'b_magnet', mods: [inc('magnet', 30)], tags: [] },
-  { id: 'b_dur', mods: [inc('dur', 12)], tags: ['dur', 'minion', 'trap'] },
-  { id: 'b_ign', mods: [flat('igniteChance', 10), inc('burn', 10)], tags: ['fire'] },
-  { id: 'b_psn', mods: [flat('poisonChance', 12), inc('poison', 10)], tags: ['chaos', 'phys'] },
-  { id: 'b_bld', mods: [flat('bleedChance', 12), inc('bleed', 10)], tags: ['phys', 'attack'] },
-  { id: 'b_shk', mods: [flat('shockChance', 10), inc('shockEffect', 15)], tags: ['light'] },
-  { id: 'b_frz', mods: [flat('freezeChance', 6), inc('chillEffect', 15)], tags: ['cold'] },
-  { id: 'b_leech', mods: [flat('leech', 0.6)], tags: ['hit'] },
-  { id: 'b_proj1', mods: [flat('proj', 1)], tags: ['proj', 'orbit'], minRarity: 2 },
-  { id: 'b_pierce', mods: [flat('pierce', 1)], tags: ['proj'], minRarity: 1 },
-  { id: 'b_chain', mods: [flat('chain', 1)], tags: ['chain'], minRarity: 1 },
-  { id: 'b_minc', mods: [flat('minionCount', 1)], tags: ['minion'], minRarity: 2 },
-  { id: 'b_pen', mods: [flat('pen', 4)], tags: ['fire', 'cold', 'light', 'chaos'] },
-  { id: 'b_trap', mods: [inc('dmg_trap', 15)], tags: ['trap'] },
-  { id: 'b_aura', mods: [inc('dmg_aura', 15), inc('area_aura', 6)], tags: ['aura'] },
-  { id: 'b_orbit', mods: [inc('dmg_orbit', 15)], tags: ['orbit'] },
-  { id: 'b_melee', mods: [inc('dmg_melee', 14)], tags: ['melee'] },
-  { id: 'b_chainD', mods: [inc('dmg_chain', 15)], tags: ['chain'] },
-  { id: 'b_projS', mods: [inc('projSpeed', 15), inc('dmg_proj', 5)], tags: ['proj'] },
-  { id: 'b_boss', mods: [inc('dmgVsBoss', 15)], tags: [] },
-  { id: 'b_low', mods: [inc('dmgVsLow', 18)], tags: ['hit'] },
-  { id: 'b_ail', mods: [inc('dmgVsAilment', 15)], tags: [] },
-  { id: 'b_xp', mods: [inc('xp', 10)], tags: [] },
-  { id: 'b_luck', mods: [inc('luck', 15), inc('gold', 10)], tags: [] },
-  { id: 'b_lok', mods: [flat('lifeOnKill', 2)], tags: [] },
-  { id: 'b_minspd', mods: [inc('speed_minion', 10)], tags: ['minion'] },
-  { id: 'b_ailDur', mods: [inc('ailDur', 15)], tags: ['dot'] },
-  { id: 'b_resC', mods: [flat('res_chaos', 10)], tags: [] },
-  { id: 'b_critB', mods: [flat('critBase', 0.5)], tags: ['hit'], minRarity: 1 },
-  { id: 'b_lvl', mods: [flat('lvl', 1)], tags: [], minRarity: 2 },
-];
+// ---------- Segen: siehe data/boons.js (Pfade, Bund-Segen, Grundsegen) ----------
 export const BOON_RARITY = [
   { name: 'Gewöhnlich', mult: 1, w: 62, color: '#c9c3b5' },
   { name: 'Selten', mult: 1.8, w: 28, color: '#7aa8ff' },
@@ -644,8 +589,8 @@ export const EVENTS = [
 
 // ---------- Altar: dauerhafte Verbesserungen für Sternenstaub ----------
 export const ALTAR = [
-  { id: 'dmg', name: 'Zorn', desc: '+4% Schaden je Stufe', max: 15, base: 60, g: 1.45, mods: (l) => [inc('dmg', 4 * l)] },
-  { id: 'life', name: 'Lebenskraft', desc: '+5% maximales Leben je Stufe', max: 15, base: 60, g: 1.45, mods: (l) => [inc('life', 5 * l)] },
+  { id: 'dmg', name: 'Zorn', desc: '+4% Schaden je Stufe', max: 5, base: 60, g: 1.45, mods: (l) => [inc('dmg', 4 * l)] },
+  { id: 'life', name: 'Lebenskraft', desc: '+5% maximales Leben je Stufe', max: 5, base: 60, g: 1.45, mods: (l) => [inc('life', 5 * l)] },
   { id: 'gold', name: 'Wohlstand', desc: '+20 Startgold je Stufe', max: 5, base: 50, g: 1.6, mods: (l) => [flat('startGold', 20 * l)] },
   { id: 'reroll', name: 'Schicksalsfaden', desc: '+1 Neu würfeln pro Run', max: 5, base: 100, g: 1.8 },
   { id: 'banish', name: 'Verbannung', desc: '+1 Verbannen pro Run (Karte für den Run entfernen)', max: 3, base: 150, g: 1.9 },
@@ -662,9 +607,9 @@ export const ALTAR = [
   { id: 'discount', name: 'Feilschen', desc: '−8% Händler- und Schmiedepreise je Stufe', max: 5, base: 120, g: 1.6 },
   { id: 'relicfind', name: 'Reliquienjäger', desc: '+4% Relikt-Chance bei Eliten je Stufe', max: 5, base: 200, g: 1.7 },
   { id: 'magnet', name: 'Anziehung', desc: '+15% Aufsammelradius je Stufe', max: 5, base: 60, g: 1.5, mods: (l) => [inc('magnet', 15 * l)] },
-  { id: 'res', name: 'Sternenschild', desc: '+3% alle Elementarwiderstände je Stufe', max: 10, base: 90, g: 1.45, mods: (l) => [flat('res_elem', 3 * l)] },
-  { id: 'speed', name: 'Eile', desc: '+2% Fertigkeitstempo je Stufe', max: 10, base: 100, g: 1.5, mods: (l) => [inc('speed', 2 * l)] },
-  { id: 'crit', name: 'Sternenauge', desc: '+5% kritische Trefferchance je Stufe', max: 10, base: 90, g: 1.45, mods: (l) => [inc('crit', 5 * l)] },
+  { id: 'res', name: 'Sternenschild', desc: '+3% alle Elementarwiderstände je Stufe', max: 5, base: 90, g: 1.45, mods: (l) => [flat('res_elem', 3 * l)] },
+  { id: 'speed', name: 'Eile', desc: '+2% Fertigkeitstempo je Stufe', max: 4, base: 100, g: 1.5, mods: (l) => [inc('speed', 2 * l)] },
+  { id: 'crit', name: 'Sternenauge', desc: '+5% kritische Trefferchance je Stufe', max: 4, base: 90, g: 1.45, mods: (l) => [inc('crit', 5 * l)] },
 ];
 export const altarCost = (a, lvl) => Math.round(a.base * Math.pow(a.g, lvl));
 

@@ -799,3 +799,18 @@ p.big { font-size: 22px; font-weight: 700; color: var(--gold); }
 .sgrid.g4 { grid-template-columns: repeat(4, 1fr); }
 .sgrid.g4 div { align-items: center; padding: 8px 4px; }
 .fxlink { text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+
+/* ---------------- Segen-Pfade ---------------- */
+.picon { width: 1.1em; height: 1.1em; vertical-align: -0.2em; filter: drop-shadow(0 0 3px currentColor); flex: none; }
+.pchips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.pchip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--pc, #888) 60%, transparent); background: color-mix(in srgb, var(--pc, #888) 14%, #120c22); font-size: 12.5px; font-weight: 700; color: var(--pc, #cfc8e8); }
+.pchip.free { border-style: dashed; border-color: rgba(255, 255, 255, .2); background: none; color: var(--muted); font-weight: 500; }
+.choice.path > small { display: flex; align-items: center; gap: 5px; }
+.choice.path > b { font-size: 17px; }
+.choice.capstone { box-shadow: 0 0 18px color-mix(in srgb, var(--cc) 45%, transparent), inset 0 0 22px color-mix(in srgb, var(--cc) 18%, transparent); }
+.choice.capstone > b::after { content: ' ✦'; color: var(--cc); }
+.choice.bund { border-width: 2px; background: linear-gradient(135deg, rgba(255, 216, 77, .16), #140e28 60%); }
+.pathbox { border-left: 3px solid var(--pc); padding: 4px 0 4px 10px; margin: 4px 0; }
+.pathbox > b { color: var(--pc); display: block; margin-bottom: 2px; }
+.pathbox small { color: var(--muted); font-weight: 500; }
+.updlist li { margin-bottom: 7px; line-height: 1.45; font-size: 13.5px; }

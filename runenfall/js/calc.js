@@ -145,6 +145,9 @@ export function skillLocal(inst, gsets) {
   return { def, evo, local, lvl };
 }
 
+/** Bedingungen für zusätzlichen Schaden (Schlüssel im Kampf → Wertname). */
+export const COND_KEYS = { burn: 'dmgVsBurn', chill: 'dmgVsChill', shock: 'dmgVsShock', poison: 'dmgVsPoison', bleed: 'dmgVsBleed', moving: 'dmgMoving', full: 'dmgFullLife', low: 'dmgLowLife', barrier: 'dmgBarrier', kill: 'dmgAfterKill', near: 'dmgNear', far: 'dmgFar' };
+
 export function computeSkill(inst, gsets) {
   const { def, evo, local, lvl } = skillLocal(inst, gsets);
   const sets = [...gsets, local];
@@ -233,6 +236,9 @@ export function computeSkill(inst, gsets) {
   S.shk = onlyPoison ? 0 : ch(def.shk, 'shockChance');
   S.psn = ch(def.psn, 'poisonChance');
   S.bld = onlyPoison ? 0 : ch(def.bld, 'bleedChance');
+  if (cat.includes('area') && !noAil) {
+    if (has('spec_areaIgnite') && !onlyPoison) S.ign = 100;
+  }
   S.chill = !noAil && !onlyPoison;
   S.burnMult = mulKeys(sets, ['burn', 'dmg_dot']);
   S.poisonMult = mulKeys(sets, ['poison', 'dmg_dot']);
@@ -246,6 +252,10 @@ export function computeSkill(inst, gsets) {
   S.vsLow = mul(sets, 'dmgVsLow');
   S.vsBoss = mul(sets, 'dmgVsBoss');
   S.vsAil = mul(sets, 'dmgVsAilment');
+  // Bedingter Schaden (Notables der Sternenkarte u. a.) – nur Einträge ≠ 1
+  let cond = null;
+  for (const [k, key] of Object.entries(COND_KEYS)) { const m = mul(sets, key); if (Math.abs(m - 1) > 1e-6) (cond = cond || {})[k] = m; }
+  S.cond = cond;
   S.pen = {};
   for (const t of DMG_TYPES) S.pen[t] = flatSum(sets, 'pen') + flatSum(sets, 'pen_' + t);
   S.leech = flatSum(sets, 'leech');

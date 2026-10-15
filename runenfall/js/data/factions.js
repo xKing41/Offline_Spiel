@@ -12,19 +12,19 @@ export const FACTIONS = {
     name: 'Orden der Glut', short: 'Glut', icon: '♨', color: '#ff8a3a', leader: 'Großmeisterin Ysolde', dat: 'beim Orden der Glut',
     motto: 'Wer brennt, fällt nicht.',
     desc: 'Krieger und Flammenhüter, die die gefallenen Sterne mit Feuer und Stahl bewachen. Sie achten Mut: Eliten, Bosse und Kämpfe ohne Rückzug.',
-    bonus: [inc('dmgVsBoss', 12), inc('life', 8), inc('dmg', 10), inc('armor', 30), more('life', 8)],
+    bonus: [inc('dmgVsBoss', 6), inc('life', 4), inc('dmg', 5), inc('armor', 15), more('life', 4)],
   },
   seher: {
     name: 'Zirkel der Sternseher', short: 'Seher', icon: '☉', color: '#62d6ff', leader: 'Archivar Thelion', dat: 'beim Zirkel der Sternseher',
     motto: 'Jeder Stern trägt eine Geschichte.',
     desc: 'Gelehrte, die das Wissen der gefallenen Sterne sammeln. Sie schätzen Runen, Glyphen, Evolutionen und alles, was man lernen kann.',
-    bonus: [inc('xp', 12), inc('area', 10), inc('crit', 25), inc('speed', 7), flat('critMulti', 25)],
+    bonus: [inc('xp', 12), inc('area', 5), inc('crit', 12), inc('speed', 4), flat('critMulti', 12)],
   },
   leere: {
     name: 'Die Leerenwandler', short: 'Leere', icon: '◐', color: '#b06bff', leader: 'Die Namenlose', dat: 'bei den Leerenwandlern',
     motto: 'Im Nichts liegt jede Möglichkeit.',
     desc: 'Ausgestoßene, die mit der Leere paktieren. Sie lieben das Risiko: Prophezeiungen, den Abgrund, Erzfeinde und verbotene Ware.',
-    bonus: [inc('luck', 20), inc('dmg_chaos', 20), inc('dust', 12), inc('dmgVsAilment', 20), more('dmg', 7)],
+    bonus: [inc('luck', 20), inc('dmg_chaos', 10), inc('dust', 12), inc('dmgVsAilment', 10), more('dmg', 4)],
   },
 };
 export const FACTION_IDS = Object.keys(FACTIONS);

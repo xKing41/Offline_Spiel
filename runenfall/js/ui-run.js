@@ -3,8 +3,9 @@ import { app } from './app.js';
 import { $, on, screen, modal, closeModal, toast, confirmBox, itemCard, glyphCard, skillInfo, skillStatsLine, bar, tagChips, itemTitle, helpBtn } from './ui.js';
 import { esc, fmt, fmtV } from './util.js';
 import { save, persist, accountLevel } from './save.js';
-import { CLASSES, BOONS, BOON_RARITY, ACTS, ASC_MODS, ASCENDANCIES, MUTATORS } from './data/content.js';
-import { SKILLS, SUPPORTS, supportFits, catTags, MAX_SKILL_LVL } from './data/skills.js';
+import { CLASSES, BOON_RARITY, ACTS, ASC_MODS, ASCENDANCIES, MUTATORS } from './data/content.js';
+import { PATHS, ROMAN, MAX_PATHS, boonDef, pathTiers, pathIcon, bundPartners } from './data/boons.js';
+import { SKILLS, SUPPORTS, supportFits, catTags, MAX_SKILL_LVL, MAX_SKILLS } from './data/skills.js';
 import { SLOTS, SLOT_NAME, RARITY, canCraft, itemName } from './data/items.js';
 import { modText } from './data/stats.js';
 import {
@@ -314,7 +315,7 @@ export function showLevelUp(onDone) {
   coach('levelup');
   if (!lvlChoices) lvlChoices = rollBoons(run);
   const cards = lvlChoices.map((c, i) => choiceCard(run, c, i, 'lvlPick')).join('');
-  modal(`<h2 class="lvlup">STUFE ${run.lvl - run.pendingLvl + 1}</h2><p class="muted center small">Wähle einen Segen</p>
+  modal(`<h2 class="lvlup">STUFE ${run.lvl - run.pendingLvl + 1}</h2>${pathChips(run)}<p class="muted center small">Wähle einen Segen</p>
     <div class="choices">${cards}</div>
     <div class="row"><button class="btn small ${run.rerolls ? '' : 'disabled'}" data-a="lvlReroll">↻ Neu würfeln (${run.rerolls})</button>
     <button class="btn small ${run.banish ? '' : 'disabled'}" data-a="lvlBanishMode">✕ Verbannen (${run.banish})</button></div>`, 'levelup');
@@ -344,13 +345,35 @@ on('lvlPick', (d) => {
 on('lvlReroll', () => { const run = R(); if (!run.rerolls) return; run.rerolls--; lvlChoices = rollBoons(run); showLevelUp(lvlDone); });
 on('lvlBanishMode', () => { if (!R().banish) return; banishMode = !banishMode; toast(banishMode ? 'Tippe den Segen an, der verbannt werden soll.' : 'Verbannen abgebrochen.'); });
 
+/** Deine Pfade in diesem Run (und freie Plätze). */
+export function pathChips(run) {
+  const t = pathTiers(run);
+  const chips = Object.entries(t).map(([p, n]) => `<span class="pchip" style="--pc:${PATHS[p].color}">${pathIcon(p)} ${esc(PATHS[p].name)} ${ROMAN[n]}</span>`);
+  for (let k = chips.length; k < MAX_PATHS; k++) chips.push('<span class="pchip free">freier Pfad</span>');
+  return `<div class="pchips">${chips.join('')}</div>`;
+}
+
 function choiceCard(run, c, i, action) {
   let title = '', body = '', col = '#c9c3b5', label = '';
   if (c.kind === 'boon') {
-    const r = BOON_RARITY[c.r];
-    col = r.color; label = r.name;
-    title = 'Segen';
-    body = `<ul class="mods">${boonMods({ id: c.id, r: c.r }).map((m) => `<li>${esc(modText(m))}</li>`).join('')}</ul>`;
+    const d = boonDef(c.id);
+    const mods = `<ul class="mods">${boonMods({ id: c.id, r: c.r }).map((m) => `<li>${esc(modText(m))}</li>`).join('')}</ul>`;
+    if (d && (d.tier || d.bund)) {
+      const pc = d.bund ? '#ffd84d' : PATHS[d.path].color;
+      const lab = d.bund ? `${pathIcon('bund')} Bund · ${d.bund.map((x) => esc(PATHS[x].name)).join(' + ')}` : `${pathIcon(d.path)} ${esc(PATHS[d.path].name)} · Stufe ${ROMAN[d.tier]}`;
+      let extra = '';
+      if (d.tier === 1) {
+        const bp = bundPartners(d.path);
+        extra = `<p class="small muted">${esc(PATHS[d.path].desc)}${bp.length ? ` Bund möglich mit: ${bp.map((x) => esc(PATHS[x].name)).join(', ')}.` : ''}</p>`;
+      }
+      return `<button class="choice path ${d.tier === 4 ? 'capstone' : ''} ${d.bund ? 'bund' : ''}" style="--cc:${pc}" data-a="${action}" data-i="${i}"><small>${lab}</small><b>${esc(d.name)}</b>${mods}${extra}</button>`;
+    }
+    const r = BOON_RARITY[c.r || 0];
+    col = r.color;
+    label = d && d.deep ? `${pathIcon(d.path)} ${esc(PATHS[d.path].name)} · Vertiefung · ${r.name}` : `Grundsegen · ${r.name}`;
+    title = d ? d.name : 'Segen';
+    body = mods;
+    return `<button class="choice" style="--cc:${col}" data-a="${action}" data-i="${i}"><small>${label}</small><b>${esc(title)}</b>${body}</button>`;
   } else if (c.kind === 'skillLvl') {
     const sk = run.skills[c.idx];
     col = '#7dffb0'; label = 'Rune';
@@ -359,7 +382,7 @@ function choiceCard(run, c, i, action) {
     if (sk.lvl + 1 === 3 && SKILLS[sk.id].lvl3) body += `<p class="small up">${SKILLS[sk.id].lvl3.map(modText).join(', ')}</p>`;
     if (sk.lvl + 1 === 5 && SKILLS[sk.id].lvl5) body += `<p class="small up">${SKILLS[sk.id].lvl5.map(modText).join(', ')}</p>`;
   } else if (c.kind === 'newSkill') {
-    col = '#ffd84d'; label = 'Neue Rune';
+    col = '#ffd84d'; label = run.skills.length >= MAX_SKILLS ? 'Neue Rune · ersetzt eine' : 'Neue Rune';
     title = runeName({ id: c.id, traits: c.traits });
     body = `<div class="tags">${tagChips(catTags(SKILLS[c.id]))}</div><p class="small">${esc(SKILLS[c.id].desc)}</p>${traitLines(c.traits)}`;
   } else if (c.kind === 'glyph') {
@@ -388,6 +411,7 @@ export function showRewards(choices, info, onDone) {
 on('rewPick', (d) => {
   const run = R();
   const c = rewardState.choices[Number(d.i)];
+  if (c.kind === 'newSkill' && run.skills.length >= MAX_SKILLS) return askReplace(c, 'reward');
   applyChoice(run, c);
   sfx.loot();
   const done = rewardState.onDone;
@@ -416,7 +440,7 @@ export function showShop(fresh) {
     const btn = `<button class="btn small ${afford ? 'primary' : 'disabled'}" data-a="buy" data-i="${i}">● ${o.price}</button>`;
     if (o.kind === 'item') return itemCard(o.item, { compare: run.eq[o.item.slot] || null, actions: btn, small: true });
     if (o.kind === 'glyph') return glyphCard(o.id, btn);
-    if (o.kind === 'newSkill') return `<div class="panel"><div class="row between"><b>Neue Rune: ${esc(runeName({ id: o.id, traits: o.traits }))}</b>${btn}</div>${traitLines(o.traits)}${skillInfo(o.id)}</div>`;
+    if (o.kind === 'newSkill') return `<div class="panel"><div class="row between"><b>${run.skills.length >= MAX_SKILLS ? 'Rune tauschen' : 'Neue Rune'}: ${esc(runeName({ id: o.id, traits: o.traits }))}</b>${btn}</div>${traitLines(o.traits)}${skillInfo(o.id)}</div>`;
     if (o.kind === 'heal') return `<div class="panel row between"><div><b>Heiltrank</b><p class="small muted">Heilt 50% Leben</p></div>${btn}</div>`;
     if (o.kind === 'lvlAny') return `<div class="panel row between"><div><b>Runenstein</b><p class="small muted">+1 Stufe für eine Rune deiner Wahl</p></div>${btn}</div>`;
     return '';
@@ -435,6 +459,7 @@ on('buy', (d) => {
     modal(`<h3>Welche Rune verbessern?</h3><div class="col">${opts || '<p>Alle Runen sind auf Maximalstufe.</p>'}<button class="btn ghost" data-a="_close">Abbrechen</button></div>`);
     return;
   }
+  if (o.kind === 'newSkill' && run.skills.length >= MAX_SKILLS) return askReplace(o, 'shop');
   run.gold -= o.price;
   o.sold = true;
   if (o.kind === 'heal') run.hp = Math.min(snapshot(run).P.maxLife, run.hp + snapshot(run).P.maxLife * 0.5);
@@ -452,6 +477,42 @@ on('lvlAnyPick', (d) => {
   closeModal(); sfx.levelup(); persist(); showShop(false);
 });
 on('leave', () => finishNode());
+
+// ===================================================================== Rune ersetzen (alle Plätze belegt)
+let replState = null;
+function askReplace(c, src) {
+  const run = R();
+  replState = { c, src };
+  const opts = run.skills.map((sk, i) => `<button class="btn" data-a="runeRepl" data-s="${i}">${esc(runeName(sk))} <small>Stufe ${sk.lvl}</small></button>`).join('');
+  modal(`<h3>Rune ersetzen</h3><p class="small">Alle ${MAX_SKILLS} Plätze sind belegt. <b>${esc(runeName({ id: c.id, traits: c.traits }))}</b> ersetzt eine deiner Runen und übernimmt die halbe Stufe; gesockelte Glyphen kommen zurück in den Beutel.</p>
+    <div class="col">${opts}<button class="btn ghost" data-a="runeReplNo">Abbrechen</button></div>`);
+}
+on('runeRepl', (d) => {
+  const run = R(), st = replState;
+  if (!st) return;
+  replState = null;
+  const idx = Number(d.s);
+  if (st.src === 'shop') {
+    if (run.gold < st.c.price) { closeModal(); return; }
+    run.gold -= st.c.price; st.c.sold = true;
+    applyChoice(run, { ...st.c, replace: idx });
+    closeModal(); sfx.gold(); persist(); showShop(false);
+    toast(`${esc(runeName(run.skills[idx]))} ist jetzt deine Rune.`);
+    return;
+  }
+  applyChoice(run, { ...st.c, replace: idx });
+  sfx.loot();
+  const done = rewardState && rewardState.onDone;
+  rewardState = null;
+  closeModal();
+  if (done) done();
+});
+on('runeReplNo', () => {
+  const st = replState;
+  replState = null;
+  if (st && st.src === 'reward' && rewardState) showRewards(rewardState.choices, rewardState.info, rewardState.onDone);
+  else closeModal();
+});
 
 // ===================================================================== Schmiede
 let forgeSel = null;

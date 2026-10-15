@@ -79,7 +79,7 @@ export function showHub() {
       <button class="btn small ghost" data-a="nav" data-to="settings">⚙ Einstellungen</button>
       ${save.treeReset ? '<p class="note">Die Sternenkarte wurde überarbeitet – deine Punkte wurden zurückerstattet.</p>' : ''}
     </div>`, 'hubscreen');
-  if (save.treeReset) { save.treeReset = false; persist(); }
+  if (save.treeReset && !save.metaNote) { save.treeReset = false; persist(); }
 }
 on('continue', () => app.continueRun());
 /** Sanfte Erinnerung an eine Sicherung (ab Kontostufe 6, alle 14 Tage). */
@@ -119,9 +119,10 @@ on('qReroll', (d) => {
 on('abandon', () => confirmBox('Run wirklich aufgeben? Du erhältst die Belohnungen für den bisherigen Fortschritt.', 'Aufgeben', () => app.abandonRun()));
 
 // ===================================================================== Run vorbereiten
-let setup = { cls: null, asc: 0, mode: 'normal', ascend: null, mutators: [] };
+let setup = { cls: null, asc: null, mode: 'normal', ascend: null, mutators: [] };
 export function showSetup() {
   if (!setup.cls || !save.unlockedCls.includes(setup.cls)) setup.cls = save.unlockedCls.includes(save.lastCls) ? save.lastCls : save.unlockedCls[0];
+  if (setup.asc === null) setup.asc = save.lastAsc || 0; // zuletzt gewählte Sternenhöhe merken
   setup.asc = Math.min(setup.asc, save.ascUnlocked);
   if (app.setupMode) { setup.mode = app.setupMode; app.setupMode = null; }
   if (!setup.mode || modeLock(setup.mode, save)) setup.mode = 'normal';
@@ -215,6 +216,7 @@ on('huntTier', (d) => {
 on('asc', (d) => { setup.asc = Math.max(0, Math.min(save.ascUnlocked, setup.asc + Number(d.d))); showSetup(); });
 on('go', () => {
   save.lastCls = setup.cls;
+  save.lastAsc = setup.asc;
   app.startRun({ ...setup, mutators: setup.mode === 'tower' ? [] : setup.mutators, pet: setup.pet || null, atlas: setup.mode === 'normal' ? (save.atlas?.target || null) : null, potion: setup.potion || null, league: setup.mode === 'normal' && !!setup.league, tier: setup.tier || 1 });
 });
 function petPanel() {

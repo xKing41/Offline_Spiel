@@ -1,4 +1,4 @@
-// Die Sternenkarte: ein riesiger Passivbaum.
+// Die Sternenkarte: ein kompakter Passivbaum – Schlüsselsteine in Reichweite, Notables mit Bedingungen.
 // Aufbau (deterministisch aus einem festen Startwert, damit Speicherstände stabil bleiben):
 //   · Sternenherz im Zentrum, 9 Klassen-Ursprünge im Kreis
 //   · drei Zonen: Heimat (Klassenthemen), Grenzland (gemischt, Sternbilder), Sternenrand (Keystones, Mythos, Tore)
@@ -7,7 +7,7 @@
 // Wird der Aufbau geändert, TREE_VERSION erhöhen – dann werden alle Punkte erstattet.
 import { makeRng } from '../util.js';
 
-export const TREE_VERSION = 2;
+export const TREE_VERSION = 3;
 
 const inc = (s, v) => ({ s, t: 'inc', v });
 const more = (s, v) => ({ s, t: 'more', v });
@@ -15,31 +15,31 @@ const flat = (s, v) => ({ s, v });
 
 // Thema: kleine Knoten + Notable-Varianten [Name, Modifikatoren]
 export const THEMES = {
-  fire: { small: [inc('dmg_fire', 10)], notables: [['Glutherz', [inc('dmg_fire', 25), flat('igniteChance', 10)]], ['Flammenzunge', [inc('dmg_fire', 20), flat('pen_fire', 8)]]] },
-  cold: { small: [inc('dmg_cold', 10)], notables: [['Permafrost', [inc('dmg_cold', 25), flat('freezeChance', 8)]], ['Eisiger Atem', [inc('dmg_cold', 20), inc('chillEffect', 30)]]] },
-  light: { small: [inc('dmg_light', 10)], notables: [['Gewitterseele', [inc('dmg_light', 25), flat('shockChance', 10)]], ['Funkenflug', [inc('dmg_light', 20), inc('speed', 8)]]] },
-  phys: { small: [inc('dmg_phys', 10)], notables: [['Rohe Gewalt', [inc('dmg_phys', 25), flat('add_phys', 3)]], ['Stahlwille', [inc('dmg_phys', 20), flat('armor', 40)]]] },
-  chaos: { small: [inc('dmg_chaos', 10)], notables: [['Leerenbrut', [inc('dmg_chaos', 25), flat('res_chaos', 15)]], ['Verderbnis', [inc('dmg_chaos', 20), flat('poisonChance', 15)]]] },
-  elem: { small: [inc('dmg_elem', 8)], notables: [['Elementarwandler', [inc('dmg_elem', 20), flat('res_elem', 10)]], ['Prisma', [inc('dmg_elem', 18), flat('pen', 5)]]] },
-  spell: { small: [inc('dmg_spell', 10)], notables: [['Arkane Gelehrsamkeit', [inc('dmg_spell', 25), inc('speed_spell', 8)]], ['Runenschrift', [inc('dmg_spell', 20), inc('crit_spell', 35)]]] },
-  attack: { small: [inc('dmg_attack', 10)], notables: [['Klingenmeister', [inc('dmg_attack', 25), inc('speed_attack', 8)]], ['Kampfrausch', [inc('dmg_attack', 20), flat('lifeOnKill', 3)]]] },
-  proj: { small: [inc('dmg_proj', 10)], notables: [['Scharfschütze', [inc('dmg_proj', 25), inc('projSpeed', 20)]], ['Splitterregen', [inc('dmg_proj', 15), flat('pierce', 1)]]] },
-  area: { small: [inc('area', 6)], notables: [['Weitblick', [inc('area', 18), inc('dmg_area', 15)]], ['Erschütterung', [inc('dmg_area', 25), inc('area', 8)]]] },
-  melee: { small: [inc('dmg_melee', 10)], notables: [['Berserker', [inc('dmg_melee', 25), flat('lifeOnKill', 3)]], ['Wuchtschlag', [inc('dmg_melee', 20), inc('area_melee', 15)]]] },
-  crit: { small: [inc('crit', 12)], notables: [['Todesstoß', [inc('crit', 30), flat('critMulti', 20)]], ['Schwachstelle', [flat('critBase', 1), inc('crit', 20)]]] },
+  fire: { small: [inc('dmg_fire', 10)], notables: [['Glutherz', [inc('dmg_fire', 15), inc('dmgVsBurn', 30)]], ['Flammenzunge', [inc('dmg_fire', 15), flat('pen_fire', 8)]]] },
+  cold: { small: [inc('dmg_cold', 10)], notables: [['Permafrost', [inc('dmg_cold', 15), inc('dmgVsChill', 30)]], ['Eisiger Atem', [inc('dmg_cold', 15), inc('chillEffect', 30)]]] },
+  light: { small: [inc('dmg_light', 10)], notables: [['Gewitterseele', [inc('dmg_light', 15), inc('dmgVsShock', 30)]], ['Funkenflug', [inc('dmg_light', 15), inc('dmgMoving', 15)]]] },
+  phys: { small: [inc('dmg_phys', 10)], notables: [['Rohe Gewalt', [inc('dmg_phys', 15), inc('dmgNear', 25)]], ['Stahlwille', [inc('dmg_phys', 15), flat('armor', 40)]]] },
+  chaos: { small: [inc('dmg_chaos', 10)], notables: [['Leerenbrut', [inc('dmg_chaos', 15), inc('dmgVsPoison', 30)]], ['Verderbnis', [inc('dmg_chaos', 15), flat('poisonChance', 15)]]] },
+  elem: { small: [inc('dmg_elem', 8)], notables: [['Elementarwandler', [inc('dmg_elem', 15), flat('res_elem', 10)]], ['Prisma', [inc('dmg_elem', 12), inc('dmgVsAilment', 20)]]] },
+  spell: { small: [inc('dmg_spell', 10)], notables: [['Arkane Gelehrsamkeit', [inc('dmg_spell', 15), inc('dmgFar', 25)]], ['Runenschrift', [inc('dmg_spell', 15), inc('crit_spell', 35)]]] },
+  attack: { small: [inc('dmg_attack', 10)], notables: [['Klingenmeister', [inc('dmg_attack', 15), inc('dmgAfterKill', 25)]], ['Kampfrausch', [inc('dmg_attack', 15), flat('lifeOnKill', 3)]]] },
+  proj: { small: [inc('dmg_proj', 10)], notables: [['Scharfschütze', [inc('dmg_proj', 15), inc('dmgFar', 30)]], ['Splitterregen', [inc('dmg_proj', 12), flat('pierce', 1)]]] },
+  area: { small: [inc('area', 6)], notables: [['Weitblick', [inc('area', 15), inc('dmg_area', 12)]], ['Erschütterung', [inc('dmg_area', 15), inc('dmgNear', 25)]]] },
+  melee: { small: [inc('dmg_melee', 10)], notables: [['Berserker', [inc('dmg_melee', 15), inc('dmgLowLife', 35)]], ['Wuchtschlag', [inc('dmg_melee', 15), inc('area_melee', 15)]]] },
+  crit: { small: [inc('crit', 12)], notables: [['Todesstoß', [inc('crit', 30), flat('critMulti', 20)]], ['Schwachstelle', [flat('critBase', 1), inc('dmgFullLife', 25)]]] },
   critmulti: { small: [flat('critMulti', 8)], notables: [['Vernichter', [flat('critMulti', 30)]], ['Scharfrichter', [flat('critMulti', 20), inc('dmgVsBoss', 15)]]] },
-  speed: { small: [inc('speed', 4)], notables: [['Raserei', [inc('speed', 12), inc('move', 5)]], ['Fließende Bewegung', [inc('speed', 10), inc('dmg', 8)]]] },
-  life: { small: [inc('life', 6)], notables: [['Unverwüstlich', [inc('life', 15), flat('lifeRegen', 2)]], ['Titanenblut', [inc('life', 12), flat('life', 25)]]] },
+  speed: { small: [inc('speed', 4)], notables: [['Raserei', [inc('speed', 10), inc('dmgAfterKill', 20)]], ['Fließende Bewegung', [inc('speed', 8), inc('dmgMoving', 20)]]] },
+  life: { small: [inc('life', 6)], notables: [['Unverwüstlich', [inc('life', 12), flat('lifeRegen', 2)]], ['Titanenblut', [inc('life', 10), inc('dmgFullLife', 20)]]] },
   armor: { small: [inc('armor', 15)], notables: [['Bollwerk', [flat('armor', 80), inc('armor', 25)]], ['Eiserne Haut', [inc('armor', 30), flat('res_elem', 6)]]] },
-  evasion: { small: [flat('evasion', 25)], notables: [['Schattenschritt', [inc('evasion', 30), inc('move', 5)]], ['Phantom', [flat('evasion', 100), inc('evasion', 15)]]] },
-  barrier: { small: [inc('barrier', 8)], notables: [['Sternenschild', [flat('barrier', 30), inc('barrier', 20)]], ['Ruhender Geist', [inc('barrierRecharge', 40), inc('barrier', 15)]]] },
+  evasion: { small: [flat('evasion', 25)], notables: [['Schattenschritt', [inc('evasion', 30), inc('dmgMoving', 15)]], ['Phantom', [flat('evasion', 100), inc('evasion', 15)]]] },
+  barrier: { small: [inc('barrier', 8)], notables: [['Sternenschild', [flat('barrier', 30), inc('dmgBarrier', 25)]], ['Ruhender Geist', [inc('barrierRecharge', 40), inc('barrier', 15)]]] },
   regen: { small: [flat('lifeRegen', 1)], notables: [['Lebensquell', [flat('lifeRegenPct', 1)]], ['Zähigkeit', [flat('lifeRegen', 3), inc('life', 8)]]] },
   leech: { small: [flat('leech', 0.3)], notables: [['Blutdurst', [flat('leech', 1), inc('dmg', 8)]], ['Vampir', [flat('leech', 1.2), inc('life', 6)]]] },
-  burn: { small: [inc('burn', 12)], notables: [['Feuersbrunst', [inc('burn', 30), flat('igniteChance', 10)]], ['Schwelbrand', [inc('burn', 20), inc('ailDur', 20)]]] },
-  poison: { small: [inc('poison', 12)], notables: [['Toxikologe', [inc('poison', 30), flat('poisonChance', 15)]], ['Schleichendes Gift', [inc('poison', 20), inc('ailDur', 20)]]] },
-  bleed: { small: [inc('bleed', 12)], notables: [['Aderbruch', [inc('bleed', 30), flat('bleedChance', 15)]], ['Hämorrhagie', [inc('bleed', 25), inc('dmg_phys', 10)]]] },
-  shock: { small: [inc('shockEffect', 10)], notables: [['Überspannung', [inc('shockEffect', 30), flat('shockChance', 10)]], ['Kurzschluss', [flat('shockChance', 15), inc('dmg_light', 10)]]] },
-  chill: { small: [inc('chillEffect', 10)], notables: [['Eiszeit', [flat('freezeChance', 10), inc('chillEffect', 20)]], ['Kältestarre', [inc('dmgVsAilment', 20), inc('chillEffect', 15)]]] },
+  burn: { small: [inc('burn', 12)], notables: [['Feuersbrunst', [inc('burn', 30), flat('igniteChance', 10)]], ['Schwelbrand', [inc('burn', 20), inc('dmgVsBurn', 20)]]] },
+  poison: { small: [inc('poison', 12)], notables: [['Toxikologe', [inc('poison', 30), flat('poisonChance', 15)]], ['Schleichendes Gift', [inc('poison', 20), inc('dmgVsPoison', 20)]]] },
+  bleed: { small: [inc('bleed', 12)], notables: [['Aderbruch', [inc('bleed', 30), flat('bleedChance', 15)]], ['Hämorrhagie', [inc('bleed', 25), inc('dmgVsBleed', 25)]]] },
+  shock: { small: [inc('shockEffect', 10)], notables: [['Überspannung', [inc('shockEffect', 30), flat('shockChance', 10)]], ['Kurzschluss', [flat('shockChance', 15), inc('dmgVsShock', 20)]]] },
+  chill: { small: [inc('chillEffect', 10)], notables: [['Eiszeit', [flat('freezeChance', 8), inc('chillEffect', 20)]], ['Kältestarre', [inc('dmgVsChill', 25), inc('chillEffect', 15)]]] },
   dot: { small: [inc('dmg_dot', 10)], notables: [['Langsamer Tod', [inc('dmg_dot', 25), inc('dur', 10)]], ['Zersetzung', [inc('dmg_dot', 20), inc('ailDur', 15)]]] },
   dur: { small: [inc('dur', 8)], notables: [['Beständigkeit', [inc('dur', 25)]], ['Zeitdehnung', [inc('dur', 15), inc('dmg_dot', 10)]]] },
   minion: { small: [inc('dmg_minion', 12)], notables: [['Heerführer', [inc('dmg_minion', 25), inc('speed_minion', 10)]], ['Seelenband', [flat('minionCount', 1), inc('dmg_minion', 10)]]] },
@@ -47,10 +47,10 @@ export const THEMES = {
   aura: { small: [inc('dmg_aura', 12)], notables: [['Strahlende Präsenz', [inc('dmg_aura', 25), inc('area_aura', 15)]], ['Glühender Kern', [inc('dmg_aura', 20), inc('burn', 15)]]] },
   orbit: { small: [inc('dmg_orbit', 12)], notables: [['Klingensturm', [inc('dmg_orbit', 25), inc('speed_orbit', 10)]], ['Stählerner Reigen', [inc('dmg_orbit', 20), flat('proj', 1)]]] },
   chain: { small: [inc('dmg_chain', 10)], notables: [['Kettenmeister', [flat('chain', 1), inc('dmg_chain', 15)]], ['Blitzableiter', [inc('dmg_chain', 20), flat('shockChance', 8)]]] },
-  move: { small: [inc('move', 3)], notables: [['Windläufer', [inc('move', 10), inc('evasion', 10)]], ['Sammler', [inc('magnet', 40), inc('move', 5)]]] },
+  move: { small: [inc('move', 3)], notables: [['Windläufer', [inc('move', 10), inc('dmgMoving', 15)]], ['Sammler', [inc('magnet', 40), inc('move', 5)]]] },
   res: { small: [flat('res_elem', 4)], notables: [['Elementarschild', [flat('res_elem', 12)]], ['Unbeugsam', [flat('res_chaos', 20), flat('res_elem', 6)]]] },
   fortune: { small: [inc('luck', 8)], notables: [['Glückskind', [inc('luck', 25), inc('gold', 20)]], ['Weisheit', [inc('xp', 15)]]] },
-  dmg: { small: [inc('dmg', 5)], notables: [['Kriegskunst', [inc('dmg', 15)]], ['Allmacht', [inc('dmg', 12), inc('speed', 5)]]] },
+  dmg: { small: [inc('dmg', 5)], notables: [['Kriegskunst', [inc('dmgAfterKill', 30)]], ['Allmacht', [inc('dmg', 10), inc('dmgFullLife', 15)]]] },
   execute: { small: [inc('dmgVsLow', 10)], notables: [['Henkersmal', [inc('dmgVsLow', 30), flat('critMulti', 10)]], ['Großwildjäger', [inc('dmgVsBoss', 30)]]] },
   pen: { small: [flat('pen', 2)], notables: [['Durchdringung', [flat('pen', 8)]], ['Bresche', [flat('pen', 5), inc('dmg_elem', 10)]]] },
 };
@@ -188,6 +188,18 @@ const SECTORS = {
   binder: { themes: ['minion', 'trap', 'aura', 'barrier', 'orbit', 'traparea', 'aurarea', 'orbitspeed', 'minionspeed', 'dur', 'fortune', 'life'], minor: inc('dmg_minion', 4), start: [inc('dmg_minion', 10), flat('life', 10)], name: 'Bannkreis' },
   chrono: { themes: ['cold', 'dur', 'chill', 'spell', 'coldpen', 'addcold', 'barrierfast', 'areaspell', 'elem', 'crit', 'speed', 'conv'], minor: inc('dmg_cold', 3), start: [inc('dmg_cold', 8), inc('dur', 8)], name: 'Zeitgletscher' },
 };
+// Schlüsselsteine je Klassen-Sektor: innerer Ring (gut erreichbar) und äußerer Ring
+const KEY_SECTORS = {
+  pyro: ['eternal', 'volcano', 'eternity', 'glass', 'elembond'],
+  storm: ['stormwalker', 'critchain', 'timewarp', 'overflow', 'avatar'],
+  ranger: ['barrage', 'fork', 'boomerang', 'precise', 'acrobat'],
+  hunter: ['hunter', 'ruthless', 'frenzy', 'greed'],
+  plague: ['plaguelord', 'plaguewind', 'ailmaster', 'bloodpact', 'scavenger'],
+  warden: ['thornlord', 'colossus', 'giant', 'phoenix', 'crystal'],
+  monk: ['stillness', 'berserk', 'calm', 'nova'],
+  binder: ['legion', 'bloodbond', 'swarmlord', 'aegis', 'starsoul'],
+  chrono: ['frostaura', 'shatter', 'bulwark', 'aftershock'],
+};
 const EXOTIC = ['conv', 'resall', 'boss', 'ailment', 'thorns', 'dodge', 'gold', 'heal', 'critmulti', 'pen', 'dmg', 'execute', 'leech', 'fortune', 'chain', 'orbit'];
 
 // Mythos-Sterne: einzigartige, starke Notables am Sternenrand (Spezialeffekte).
@@ -247,10 +259,12 @@ export function getTree() {
   const N = CLASS_ORDER.length, SEC = 360 / N;
   const angOf = (x, y) => { let a = (Math.atan2(y, x) * 180) / Math.PI + 90 + SEC / 2; a = ((a % 360) + 360) % 360; return a; };
   const sectorOf = (x, y) => Math.floor(angOf(x, y) / SEC) % N;
-  const R_MAX = 5600;
-  const zoneOf = (r) => (r < 1900 ? 0 : r < 3700 ? 1 : 2);
+  const R_MAX = 3200;
+  const zoneOf = (r) => (r < 1100 ? 0 : r < 2200 ? 1 : 2);
   const round = (v) => (Math.abs(v) >= 10 ? Math.round(v) : Math.round(v * 2) / 2);
   const scale = (mods, k) => mods.map((m) => (m.s.startsWith('spec_') || m.s === 'lvl' || m.s === 'proj' || m.s === 'minionCount' || m.s === 'chain' || m.s === 'pierce' ? m : { ...m, v: round(m.v * k) }));
+  // Allgemeine Werte bewusst klein: Die Karte formt den Build (Schlüsselsteine, Bedingungen), sie trägt ihn nicht allein.
+  const SK = 0.3, NK = 0.5;
   const usedNames = new Set();
   const notableName = (theme, base) => {
     const g = GEN[theme] || ['der Sterne'];
@@ -263,7 +277,7 @@ export function getTree() {
   const travelMods = (sec, zone, i) => {
     const minor = SECTORS[CLASS_ORDER[sec]].minor;
     const pool = [minor, flat('life', 6), inc('dmg', 3), flat('res_elem', 2), inc('speed', 2), flat('armor', 15), flat('evasion', 15), inc('crit', 6)];
-    return [zone === 0 ? (i % 2 ? minor : flat('life', 6)) : pool[(i * 7 + sec * 3 + zone) % pool.length]];
+    return scale([zone === 0 ? (i % 2 ? minor : flat('life', 6)) : pool[(i * 7 + sec * 3 + zone) % pool.length]], SK);
   };
   const path = (aId, bId, pfx) => {
     const a = nodes.get(aId), b = nodes.get(bId);
@@ -283,7 +297,7 @@ export function getTree() {
 
   // ---------------- Zentrum: Sternenherz + Ursprünge
   const HUBS = N * 2;
-  for (let i = 0; i < HUBS; i++) add(`h${i}`, { ...polar(130, -90 + (i * 360) / HUBS), type: 'hub', name: 'Sternenherz', mods: [i % 2 ? flat('life', 6) : inc('dmg', 3)] });
+  for (let i = 0; i < HUBS; i++) add(`h${i}`, { ...polar(130, -90 + (i * 360) / HUBS), type: 'hub', name: 'Sternenherz', mods: scale([i % 2 ? flat('life', 6) : inc('dmg', 3)], SK) });
   for (let i = 0; i < HUBS; i++) link(`h${i}`, `h${(i + 1) % HUBS}`);
   const starts = {};
   CLASS_ORDER.forEach((cls, k) => {
@@ -308,23 +322,26 @@ export function getTree() {
   };
   const place = (e) => { e.idx = ents.length; ents.push(e); const k = gk(e.x, e.y); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(e); return e; };
 
-  // Keystones: zwei Ringe am Rand
-  const keyIds = Object.keys(KEYSTONES);
-  keyIds.forEach((key, i) => {
-    const outer = i % 2 === 0;
-    const a = -90 + (i * 360) / keyIds.length + rng.range(-2, 2);
-    const p = polar(outer ? 5350 : 4450, a);
-    place({ kind: 'key', key, ...p, rad: 150, maxLinks: 1 });
+  // Keystones: thematisch im Sektor ihrer Klasse – ein innerer Ring (~20–30 Punkte vom Ursprung) und ein äußerer
+  CLASS_ORDER.forEach((cls, k) => {
+    const list = KEY_SECTORS[cls];
+    const nIn = Math.ceil(list.length / 2), nOut = list.length - nIn;
+    list.forEach((key, i) => {
+      const inner = i < nIn, j = inner ? i : i - nIn, n = inner ? nIn : nOut;
+      const off = n === 1 ? 0 : (j / (n - 1) - 0.5) * SEC * (inner ? 0.62 : 0.72);
+      const p = polar((inner ? 1420 : 2500) + rng.range(-60, 60), -90 + SEC * k + off + rng.range(-2, 2));
+      place({ kind: 'key', key, ...p, rad: 150, maxLinks: 1 });
+    });
   });
   // Sternbilder
   for (let i = 0; i < 18; i++) {
     const a = -90 + SEC / 2 + (i % 9) * SEC + (i < 9 ? 0 : SEC / 2) + rng.range(-4, 4);
-    const r = i < 9 ? 2900 : 4700;
+    const r = i < 9 ? 1850 : 2850;
     place({ kind: 'const', shape: SHAPES[i % SHAPES.length], legend: LEGENDS[i], ...polar(r, a), rad: 270, maxLinks: 3, rot: rng.range(0, Math.PI * 2), id: i });
   }
   // Juwelsockel: 4 pro Sektor
   CLASS_ORDER.forEach((cls, k) => {
-    [950, 1800, 2700, 3600, 4600].forEach((r, i) => {
+    [650, 1350, 2050, 2750].forEach((r, i) => {
       for (let t = 0; t < 30; t++) {
         const p = polar(r + rng.range(-80, 80), -90 + SEC * k + rng.range(-SEC / 2.6, SEC / 2.6));
         if (free(p.x, p.y, 120)) { place({ kind: 'jewel', id: `${k}_${i}`, ...p, rad: 120, maxLinks: 2 }); break; }
@@ -332,10 +349,10 @@ export function getTree() {
     });
   });
   // Sternentore: Paare über die Karte hinweg
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 6; i++) {
     for (let t = 0; t < 40; t++) {
       const a = rng.range(0, 360), b = a + 180 + rng.range(-50, 50);
-      const pa = polar(rng.range(3900, 5100), a), pb = polar(rng.range(3900, 5100), b);
+      const pa = polar(rng.range(2300, 3000), a), pb = polar(rng.range(2300, 3000), b);
       if (free(pa.x, pa.y, 130) && free(pb.x, pb.y, 130)) {
         place({ kind: 'portal', id: `${i}a`, pair: `${i}b`, ...pa, rad: 130, maxLinks: 2 });
         place({ kind: 'portal', id: `${i}b`, pair: `${i}a`, ...pb, rad: 130, maxLinks: 2 });
@@ -367,21 +384,21 @@ export function getTree() {
     }
     return rng.next() < 0.45 ? rng.pick(own) : rng.pick(EXOTIC.concat(own));
   };
-  const strength = (x, y) => 1 + Math.hypot(x, y) / 9000;
-  const mkSmall = (id, x, y, theme, k) => add(id, { x, y, type: 'small', name: themeName(theme), mods: scale(THEMES[theme].small, k), theme });
+  const strength = (x, y) => 1 + Math.hypot(x, y) / 5200;
+  const mkSmall = (id, x, y, theme, k) => add(id, { x, y, type: 'small', name: themeName(theme), mods: scale(THEMES[theme].small, k * SK), theme });
   const mkNotable = (id, x, y, theme, k, second) => {
     const th = THEMES[theme];
     const [base, mods] = rng.pick(th.notables);
-    let m = scale(mods, k);
-    if (second && second !== theme && rng.next() < 0.55) m = m.concat(scale(THEMES[second].small, k * 1.5));
+    let m = scale(mods, k * NK);
+    if (second && second !== theme && rng.next() < 0.55) m = m.concat(scale(THEMES[second].small, k * 1.5 * SK));
     return add(id, { x, y, type: 'notable', name: notableName(theme, base), mods: m, theme });
   };
   const mkMastery = (id, x, y, theme, k) => {
     const sm = THEMES[theme].small;
     const opts = [
-      { name: 'Vertiefung', mods: scale(sm, k * 3) },
-      { name: 'Standhaftigkeit', mods: scale(sm, k * 1.5).concat([inc('life', round(6 * k))]) },
-      { name: 'Schwung', mods: scale(sm, k * 1.5).concat([inc('speed', round(3 * k))]) },
+      { name: 'Vertiefung', mods: scale(sm, k * 3 * SK) },
+      { name: 'Standhaftigkeit', mods: scale(sm, k * 1.5 * SK).concat([inc('life', round(6 * k * SK))]) },
+      { name: 'Schwung', mods: scale(sm, k * 1.5 * SK).concat([inc('speed', round(3 * k * SK))]) },
     ];
     return add(id, { x, y, type: 'mastery', name: `Meisterschaft: ${themeName(theme)}`, mods: [], options: opts, theme });
   };
@@ -432,7 +449,7 @@ export function getTree() {
         const id = `${pfx}_${i}`;
         const last = i === pts.length - 1;
         if (last) add(id, { ...p, type: 'legend', name: e.legend[0], mods: e.legend[1], theme: th, constName: e.shape.name });
-        else add(id, { ...p, type: 'const', name: e.shape.name, mods: scale(THEMES[th].small, k * 2), theme: th, constName: e.shape.name });
+        else add(id, { ...p, type: 'const', name: e.shape.name, mods: scale(THEMES[th].small, k * 2 * SK), theme: th, constName: e.shape.name });
         return id;
       });
       const pairs = e.shape.extra.length ? e.shape.extra : ids.slice(1).map((_, i) => [i, i + 1]);

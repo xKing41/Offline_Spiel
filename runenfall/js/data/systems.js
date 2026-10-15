@@ -224,15 +224,15 @@ export const PROD_CAP_HOURS = 16;
 
 // ===================================================================== Alchemie: Tränke für den nächsten Run
 export const POTIONS = {
-  strength: { name: 'Trank der Stärke', desc: '+25% mehr Schaden für einen Run', cost: { essence: 20, crystal: 5 }, lab: 1, mods: [more('dmg', 25)] },
-  iron: { name: 'Eisenhaut-Elixier', desc: '+30% mehr Leben für einen Run', cost: { essence: 20, ore: 30 }, lab: 1, mods: [more('life', 30)] },
-  swift: { name: 'Quecksilbertrank', desc: '+15% Tempo und +10% Bewegung', cost: { essence: 25, crystal: 8 }, lab: 2, mods: [inc('speed', 15), inc('move', 10)] },
+  strength: { name: 'Trank der Stärke', desc: '+12% mehr Schaden für einen Run', cost: { essence: 20, crystal: 5 }, lab: 1, mods: [more('dmg', 12)] },
+  iron: { name: 'Eisenhaut-Elixier', desc: '+15% mehr Leben für einen Run', cost: { essence: 20, ore: 30 }, lab: 1, mods: [more('life', 15)] },
+  swift: { name: 'Quecksilbertrank', desc: '+8% Tempo und +8% Bewegung', cost: { essence: 25, crystal: 8 }, lab: 2, mods: [inc('speed', 8), inc('move', 8)] },
   luck: { name: 'Glückselixier', desc: '+60% Gegenstandsseltenheit', cost: { essence: 30, crystal: 10 }, lab: 3, mods: [inc('luck', 60)] },
   wisdom: { name: 'Trank der Weisheit', desc: '+30% Erfahrung im Run', cost: { essence: 30, ore: 40 }, lab: 3, mods: [inc('xp', 30)] },
   elements: { name: 'Prismatrank', desc: '+20% Widerstände', cost: { essence: 35, crystal: 12 }, lab: 4, mods: [flat('res_elem', 20), flat('res_chaos', 15)] },
   greed: { name: 'Trank der Gier', desc: '+50% Sternenstaub aus dem Run', cost: { essence: 50, crystal: 20 }, lab: 5, mods: [inc('dust', 50)] },
   titan: { name: 'Titanenblut', desc: '+1 Stufe aller Fertigkeiten', cost: { essence: 70, crystal: 30, ore: 80 }, lab: 7, mods: [flat('lvl', 1)] },
-  star: { name: 'Sternenessenz', desc: '+40% mehr Schaden, +20% mehr Leben', cost: { essence: 120, crystal: 50 }, lab: 10, mods: [more('dmg', 40), more('life', 20)] },
+  star: { name: 'Sternenessenz', desc: '+20% mehr Schaden, +10% mehr Leben', cost: { essence: 120, crystal: 50 }, lab: 10, mods: [more('dmg', 20), more('life', 10)] },
 };
 
 // ===================================================================== Schicksalskarten
@@ -273,10 +273,12 @@ CARD_TEMPLATES.forEach(([name, fn], i) => {
 });
 export const CARD_IDS = Object.keys(CARDS);
 export const CARD_MAX_LVL = 5;
+const CARD_KEEP = new Set(['startGold', 'luck', 'xp', 'gold']);
 export const cardMods = (id, lvl) => {
   const c = CARDS[id];
   const k = CARD_RARITY[c.rarity].mult * (1 + 0.35 * (lvl - 1));
-  return c.fn(k).map((m) => ({ ...m, v: Math.round(m.v * 10) / 10 }));
+  // Allgemeine Werte der Karten halbiert (Glück, Gold, Erfahrung, Startgold bleiben)
+  return c.fn(k).map((m) => ({ ...m, v: Math.round(m.v * (CARD_KEEP.has(m.s) ? 1 : 0.5) * 10) / 10 }));
 };
 export const PACK_COST = { crystal: 30 };
 export function openPack(n = 4) {
