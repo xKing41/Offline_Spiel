@@ -348,6 +348,8 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !(wi
 const cap = window.Capacitor;
 if (cap && cap.Plugins && cap.Plugins.App) {
   cap.Plugins.App.addListener('backButton', () => {
+    const coachOk = document.querySelector('#coach.show #coachOk');
+    if (coachOk) return coachOk.click();
     if (combat.running && !combat.paused) return pauseCombat();
     if (modalOpen()) { if (combat.running) return; return closeModal(); }
     if (combat.running) return;
