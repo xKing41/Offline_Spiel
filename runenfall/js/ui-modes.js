@@ -1,6 +1,6 @@
 // Oberflächen der Spielmodi: Sternenturm (mit Wochen-Bestenliste), Boss-Rush und Sternenjagd.
 import { app } from './app.js';
-import { on, screen, modal, closeModal, toast, confirmBox } from './ui.js';
+import { on, screen, modal, closeModal, toast, confirmBox, helpBtn } from './ui.js';
 import { esc, fmt, clock, clamp } from './util.js';
 import { save, persist, checkAchievements } from './save.js';
 import { CLASSES, BIOMES } from './data/content.js';
@@ -158,7 +158,7 @@ export function showTowerRun() {
     <p class="muted center small">Gegnerstärke ×${fmt(towerPower(run.floor))} · ${esc(rec)}</p>
     ${laws.length ? laws.map((l) => `<div class="law"><b>⚖ ${esc(lawName(l))}</b><small>${esc(lawDesc(l))}</small></div>`).join('') : '<div class="law calm"><b>Stille</b><small>Diese Etage hat kein besonderes Gesetz.</small></div>'}
     <div class="tfloors">${rows.join('')}</div>
-    <button class="btn primary big" data-a="towerGo">Etage ${run.floor} betreten</button></div>`, 'runscreen');
+    <button class="btn primary big" data-a="towerGo">Etage ${run.floor} betreten</button><p class="center">${helpBtn('modes_tower')}</p></div>`, 'runscreen');
 }
 on('towerGo', () => {
   const run = R();
@@ -179,7 +179,7 @@ export function showRushRun() {
   screen(`${runHeader()}<div class="pad"><h2 class="center">Boss ${Ru.idx + 1} von ${RUSH_LEN}</h2>
     <p class="center muted small">Kampfzeit: <b>${clock(Ru.time)}</b>${best ? ` · Bestleistung ${best.n}/${RUSH_LEN} in ${clock(best.time)}` : ''}</p>
     <div class="rushlist">${list}</div>
-    <button class="btn primary big" data-a="rushGo" style="--bc:${B.color}">${esc(B.name)} herausfordern</button></div>`, 'runscreen');
+    <button class="btn primary big" data-a="rushGo" style="--bc:${B.color}">${esc(B.name)} herausfordern</button><p class="center">${helpBtn('modes_rush')}</p></div>`, 'runscreen');
 }
 on('rushGo', () => { const run = R(); enterNode({ type: 'boss', boss: run.rush.order[run.rush.idx] }); });
 
@@ -206,7 +206,7 @@ export function showHuntRun() {
     <div class="hstat"><span class="${h.steps <= 5 ? 'warn' : ''}">👣 <b>${h.steps}</b></span><span>✦ <b>${h.shards}/${HUNT_SHARDS}</b></span><span>×${fmt(huntPower(h.tier, dist))}</span>
       <span style="color:${B.color}">♛ ${h.found ? esc(B.name) : '???'}</span></div>
     <div class="hunt" style="grid-template-columns:repeat(${h.w},1fr)">${cells}</div>
-    <p class="small muted center">Ziehe auf ein angrenzendes Feld (👣 −1). Spuren zeigen zum Hort, jeder Sternsplitter nimmt der Bestie 12% Leben. Je weiter vom Lager, desto stärker die Gegner – und desto besser die Beute.</p></div>`, 'runscreen');
+    <p class="small muted center">Ziehe auf ein angrenzendes Feld (👣 −1). Spuren zeigen zum Hort, jeder Sternsplitter nimmt der Bestie 12% Leben. Je weiter vom Lager, desto stärker die Gegner – und desto besser die Beute. ${helpBtn('modes_hunt')}</p></div>`, 'runscreen');
   if (h.steps <= 0) setTimeout(huntAmbush, 60);
 }
 function huntAmbush() {

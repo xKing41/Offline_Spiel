@@ -18,6 +18,8 @@ import { showMap, showBuild, showLevelUp, showRewards, showShop, showForge, show
 import { sfx, buzz } from './audio.js';
 import { towerCampAfter, RUSH_LEN, rushCampAfter, huntTile } from './data/modes.js';
 import { showFactions, showStory } from './ui-factions.js';
+import { showCompendium } from './ui-compendium.js';
+import { showOverview } from './ui-overview.js';
 import { coach, welcome } from './coach.js';
 import { mergeAn, analysisHtml } from './analysis.js';
 import { dailyBackup } from './backup.js';
@@ -33,7 +35,7 @@ app.treeView = treeView;
 const SCREENS = {
   hub: showHub, setup: showSetup, tree: showTree, codex: showCodex, altar: showAltar, relics: showRelics,
   ach: showAch, stats: showStats, settings: showSettings, map: () => showMap(), atlas: showAtlas, pets: showPets,
-  base: showBase, cards: showCards, nemesis: showNemesis, season: showSeason, factions: showFactions, story: showStory,
+  base: showBase, cards: showCards, nemesis: showNemesis, season: showSeason, factions: showFactions, story: showStory, compendium: () => showCompendium(), overview: showOverview,
 };
 app.nav = (to) => {
   closeModal();
@@ -290,6 +292,7 @@ function showPauseMenu() {
     <button class="btn primary" data-a="resume">Weiter</button>
     <button class="btn" data-a="pbuild">⚒ Build ansehen</button>
     <button class="btn" data-a="pAnalysis">📊 Schadensanalyse</button>
+    <button class="btn" data-a="pHelp">📖 Hilfe</button>
     <button class="btn ghost" data-a="pquit">Zur Sternwarte (Kampf wird neu gestartet)</button></div>`);
 }
 on('resume', () => { closeModal(); hideScreen(); refreshCombatStats(); combat.paused = false; last = performance.now(); });
@@ -353,7 +356,7 @@ if (cap && cap.Plugins && cap.Plugins.App) {
     if (combat.running && !combat.paused) return pauseCombat();
     if (modalOpen()) { if (combat.running) return; return closeModal(); }
     if (combat.running) return;
-    const back = document.querySelector('.topbar [data-a="nav"], .topbar [data-a="buildBack"]');
+    const back = document.querySelector('.topbar [data-a="nav"], .topbar [data-a="buildBack"], .topbar [data-a="compList"]');
     if (back) back.click();
     else if (document.querySelector('.hubscreen')) cap.Plugins.App.exitApp();
     else app.nav(save.run ? 'map' : 'hub');

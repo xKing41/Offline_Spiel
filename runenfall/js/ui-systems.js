@@ -367,12 +367,19 @@ export function systemsSummary(res) {
 
 /** Kacheln für den Hub. */
 export function systemTiles() {
+  const t = systemTileMap();
+  return t.base + t.cards + t.nemesis + t.season;
+}
+/** Einzelne Kacheln für die Sternwarte. */
+export function systemTileMap() {
   const st = seasonState();
   const nem = (save.nemesis || []).length;
   const b = ensureBase();
   const pend = (Date.now() - b.last) / 3600000 > 1 && Object.keys(b.lvl).length;
-  return `<button class="tile" data-a="nav" data-to="base"><span class="ti">🏰</span>Zitadelle${pend ? '<i class="dot"></i>' : ''}<small>${Object.values(b.lvl).reduce((a, x) => a + x, 0)} Gebäudestufen</small></button>
-    <button class="tile" data-a="nav" data-to="cards"><span class="ti">🂠</span>Schicksal<small>${Object.keys(save.cards || {}).length}/${CARD_IDS.length} Karten</small></button>
-    <button class="tile" data-a="nav" data-to="nemesis"><span class="ti">☠</span>Erzfeinde${nem ? '<i class="dot"></i>' : ''}<small>${nem} lauern</small></button>
-    <button class="tile" data-a="nav" data-to="season"><span class="ti">✧</span>Saison${st.claimable ? '<i class="dot"></i>' : ''}<small>Stufe ${st.tier}/${SEASON_TIERS}</small></button>`;
+  return {
+    base: `<button class="tile" data-a="nav" data-to="base"><span class="ti">🏰</span>Zitadelle${pend ? '<i class="dot"></i>' : ''}<small>${Object.values(b.lvl).reduce((a, x) => a + x, 0)} Gebäudestufen</small></button>`,
+    cards: `<button class="tile" data-a="nav" data-to="cards"><span class="ti">🂠</span>Schicksal<small>${Object.keys(save.cards || {}).length}/${CARD_IDS.length} Karten</small></button>`,
+    nemesis: `<button class="tile" data-a="nav" data-to="nemesis"><span class="ti">☠</span>Erzfeinde${nem ? '<i class="dot"></i>' : ''}<small>${nem} lauern</small></button>`,
+    season: `<button class="tile" data-a="nav" data-to="season"><span class="ti">✧</span>Saison${st.claimable ? '<i class="dot"></i>' : ''}<small>Stufe ${st.tier}/${SEASON_TIERS}</small></button>`,
+  };
 }

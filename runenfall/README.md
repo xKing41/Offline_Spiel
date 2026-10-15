@@ -87,6 +87,13 @@ Ab der Hälfte ihres Lebens setzt jeder Boss eine eigene Mechanik ein: **Schildk
 - **Schadensanalyse:** Wer macht wie viel Schaden? Pro Rune, Element, Krit-Anteil, Schaden über Zeit und erlittener Schaden nach Quelle – im Pausemenü, im Build und am Run-Ende
 - **Sicherung ohne Cloud:** Sicherungsdatei speichern/teilen (z. B. Drive, Mail, Messenger) und laden, kompakter Text-Code, tägliche Wiederherstellungspunkte und **Übertragung aufs neue Handy per QR-Code** (Kamera scannt die QR-Folge)
 
+## Information & Übersicht
+- **Kompendium:** durchsuchbares Lexikon mit 65 Artikeln in 9 Bereichen – vom Einstieg über Schaden, Verteidigung und Builds bis zu Modi, Gegnern und Symbolen. Listen (Seltenheiten, Schlüsselsteine, Klassen, Gesetze, Elite-Eigenschaften, Boss-Muster, Bestiarium …) entstehen direkt aus den Spieldaten
+- **„?“-Hilfe an Ort und Stelle:** in Kopfzeilen und Panels, auch mitten im Run über das Pausemenü
+- **Übersicht:** „Jetzt möglich“ (freie Punkte, Belohnungen, bezahlbare Verbesserungen, leere Sockel …), Sammelfortschritt, nächste Ziele und Rekorde; die Sternwarte ist in Stärke, Welt, Wettstreit & Sammlung und Wissen gegliedert
+- **Werte mit Herkunft:** Im Build ist jeder Wert antippbar und zeigt, aus welcher Quelle er kommt (Sternenkarte, Altar, Relikte, Ausrüstung, Segen, Karten & Trank, Häuser …) – für jede Rune zusätzlich alles, was genau sie verstärkt, inklusive Glyphen und Begleiter-Regeln
+- **Effekte:** alle aktiven Segen, Schreine, Tränke, Karten, Gaben, Set-Boni, Regeln des Runs und Ehren der Häuser auf einen Blick
+
 ## Technik
 Reines JavaScript (ES-Module), Canvas-Rendering, keine Build-Schritte. Spielstand in `localStorage`, Sicherung in den Einstellungen.
 Einzige Fremdbibliotheken (nur für die QR-Übertragung): qrcode-generator (MIT) und jsQR (Apache 2.0) in `js/vendor/`.

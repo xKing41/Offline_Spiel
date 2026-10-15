@@ -1,6 +1,6 @@
 // Meta-Bildschirme außerhalb eines Runs.
 import { app } from './app.js';
-import { $, on, screen, hideScreen, modal, closeModal, toast, confirmBox, topbar, itemCard, glyphCard, skillInfo, bar, tagChips } from './ui.js';
+import { $, on, screen, hideScreen, modal, closeModal, toast, confirmBox, topbar, itemCard, glyphCard, skillInfo, bar, tagChips, helpBtn } from './ui.js';
 import { esc, fmt, fmtV, clock } from './util.js';
 import { save, persist, accountLevel, totalPoints, spentPoints, altarLvl, relicSlots, checkAchievements, exportSave, importSave, resetSave, achievementPoints, xpForLevel } from './save.js';
 import { CLASSES, ALTAR, altarCost, ACHIEVEMENTS, ASC_MODS, BOSSES, ENEMIES, ASCENDANCIES, ASCEND_COST, MUTATORS } from './data/content.js';
@@ -10,14 +10,15 @@ import { getTree, findPath, removalSet, KEYSTONES } from './data/tree.js';
 import { modText } from './data/stats.js';
 import { buildSets, relicMods, ensureQuests, questText, dailyConfig } from './run.js';
 import { computePlayer, computeSkill } from './calc.js';
-import { systemTiles, leaguePanel, potionPanel, archiveTab } from './ui-systems.js';
+import { systemTiles, systemTileMap, leaguePanel, potionPanel, archiveTab } from './ui-systems.js';
 import { EVOLUTIONS, evoOf } from './data/evolutions.js';
 import { sfx, applyVolumes } from './audio.js';
 import { music } from './music.js';
 import { jewelsTab, jewelSocketPanel, paragonPanel } from './ui-endgame.js';
 import { modeGrid, modePanel, modeTiles, towerClaimPanel, modeWhere, resWhere } from './ui-modes.js';
 import { modeLock } from './data/modes.js';
-import { factionTiles, storyPanel, giftsPanel } from './ui-factions.js';
+import { factionTiles, factionTileMap, storyPanel, giftsPanel } from './ui-factions.js';
+import { nowPanel } from './ui-overview.js';
 import { resetHints } from './coach.js';
 import { backupPanel } from './ui-backup.js';
 import { PETS, SETS, getAtlas } from './data/endgame.js';
@@ -31,6 +32,7 @@ export function showHub() {
   const unspent = Object.keys(CLASSES).filter((c) => save.unlockedCls.includes(c)).some((c) => spentPoints(c) < pts);
   const run = save.run;
   const achDone = Object.keys(save.ach).length;
+  const st = systemTileMap(), ft = factionTileMap();
   screen(`
     <div class="hub">
       <div class="logo"><span>RUNEN</span><span>FALL</span></div>
@@ -46,20 +48,33 @@ export function showHub() {
       ${run ? '' : dailyTile()}
       ${towerClaimPanel()}
       ${storyPanel()}
+      ${nowPanel()}
       ${questPanel()}
-      <div class="grid2">
+      <div class="hubsec"><h4>Stärke</h4><div class="grid2">
         <button class="tile" data-a="nav" data-to="tree"><span class="ti">✶</span>Sternenkarte${unspent ? '<i class="dot"></i>' : ''}<small>${pts} Punkte</small></button>
-        <button class="tile" data-a="nav" data-to="codex"><span class="ti">❖</span>Kodex<small>Runen · Glyphen · Klassen</small></button>
         <button class="tile" data-a="nav" data-to="altar"><span class="ti">⛩</span>Altar<small>Dauerhafte Segen</small></button>
         <button class="tile" data-a="nav" data-to="relics"><span class="ti">◈</span>Relikte<small>${save.relicEq.length}/${relicSlots()} angelegt</small></button>
-        <button class="tile" data-a="nav" data-to="ach"><span class="ti">♛</span>Erfolge<small>${achDone}/${ACHIEVEMENTS.length}</small></button>
-        <button class="tile" data-a="nav" data-to="stats"><span class="ti">☷</span>Chronik<small>Statistik</small></button>
+        <button class="tile" data-a="nav" data-to="codex"><span class="ti">❖</span>Kodex<small>Runen · Glyphen · Klassen</small></button>
+      </div></div>
+      <div class="hubsec"><h4>Welt</h4><div class="grid2">
         <button class="tile" data-a="nav" data-to="atlas"><span class="ti">✷</span>Sternenatlas${(save.atlas?.points || 0) > Object.keys(save.atlas?.passives || {}).length ? '<i class="dot"></i>' : ''}<small>${Object.keys(save.atlas?.done || {}).length}/30 Regionen</small></button>
+        ${st.base}
+        ${ft.factions}
         <button class="tile" data-a="nav" data-to="pets"><span class="ti">🐾</span>Gefährten<small>${Object.keys(save.pets || {}).length}/12 gesammelt</small></button>
-        ${systemTiles()}
+      </div></div>
+      <div class="hubsec"><h4>Wettstreit & Sammlung</h4><div class="grid2">
         ${modeTiles()}
-        ${factionTiles()}
-      </div>
+        ${st.season}
+        ${st.cards}
+        ${st.nemesis}
+        <button class="tile" data-a="nav" data-to="ach"><span class="ti">♛</span>Erfolge<small>${achDone}/${ACHIEVEMENTS.length}</small></button>
+        ${ft.story}
+      </div></div>
+      <div class="hubsec"><h4>Wissen</h4><div class="grid3">
+        <button class="tile small" data-a="nav" data-to="overview"><span class="ti">◎</span>Übersicht</button>
+        <button class="tile small" data-a="nav" data-to="compendium"><span class="ti">📖</span>Kompendium</button>
+        <button class="tile small" data-a="nav" data-to="stats"><span class="ti">☷</span>Chronik</button>
+      </div></div>
       ${backupNag()}
       <button class="btn small ghost" data-a="nav" data-to="settings">⚙ Einstellungen</button>
       ${save.treeReset ? '<p class="note">Die Sternenkarte wurde überarbeitet – deine Punkte wurden zurückerstattet.</p>' : ''}
@@ -470,7 +485,7 @@ export function showCodex() {
     const kills = save.stats.enemyKills || {};
     const dex = Object.entries(ENEMIES).filter(([, e]) => !e.noDex);
     const known = dex.filter(([k]) => kills[k] > 0).length;
-    body = `<p class="muted center">${known}/${dex.length} Gegnerarten entdeckt</p>` +
+    body = `<p class="muted center">${known}/${dex.length} Gegnerarten entdeckt · Fähigkeiten im Kompendium ${helpBtn('enemies')}</p>` +
       dex.map(([k, e]) => kills[k] ? `<div class="srow"><span><b style="color:${e.color}">●</b> ${esc(e.name)}</span><b>${fmt(kills[k])}</b></div>` : `<div class="srow muted"><span>● ???</span><b>0</b></div>`).join('') +
       `<h3>Bosse</h3>` + Object.entries(BOSSES).map(([k, b]) => `<div class="srow"><span><b style="color:${b.color}">♛</b> ${save.stats.bossKills[k] ? esc(b.name) : '???'}</span><b>${save.stats.bossKills[k] || 0}</b></div>`).join('');
     body = `<div class="panel">${body}</div>`;

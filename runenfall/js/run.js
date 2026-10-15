@@ -146,12 +146,13 @@ export function boonMods(b) {
 export function buildSets(run, opts = {}) {
   const tree = getTree();
   const alloc = new Set(save.alloc[run ? run.cls : opts.cls]);
-  const sets = [new ModSet(treeMods(tree, alloc, (save.mastery || {})[run ? run.cls : opts.cls] || {})), new ModSet(altarMods()), new ModSet(relicMods())];
+  const lab = (set, label) => { set.label = label; return set; };
+  const sets = [lab(new ModSet(treeMods(tree, alloc, (save.mastery || {})[run ? run.cls : opts.cls] || {})), 'Sternenkarte'), lab(new ModSet(altarMods()), 'Altar'), lab(new ModSet(relicMods()), 'Relikte')];
   if (run) {
-    const items = new ModSet();
+    const items = lab(new ModSet(), 'Ausrüstung');
     for (const s of SLOTS) if (run.eq[s]) items.addAll(itemMods(run.eq[s]));
     sets.push(items);
-    const boons = new ModSet();
+    const boons = lab(new ModSet(), 'Segen & Run-Effekte');
     for (const b of run.boons) boons.addAll(boonMods(b));
     boons.addAll(run.runMods);
     if (run.shrine && run.shrine.fights > 0) boons.addAll(run.shrine.mods);
@@ -164,14 +165,14 @@ export function buildSets(run, opts = {}) {
     for (const s of SLOTS) { const it = run.eq[s]; if (it && it.rarity === 'set') setCount[it.set] = (setCount[it.set] || 0) + 1; }
     for (const [sid, n] of Object.entries(setCount)) for (const [k, mods] of Object.entries(SETS[sid].bonus)) if (n >= Number(k)) boons.addAll(mods);
     sets.push(boons);
-    sets.push(new ModSet(ascendMods(run.ascend)));
-    if (run.pet && save.pets[run.pet]) sets.push(new ModSet(PETS[run.pet].passive(save.pets[run.pet].lvl)));
-    const extra = new ModSet();
+    sets.push(lab(new ModSet(ascendMods(run.ascend)), 'Aufstiegsklasse'));
+    if (run.pet && save.pets[run.pet]) sets.push(lab(new ModSet(PETS[run.pet].passive(save.pets[run.pet].lvl)), 'Gefährte'));
+    const extra = lab(new ModSet(), 'Schicksalskarten & Trank');
     if (run.potion && POTIONS[run.potion]) extra.addAll(POTIONS[run.potion].mods);
     for (const c of run.cards || []) if (CARDS[c] && save.cards && save.cards[c]) extra.addAll(cardMods(c, save.cards[c]));
     sets.push(extra);
   }
-  sets.push(new ModSet([...jewelSocketMods(run ? run.cls : opts.cls), ...paragonMods(), ...factionBonus(save.factions)]));
+  sets.push(lab(new ModSet([...jewelSocketMods(run ? run.cls : opts.cls), ...paragonMods(), ...factionBonus(save.factions)]), 'Juwelen, Sternenmacht & Häuser'));
   return sets;
 }
 

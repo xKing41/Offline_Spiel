@@ -728,3 +728,74 @@ canvas.qrcv { position: static; inset: auto; width: min(78vw, 340px); height: au
 .slider span { width: 64px; font-weight: 600; }
 .slider input { flex: 1; accent-color: var(--gold); height: 28px; }
 .slider b { width: 30px; text-align: right; color: var(--gold); font-size: 13px; }
+
+/* ---------------- Kompendium & Hilfe ---------------- */
+.icon.help { width: 30px; height: 30px; min-width: 30px; font-size: 15px; font-weight: 800; color: var(--gold); border-color: rgba(255, 216, 77, .45); vertical-align: middle; }
+.topbar .icon.help { margin-left: -4px; }
+.cmlink { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 6px; background: none; border: none; border-bottom: 1px solid rgba(255, 255, 255, .06); text-align: left; font-size: 14.5px; }
+.cmlink:last-child { border-bottom: none; }
+.cmlink i { font-style: normal; color: var(--gold); font-size: 18px; }
+.article { display: flex; flex-direction: column; gap: 9px; }
+.article h2 { color: var(--gold); }
+.article p { line-height: 1.55; font-size: 14.5px; }
+.cmlist { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.cmlist h4 { font-family: var(--serif); font-size: 14px; margin-top: 8px; color: #e0d6ff; }
+.cmrow { display: flex; gap: 10px; padding: 7px 9px; border-radius: 9px; background: rgba(0, 0, 0, .22); font-size: 13px; line-height: 1.4; }
+.cmrow b { flex: 0 0 34%; }
+.cmrow span { flex: 1; color: #d9d0f5; }
+.cmrow small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+.cmfac { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+.seealso { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips .chip { background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 13px; color: var(--text); }
+#compQ { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0, 0, 0, .3); color: var(--text); font-size: 15px; }
+#modal.helpmodal .mbox { gap: 10px; }
+
+/* ---------------- Übersicht & Sternwarte ---------------- */
+.hubsec { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.hubsec h4 { font-family: var(--serif); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); padding-left: 4px; display: flex; align-items: center; gap: 8px; }
+.hubsec h4::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255, 216, 77, .35), transparent); }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; }
+.tile.small { padding: 10px 6px; font-size: 13px; }
+.tile.small .ti { font-size: 20px; }
+.tile.locked { opacity: .55; }
+.now { width: 100%; gap: 4px; }
+.nowrow { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 6px; background: none; border: none; border-bottom: 1px solid rgba(255, 255, 255, .06); text-align: left; }
+.nowrow:last-of-type { border-bottom: none; }
+.nowrow .ni { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 216, 77, .12); color: var(--gold); flex: none; font-size: 15px; }
+.nowrow div { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.nowrow b { font-size: 14px; }
+.nowrow small { color: var(--muted); font-size: 12px; }
+.nowrow > i { font-style: normal; color: var(--gold); font-size: 18px; }
+.colrow { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; padding: 6px 2px; background: none; border: none; text-align: left; font-size: 13.5px; }
+.colrow b { color: var(--gold); font-size: 13px; }
+.colrow .anbar { grid-column: 1 / -1; height: 6px; }
+.goal { display: flex; flex-direction: column; gap: 3px; padding: 7px 0; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.goal:last-child { border-bottom: none; }
+.goal small { color: var(--muted); }
+
+/* ---------------- Werte-Herkunft & Effekte ---------------- */
+.statrow { width: 100%; display: flex; align-items: center; gap: 10px; padding: 7px 2px; background: none; border: none; border-bottom: 1px solid rgba(255, 255, 255, .05); text-align: left; font-size: 14px; }
+.statrow:last-child { border-bottom: none; }
+.statrow span { flex: 1; color: var(--muted); min-width: 0; }
+.statrow b { text-align: right; }
+.statrow i { font-style: normal; color: var(--gold); font-size: 17px; width: 10px; flex: none; }
+.statrow.plain { padding-right: 22px; }
+button.statrow:active { background: rgba(255, 216, 77, .06); }
+.srclist { display: flex; flex-direction: column; gap: 3px; }
+.srcrow { display: flex; justify-content: space-between; gap: 12px; padding: 6px 9px; border-radius: 9px; background: rgba(0, 0, 0, .22); font-size: 13px; }
+.srcrow span { color: #d9d0f5; }
+.srcrow b { text-align: right; }
+.srcrow.total { background: rgba(255, 216, 77, .08); }
+.srcrow.total b { color: var(--gold); }
+#modal.helpmodal h4 { font-family: var(--serif); font-size: 13.5px; color: #e0d6ff; margin-top: 4px; }
+p.big { font-size: 22px; font-weight: 700; color: var(--gold); }
+.sgrid.g3 { grid-template-columns: repeat(3, 1fr); }
+.sgrid.g3 b { font-size: 16px; }
+.helprow { align-items: center; }
+.effects { display: flex; flex-direction: column; gap: 6px; }
+.effects h3 { margin-top: 4px; }
+.effects .ficon { width: 15px; height: 15px; vertical-align: -2px; }
+.sgrid.g4 { grid-template-columns: repeat(4, 1fr); }
+.sgrid.g4 div { align-items: center; padding: 8px 4px; }
+.fxlink { text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }

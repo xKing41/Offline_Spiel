@@ -64,8 +64,15 @@ export function confirmBox(text, yesLabel, onYes) {
 on('_close', () => closeModal());
 
 // ---------- Kopfzeile mit Zurück ----------
+const TITLE_HELP = {
+  'Neuer Run': 'setup', Sternenkarte: 'tree', Kodex: 'codex', 'Altar der Sterne': 'altar', 'Relikte & Juwelen': 'relics', Erfolge: 'achievements',
+  Chronik: 'account', Einstellungen: 'backup', Sternenatlas: 'atlas', Gefährten: 'pets', 'Die Häuser': 'factions', 'Die Sage': 'story',
+  Zitadelle: 'base', Schicksalskarten: 'cards', Erzfeinde: 'nemesis', Saison: 'season', 'Übersicht': 'hub',
+};
+/** Hilfe-Knopf („?“), öffnet einen Kompendium-Artikel. */
+export const helpBtn = (id) => `<button class="icon small help" data-a="help" data-id="${id}" aria-label="Hilfe">?</button>`;
 export const topbar = (title, back = 'hub', extra = '') =>
-  `<div class="topbar"><button class="icon" data-a="nav" data-to="${back}">‹</button><h2>${title}</h2><div class="tb-extra">${extra}</div></div>`;
+  `<div class="topbar"><button class="icon" data-a="nav" data-to="${back}">‹</button><h2>${title}</h2>${TITLE_HELP[title] ? helpBtn(TITLE_HELP[title]) : ''}<div class="tb-extra">${extra}</div></div>`;
 
 // ---------- Gegenstände ----------
 export const rarityColor = (r) => (RARITY[r] || RARITY.normal).color;

@@ -122,11 +122,13 @@ export function skillLevel(inst, sets) {
   return Math.max(1, Math.round(lvl));
 }
 
-export function computeSkill(inst, gsets) {
+/** Eigene Boni einer Rune: Evolution, Glyphen, Merkmale und Stufen-Extras. */
+export function skillLocal(inst, gsets) {
   const def0 = inst.def || SKILLS[inst.id];
   const def = inst.evo ? evolvedDef(def0, inst.id, inst.evo) : def0;
   const evo = inst.evo ? evoOf(inst.id, inst.evo) : null;
   const local = new ModSet();
+  local.label = 'Glyphen, Merkmale & Runenstufe';
   if (evo) local.addAll(evo.mods);
   for (const sid of inst.sup || []) {
     if (!sid) continue;
@@ -140,6 +142,11 @@ export function computeSkill(inst, gsets) {
   const lvl = skillLevel(inst, [...gsets, local]);
   if (lvl >= 3 && def.lvl3) local.addAll(def.lvl3);
   if (lvl >= 5 && def.lvl5) local.addAll(def.lvl5);
+  return { def, evo, local, lvl };
+}
+
+export function computeSkill(inst, gsets) {
+  const { def, evo, local, lvl } = skillLocal(inst, gsets);
   const sets = [...gsets, local];
   const skip = def.tags.includes('minion') ? gsets.length : 0;
   const has = (k) => flatSum(sets, k) > 0;

@@ -90,14 +90,20 @@ on('storyClose', () => { closeModal(); app.nav('hub'); });
 
 // ===================================================================== Kacheln, Vorbereitung, Zusammenfassung
 export function factionTiles() {
-  if (!unlocked()) return '';
+  const t = factionTileMap();
+  return t.factions + t.story;
+}
+export function factionTileMap() {
+  if (!unlocked()) return { factions: `<button class="tile locked" data-a="nav" data-to="factions"><span class="ti">⚜</span>Die Häuser<small>nach dem ersten Run</small></button>`, story: `<button class="tile" data-a="nav" data-to="story"><span class="ti">📜</span>Die Sage<small>${STORY.filter((c) => c.when(save)).length}/${STORY.length} Kapitel</small></button>` };
   ensureContracts();
   const best = FACTION_IDS.map((id) => repRank(factionState(id).rep)).reduce((a, b) => a + b, 0);
   const canBuy = FACTION_IDS.some((id) => { const st = factionState(id); return OFFERS[id].some((o) => o.rank <= repRank(st.rep) && o.cost <= st.favor); });
   const fresh = newChapters().length;
   const open = STORY.filter((c) => c.when(save)).length;
-  return `<button class="tile" data-a="nav" data-to="factions"><span class="ti">⚜</span>Die Häuser${canBuy ? '<i class="dot"></i>' : ''}<small>${best}/15 Ruf-Stufen</small></button>
-    <button class="tile" data-a="nav" data-to="story"><span class="ti">📜</span>Die Sage${fresh ? '<i class="dot"></i>' : ''}<small>${open}/${STORY.length} Kapitel</small></button>`;
+  return {
+    factions: `<button class="tile" data-a="nav" data-to="factions"><span class="ti">⚜</span>Die Häuser${canBuy ? '<i class="dot"></i>' : ''}<small>${best}/15 Ruf-Stufen</small></button>`,
+    story: `<button class="tile" data-a="nav" data-to="story"><span class="ti">📜</span>Die Sage${fresh ? '<i class="dot"></i>' : ''}<small>${open}/${STORY.length} Kapitel</small></button>`,
+  };
 }
 export function giftsPanel() {
   const g = save.gifts || [];

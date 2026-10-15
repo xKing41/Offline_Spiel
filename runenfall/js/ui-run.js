@@ -1,12 +1,12 @@
 // Bildschirme innerhalb eines Runs.
 import { app } from './app.js';
-import { $, on, screen, modal, closeModal, toast, confirmBox, itemCard, glyphCard, skillInfo, skillStatsLine, bar, tagChips, itemTitle } from './ui.js';
+import { $, on, screen, modal, closeModal, toast, confirmBox, itemCard, glyphCard, skillInfo, skillStatsLine, bar, tagChips, itemTitle, helpBtn } from './ui.js';
 import { esc, fmt, fmtV } from './util.js';
 import { save, persist, accountLevel } from './save.js';
 import { CLASSES, BOONS, BOON_RARITY, ACTS, ASC_MODS, ASCENDANCIES, MUTATORS } from './data/content.js';
 import { SKILLS, SUPPORTS, supportFits, catTags, MAX_SKILL_LVL } from './data/skills.js';
 import { SLOTS, SLOT_NAME, RARITY, canCraft, itemName } from './data/items.js';
-import { ELEM, modText } from './data/stats.js';
+import { modText } from './data/stats.js';
 import {
   snapshot, boonMods, reachable, NODE_TYPES, LAYERS, xpNeed, rollBoons, applyChoice, genShop, forge, forgeCost, UQ_MAX,
   sellValue, socket, unsocket, equip, sell, applyEvent, pickEvent, priceMult, genAbyssChoices, actInfo, itemLevel, addItem, atlasHas,
@@ -25,6 +25,7 @@ import { coach } from './coach.js';
 import { analysisHtml, analysisTop } from './analysis.js';
 import { showTowerRun, showRushRun, showHuntRun, modeWhere, resWhere } from './ui-modes.js';
 import { huntTile } from './data/modes.js';
+import { sheetHtml, effectsHtml } from './ui-sheet.js';
 
 const R = () => save.run;
 const traitLines = (trs) => (trs || []).filter((t) => RUNE_TRAITS[t]).length
@@ -37,9 +38,9 @@ export function runHeader() {
   const A = actInfo(run);
   const where = run.mode === 'abyss' ? `Abgrund · Ebene ${run.floor}` : modeWhere(run) || `${A.sub} · ${A.name}`;
   const asc = run.ascend ? ` · ${ASCENDANCIES[run.ascend].name}` : '';
-  const proph = run.mutators && run.mutators.length ? ` · ✧${run.mutators.length}` : '';
+  const proph = run.mutators && run.mutators.length ? ` · <span class="fxlink" data-a="runFx">✧${run.mutators.length}</span>` : '';
   return `<div class="rhead">
-    <div class="rh1"><b style="color:${CLASSES[run.cls].color}">${CLASSES[run.cls].glyph} ${CLASSES[run.cls].name}</b><small>${where}${run.asc ? ` · Höhe ${run.asc}` : ''}${asc}${proph}${run.shrine ? ` · <span class="up">Schrein (${run.shrine.fights})</span>` : ''}</small></div>
+    <div class="rh1"><b style="color:${CLASSES[run.cls].color}">${CLASSES[run.cls].glyph} ${CLASSES[run.cls].name}</b><small>${where}${run.asc ? ` · Höhe ${run.asc}` : ''}${asc}${proph}${run.shrine ? ` · <span class="up fxlink" data-a="runFx">Schrein (${run.shrine.fights})</span>` : ''}</small></div>
     <div class="rh2">${bar(run.hp, P.maxLife, 'hp')}<div class="rstats"><span>Stufe <b>${run.lvl}</b></span><span class="gold">● ${fmt(run.gold)}</span></div></div>
     <div class="rh3"><button class="btn small" data-a="build">⚒ Build</button><button class="btn small ghost" data-a="nav" data-to="tree">✶ Karte</button><button class="btn small ghost" data-a="runMenu">☰</button></div></div>`;
 }
@@ -79,7 +80,7 @@ export function showMap() {
     rows.push(`<div class="mrow">${cells}</div>`);
   }
   screen(`${runHeader()}<div class="map">${rows.join('')}</div>
-    <p class="muted small center">Wähle deinen Weg. Eliten sind gefährlich, lassen aber bessere Beute fallen.</p>`, 'runscreen');
+    <p class="muted small center">Wähle deinen Weg. Eliten sind gefährlich, lassen aber bessere Beute fallen. ${helpBtn('mapicons')}</p>`, 'runscreen');
   requestAnimationFrame(() => drawMapLines(run));
   setTimeout(() => { const c = document.querySelector('.mnode.can'); if (c) c.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 50);
 }
@@ -172,15 +173,15 @@ export function showBuild(back = 'map') {
   const run = R();
   coach('build');
   const snap = snapshot(run);
-  const tabs = [['skills', 'Runen'], ['gear', 'Ausrüstung'], ['sheet', 'Werte'], ['boons', 'Segen'], ['an', 'Analyse']]
+  const tabs = [['skills', 'Runen'], ['gear', 'Ausrüstung'], ['sheet', 'Werte'], ['boons', 'Effekte'], ['an', 'Analyse']]
     .map(([k, n]) => `<button class="${buildTab === k ? 'on' : ''}" data-a="btab" data-t="${k}">${n}</button>`).join('');
   let body = '';
   if (buildTab === 'skills') body = skillsTab(run, snap);
   else if (buildTab === 'gear') body = gearTab(run);
-  else if (buildTab === 'sheet') body = sheetTab(run, snap);
+  else if (buildTab === 'sheet') body = sheetHtml(run, snap);
   else if (buildTab === 'an') body = anTab(run);
-  else body = boonsTab(run);
-  screen(`<div class="topbar"><button class="icon" data-a="buildBack">‹</button><h2>Build</h2><div class="tb-extra"><span class="gold">● ${fmt(run.gold)}</span></div></div>
+  else body = effectsHtml(run);
+  screen(`<div class="topbar"><button class="icon" data-a="buildBack">‹</button><h2>Build</h2>${helpBtn({ skills: 'runes', gear: 'gear', sheet: 'statsource', boons: 'effects', an: 'analysis' }[buildTab] || 'runes')}<div class="tb-extra"><span class="gold">● ${fmt(run.gold)}</span></div></div>
     <div class="pad"><div class="seg tabs5">${tabs}</div>${body}</div>`, 'runscreen');
   buildBackTo = back;
 }
@@ -188,6 +189,8 @@ let buildBackTo = 'map';
 on('build', () => showBuild('map'));
 on('buildBack', () => { glyphPick = null; if (buildBackTo === 'combat') return app.pauseMenu(); if (buildBackTo === 'shop') showShop(false); else if (buildBackTo === 'forge') showForge(); else showMap(); });
 on('btab', (d) => { buildTab = d.t; glyphPick = null; showBuild(buildBackTo); });
+// Prophezeiungen/Schrein in der Kopfzeile antippen → aktive Effekte
+on('runFx', () => { buildTab = 'boons'; glyphPick = null; showBuild('map'); });
 
 function skillsTab(run, snap) {
   const skills = run.skills.map((sk, i) => {
@@ -295,23 +298,6 @@ on('bagSel', (d) => { gearSel = gearSel === Number(d.i) ? null : Number(d.i); sh
 on('doEquip', () => { equip(R(), gearSel); gearSel = null; persist(); sfx.loot(); showBuild(buildBackTo); });
 on('doSell', () => { const v = sell(R(), gearSel); gearSel = null; persist(); sfx.gold(); toast(`+${v} Gold`); showBuild(buildBackTo); });
 
-function sheetTab(run, snap) {
-  const P = snap.P;
-  const row = (k, v) => `<div class="srow"><span>${k}</span><b>${v}</b></div>`;
-  const res = ['fire', 'cold', 'light', 'chaos'].map((t) => `<span style="color:${ELEM[t].color}">${ELEM[t].name} ${Math.round(P.res[t])}%</span>`).join(' · ');
-  const total = snap.skills.reduce((s, S) => s + S.dps, 0);
-  const spec = Object.keys(P.spec).length ? `<div class="panel"><h3>Besondere Effekte</h3><ul class="mods">${Object.entries(P.spec).map(([k, v]) => `<li>${esc(modText({ s: k, v }))}</li>`).join('')}</ul></div>` : '';
-  return `<div class="panel"><h3>Angriff</h3>${row('Geschätzter Gesamtschaden/s', `<b class="dps">${fmt(total)}</b>`)}
-    ${snap.skills.map((S) => row(esc(S.def.name), fmt(S.dps) + '/s')).join('')}</div>
-    <div class="panel"><h3>Verteidigung</h3>${row('Leben', `${fmt(run.hp)} / ${fmt(P.maxLife)}`)}${row('Barriere', fmt(P.maxBarrier))}
-    ${row('Rüstung', fmt(P.armor))}${row('Ausweichwert', `${fmt(P.evasion)} (${Math.round(Math.min(75, (P.evasion / (P.evasion + 600)) * 100))}%)`)}
-    ${P.dodge ? row('Ausweichchance (Akrobatik)', P.dodge + '%') : ''}
-    ${row('Regeneration', fmtV(P.regen) + '/s')}${row('Widerstände', res)}</div>
-    <div class="panel"><h3>Sonstiges</h3>${row('Bewegungstempo', Math.round((P.move / 155) * 100) + '%')}${row('Aufsammelradius', Math.round(P.magnet))}
-    ${row('Erfahrung', '+' + Math.round((P.xpMult - 1) * 100) + '%')}${row('Gegenstandsseltenheit', '+' + Math.round(P.luck) + '%')}
-    ${row('Run-Erfahrung', `${fmt(run.xp)} / ${fmt(xpNeed(run.lvl))}`)}</div>${spec}`;
-}
-
 function anTab(run) {
   const seg = `<div class="seg small"><button class="${anScope === 'run' ? 'on' : ''}" data-a="anScope" data-s="run">Ganzer Run</button><button class="${anScope === 'last' ? 'on' : ''}" data-a="anScope" data-s="last">Letzter Kampf</button></div>`;
   const body = anScope === 'last' ? (run.lastAn ? analysisHtml(run.lastAn.an, run.lastAn.t, run) : '<p class="muted small center">Noch kein Kampf.</p>')
@@ -320,13 +306,6 @@ function anTab(run) {
 }
 let anScope = 'run';
 on('anScope', (d) => { anScope = d.s; showBuild(buildBackTo); });
-
-function boonsTab(run) {
-  if (!run.boons.length && !run.runMods.length) return '<p class="muted center">Noch keine Segen. Du erhältst sie beim Stufenaufstieg.</p>';
-  const list = run.boons.map((b) => `<li style="color:${BOON_RARITY[b.r].color}">${boonMods(b).map(modText).map(esc).join(', ')}</li>`).join('');
-  const ev = run.runMods.length ? `<h3>Aus Ereignissen</h3><ul class="mods">${run.runMods.map((m) => `<li>${esc(modText(m))}</li>`).join('')}</ul>` : '';
-  return `<div class="panel"><ul class="mods">${list}</ul>${ev}</div>`;
-}
 
 // ===================================================================== Stufenaufstieg
 let lvlChoices = null;
@@ -502,7 +481,7 @@ export function showForge() {
     }
     detail = itemCard(it, { actions: acts.join(''), affixAction: canCraft(it) && it.affixes.length >= 2 ? 'fLock' : null, lockIdx: canCraft(it) ? forgeLock : -1 });
   }
-  screen(`${runHeader()}<div class="pad"><h2>⚒ Schmiede</h2><p class="muted small">Gegenstandsstufe ${it ? it.ilvl : '–'} begrenzt die höchste erreichbare Affix-Stufe.</p>
+  screen(`${runHeader()}<div class="pad"><h2>⚒ Schmiede ${helpBtn('crafting')}</h2><p class="muted small">Gegenstandsstufe ${it ? it.ilvl : '–'} begrenzt die höchste erreichbare Affix-Stufe.</p>
     <div class="bag">${list || '<p class="muted">Nichts zu schmieden.</p>'}</div>${detail}${grindPanel(run)}
     <button class="btn primary" data-a="leave">Weiterziehen ›</button></div>`, 'runscreen');
 }
