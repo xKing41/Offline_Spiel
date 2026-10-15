@@ -115,7 +115,7 @@ export const ARTICLES = [
     'Der Keystone **Sternenseele** setzt dein Leben auf 1, gibt dir dafür eine riesige Barriere.',
   ], see: ['life', 'keystones'] },
   { id: 'heal', cat: 'def', title: 'Heilung zwischen Kämpfen', text: [
-    'Nach jedem gewonnenen Kampf heilst du **20%** deines Lebens (mehr mit dem Altar-Segen „Rastplatz“, weniger auf hohen Sternenhöhen). Nach einem Boss wirst du voll geheilt.',
+    'Nach jedem gewonnenen Kampf heilst du **20%** deines Lebens (mehr mit dem Altar-Segen „Rastplatz“, weniger auf hohen Sternenhöhen). Nach einem Boss wirst du voll geheilt – ab Sternenhöhe 16 nur noch um die Hälfte.',
     'Das **Lager** heilt 60% – oder du meditierst (Rune +1) oder schnitzt eine Glyphe. Die Prophezeiung **Hungersnot** verbietet die Heilung nach Kämpfen.',
   ], see: ['life', 'mapicons'] },
 
@@ -208,9 +208,24 @@ export const ARTICLES = [
     'Nach dem ersten Bosssieg kannst du im Kodex **Aufstiegsklassen** freischalten – zwei pro Klasse mit je 5 Stufen. Vor dem Run wählst du eine aus.',
   ], list: 'classes', see: ['codex', 'tree'] },
   { id: 'ascension', cat: 'meta', title: 'Sternenhöhe', text: [
-    'Jeder Feldzugssieg schaltet die nächste **Sternenhöhe** frei – unendlich viele. Pro Höhe haben Gegner **12% mehr Leben** und **7% mehr Schaden** (wächst aufeinander auf), dafür gibt es **25% mehr Sternenstaub** und mehr Konto-Erfahrung.',
-    'Bestimmte Höhen fügen dauerhafte Erschwernisse hinzu:',
-  ], list: 'ascMods', see: ['mutators', 'loop'] },
+    'Jede Klasse hat ihre **eigene Leiter**: Ein Feldzugssieg mit dieser Klasse schaltet ihre nächste **Sternenhöhe** frei. Pro Höhe haben Gegner **12% mehr Leben** und **7% mehr Schaden** (wächst aufeinander auf), dafür gibt es **25% mehr Sternenstaub** und mehr Konto-Erfahrung.',
+    'Bis **Höhe 20** bringt jede Höhe eine **neue Regel** – mehr Eliten, schnellere Geschosse, teurere Händler, regenerierende Gegner, eine Segen-Wahl weniger, rasende Bosse. Danach wird es endlos stärker.',
+    'Für die Höhen **5, 10, 15 und 20** jeder Klasse gibt es Erfolge mit Sternpunkten. Das Spiel merkt sich die zuletzt gewählte Höhe.',
+  ], list: 'ascMods', see: ['classes', 'deeds', 'mutators'] },
+  { id: 'fusion', cat: 'build', title: 'Runen verschmelzen & Echos', text: [
+    'Im Build kannst du mit **⟁ Verschmelzen** eine Rune in eine andere übergehen lassen (kostet Gold). Die verschmolzene Rune wird zum **Echo**: Trifft die Hauptrune, löst das Echo **am Trefferort** aus – ein Feuerball-Treffer zündet eine Frostnova, ein Pfeil ruft einen Meteor, eine Kette entlädt sich aus einer Giftwolke.',
+    'Echos behalten Stufe, Glyphen, Merkmale und Evolution. Jede Rune trägt bis zu **2 Echos**, und Echos können **selbst Echos tragen** – Feuerball → Frostnova → Kettenblitz. Wie tief du verschachteln darfst, schalten **Taten** frei (Ebene 2 und 3), die Waffenkunst *Tiefe Resonanz* gibt eine weitere Ebene.',
+    'Wirkung je Ebene: 65%, 50%, 38%, 30%. Jedes Echo hat eine kurze **Abklingzeit** – schnelle Runen hallen öfter nach. Verschmelzen gibt einen **Runenplatz frei**: Du kannst danach eine weitere Rune aufnehmen.',
+    'Sind alle Plätze voll und dir wird eine neue Rune angeboten, kannst du sie **direkt als Echo verschmelzen** statt eine Rune zu ersetzen.',
+  ], see: ['weaponarts', 'runes', 'deeds'] },
+  { id: 'weaponarts', cat: 'build', title: 'Waffenkünste & Hybridwaffen', text: [
+    'Jede Waffenart hat eine **Waffenkunst**, die deine Echos verändert: *Echo-Fokus* (Zauberstab, Echos öfter), *Splitterschuss* (Bogen, Geschoss-Echos +1 Geschoss), *Wucht* (Streitaxt, größere Flächen-Echos), *Blutecho* (Ritualdolch, Echos auch beim Töten), *Ahnenruf* (Totemstab, Echo-Schaden), *Tiefe Resonanz* (Runenszepter, eine Echo-Ebene mehr).',
+    'Verschmilzt du in der Schmiede zwei **Waffen verschiedener Art**, vereint die Waffe ihre Künste – eine **Hybridwaffe** mit bis zu **3 Künsten**. Auch Hybride lassen sich weiter verschmelzen.',
+  ], see: ['fusion', 'crafting'] },
+  { id: 'deeds', cat: 'meta', title: 'Taten', text: [
+    'Manches schaltest du nicht mit Sternenstaub frei, sondern durch **Taten**: die **Meisterstücke** der Pfade (Stufe IV), die **Bund-Segen** und tiefere **Echo-Ebenen**.',
+    'Einen Bund-Segen entdeckst du, indem du einen Boss mit beiden Pfaden auf Stufe II besiegst – ab dann kann er erscheinen, oft schon im selben Run. Alle Taten findest du unter **Erfolge**.',
+  ], list: 'deeds', see: ['boons', 'fusion', 'ascension'] },
   { id: 'achievements', cat: 'meta', title: 'Erfolge', text: [
     'Über 150 Erfolge belohnen Meilensteine mit **Sternpunkten** und Sternenstaub. Die Erfolgs-Kachel zeigt, welche dir noch fehlen.',
   ], see: ['account'] },

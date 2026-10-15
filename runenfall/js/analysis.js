@@ -24,6 +24,7 @@ export function mergeAn(dst, src, time = 0) {
 }
 
 function skillLabel(run, key) {
+  if (key.startsWith('echo:')) { const id = key.slice(5); return `${SKILLS[id] ? SKILLS[id].name : id} (Echo)`; }
   if (key.startsWith('pet:')) { const id = key.slice(8); return PETS[id] ? `🐾 ${PETS[id].name}` : 'Gefährte'; }
   const inst = run && run.skills.find((s) => s.id === key);
   return inst ? runeName(inst) : SKILLS[key] ? SKILLS[key].name : key;

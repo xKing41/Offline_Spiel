@@ -2,6 +2,7 @@
 import { app } from './app.js';
 import { $, on, screen, hideScreen, modal, closeModal, modalOpen, toast, helpBtn } from './ui.js';
 import { fmt } from './util.js';
+import { checkDeeds } from './data/deeds.js';
 import { save, persist, checkAchievements, altarLvl } from './save.js';
 import { Combat } from './combat.js';
 import { TreeView } from './treeview.js';
@@ -9,7 +10,7 @@ import { BOSSES, PINNACLES } from './data/content.js';
 import { RARITY } from './data/items.js';
 import {
   newRun, snapshot, combatCfg, gainXp, xpNeed, rollRewards, healAfterFight, advanceAct, endRun, dropRelic, genAbyssChoices, priceMult,
-  dropJewel, completeAtlas, atlasHas, setCountMax, nemesisSlain, actInfo,
+  dropJewel, completeAtlas, atlasHas, setCountMax, nemesisSlain, actInfo, bossHeal,
 } from './run.js';
 import { showHub, showSetup, showTree, showCodex, showAltar, showRelics, showAch, showStats, showSettings } from './ui-meta.js';
 import { showAtlas, showPets } from './ui-endgame.js';
@@ -183,6 +184,7 @@ function fightWon(node, cfg) {
   if (run.shrine && run.shrine.fights > 0) { run.shrine.fights--; if (run.shrine.fights <= 0) run.shrine = null; }
   if (boss) {
     run.stats.bosses++;
+    checkDeeds(run, 'boss').forEach((d, i) => setTimeout(() => toast(`✦ Tat vollbracht! Freigeschaltet: ${d.reward}`), 300 + i * 1600));
     if (combat.stats.hitsTaken === 0) { save.stats.flawless = (save.stats.flawless || 0) + 1; run.stats.flawless = (run.stats.flawless || 0) + 1; }
     if (dropJewel(run, node.lair ? 1 : 0.25 + (atlasHas('aJewel') ? 0.2 : 0))) toast('⬢ Juwel gefunden!');
     if (Math.random() < 0.08 + (atlasHas('aEgg') ? 0.1 : 0)) { run.eggs = (run.eggs || 0) + 1; toast('🥚 Ein Gefährten-Ei!'); }
@@ -204,14 +206,14 @@ function fightWon(node, cfg) {
       if (run.mode === 'abyss') {
         run.floor++;
         run.abyssChoices = genAbyssChoices(run);
-        if (boss) run.hp = snapshot(run).P.maxLife;
+        if (boss) bossHeal(run);
         persist();
         return showMap();
       }
       if (run.mode === 'tower') {
         if (towerCampAfter(run.floor)) run.towerCamp = true;
         run.floor++;
-        if (boss) run.hp = snapshot(run).P.maxLife;
+        if (boss) bossHeal(run);
         persist();
         return showMap();
       }
@@ -365,25 +367,40 @@ if (cap && cap.Plugins && cap.Plugins.App) {
 
 checkAchievements();
 persist();
+
+/** Einmaliger Hinweis nach dem Umbau „Tiefe statt Breite“. */
+// Neuigkeiten seit dem letzten Öffnen (einmalig, neueste zuerst)
+const NEWS = [
+  { v: 1, title: 'Tiefe statt Breite', items: [
+    '<b>Segen-Pfade:</b> Zehn Pfade (Glut, Frost, Geschosse, Legion …) mit je vier Stufen. Ab Stufe II verändern sie, wie dein Build funktioniert. Bis zu drei Pfade pro Run.',
+    '<b>Runen gezielt:</b> Angebote passen zu deinen Pfaden.',
+    '<b>Sternenkarte neu:</b> kompakt, Keystones nach rund 20 Punkten erreichbar, Notables mit Bedingungen. Deine Punkte wurden zurückerstattet.',
+    '<b>Kontomacht neu:</b> Altar, Relikte, Juwelen, Sternenmacht, Häuser, Gefährten, Karten und Tränke geben weniger allgemeine Werte – deine Entscheidungen im Run zählen.',
+  ] },
+  { v: 2, title: 'Kombinationen ohne Ende', items: [
+    '<b>Runen verschmelzen:</b> Mit ⟁ im Build geht eine Rune als <b>Echo</b> in eine andere über und löst bei deren Treffern am Trefferort aus. Echos können selbst Echos tragen – Feuerball → Frostnova → Kettenblitz. Verschmelzen gibt einen Runenplatz frei.',
+    '<b>Waffenkünste:</b> Jede Waffenart verändert deine Echos. Verschmilzt du Waffen verschiedener Art, entsteht eine Hybridwaffe mit mehreren Künsten.',
+    '<b>Taten:</b> Meisterstücke (Pfad-Stufe IV), Bund-Segen und tiefere Echo-Ebenen schaltest du durch Taten frei – z. B. einen Boss mit zwei Pfaden auf Stufe II besiegen. Alle Taten stehen unter Erfolge.',
+    '<b>Sternenhöhe pro Klasse:</b> Jede Klasse hat ihre eigene Leiter mit 20 Höhen, jede Höhe bringt eine neue Regel. Meilensteine geben Sternpunkte.',
+  ] },
+];
+function updateNotice() {
+  const latest = NEWS[NEWS.length - 1].v;
+  if (save.newsSeen === undefined) save.newsSeen = save.metaNote ? 0 : save.stats.runs > 0 ? 1 : latest;
+  const show = NEWS.filter((n) => n.v > save.newsSeen).reverse();
+  if (!show.length) return;
+  const refund = (save.metaNote && save.metaNote.refund) || 0;
+  modal(`<h2 class="center">✦ Neu in Runenfall ✦</h2>
+    ${show.map((n) => `<h3>${n.title}</h3><ul class="mods updlist">${n.items.map((t) => `<li>${t}</li>`).join('')}</ul>`).join('')}
+    ${refund ? `<p class="small">Für Altar-Stufen über dem neuen Höchstwert hast du <b class="dust">✦ ${fmt(refund)}</b> Sternenstaub zurückbekommen.</p>` : ''}
+    <div class="row between helprow"><span class="small muted">Runen verschmelzen erklärt</span>${helpBtn('fusion')}</div>
+    <button class="btn primary" data-a="_close">Verstanden</button>`, 'helpmodal');
+  save.newsSeen = latest; save.metaNote = null; save.treeReset = false;
+  persist();
+}
+// Start: Sternwarte zeigen, dann Willkommen (neu) oder Neuigkeiten (bestehende Spielstände)
 dailyBackup();
 app.nav('hub');
 if (!welcome(() => app.nav('setup'))) updateNotice();
-
-/** Einmaliger Hinweis nach dem Umbau „Tiefe statt Breite“. */
-function updateNotice() {
-  if (!save.metaNote) return;
-  const refund = save.metaNote.refund || 0;
-  modal(`<h2 class="center">✦ Großes Update ✦</h2><p class="center small muted">Builds entstehen jetzt im Run – nicht mehr im Konto.</p>
-    <ul class="mods updlist">
-      <li><b>Segen-Pfade:</b> Zehn Pfade (Glut, Frost, Geschosse, Legion …) mit je vier Stufen. Ab Stufe II verändern sie, wie dein Build funktioniert. Bis zu drei Pfade pro Run, zwei Pfade auf Stufe II schalten Bund-Segen frei.</li>
-      <li><b>Runen gezielt:</b> Angebote passen zu deinen Pfaden. Sind alle Plätze voll, kannst du eine Rune austauschen.</li>
-      <li><b>Sternenkarte neu:</b> kompakt, Keystones nach rund 20 Punkten erreichbar, Notables mit Bedingungen. Deine Punkte wurden zurückerstattet.</li>
-      <li><b>Kontomacht neu:</b> Altar, Relikte, Juwelen, Sternenmacht, Häuser, Gefährten, Karten und Tränke geben weniger allgemeine Werte – deine Entscheidungen im Run zählen jetzt.${refund ? ` Für Altar-Stufen über dem neuen Höchstwert hast du <b class="dust">✦ ${fmt(refund)}</b> Sternenstaub zurückbekommen.` : ''}</li>
-    </ul>
-    <div class="row between helprow"><span class="small muted">Alles über Pfade</span>${helpBtn('boons')}</div>
-    <button class="btn primary" data-a="_close">Verstanden</button>`, 'helpmodal');
-  save.metaNote = null; save.treeReset = false;
-  persist();
-}
 requestAnimationFrame(frame);
 if (location.hash === '#debug') window.__rf = { app, save: () => save, combat, treeView, snapshot };

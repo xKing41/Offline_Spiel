@@ -54,6 +54,8 @@ function defaults() {
     relicEq: [],
     ach: {},
     ascUnlocked: 0,
+    ascCls: {},
+    unlocks: { done: {}, echoDepth: 0 },
     stats: {
       runs: 0, wins: {}, kills: 0, bossKills: { shepherd: 0, queen: 0, voidlord: 0 },
       maxAscWin: -1, maxAbyss: 0, maxHit: 0, maxRunLvl: 0, mythic: 0, keystone: 0,
@@ -83,6 +85,7 @@ function load() {
   try { s = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { s = null; }
   const oldSave = !!s && s.hints === undefined && s.stats && s.stats.runs > 0;
   const oldMeta = !!s && (s.metaV || 0) < 2;
+  const oldAsc = !!s && !s.ascCls;
   s = fill(s || {}, defaults());
   // Umbau „Tiefe statt Breite“: weniger allgemeine Kontomacht. Altar-Stufen über dem neuen Höchstwert
   // werden in Sternenstaub erstattet, Relikte und Juwelen auf die neuen Werte umgerechnet.
@@ -98,6 +101,8 @@ function load() {
     s.metaNote = { refund };
   }
   s.metaV = 2;
+  // Sternenhöhe pro Klasse: Klassen mit Siegen übernehmen die bisher erreichte Höhe
+  if (oldAsc) for (const c of Object.keys(CLASSES)) s.ascCls[c] = s.stats.wins && s.stats.wins[c] > 0 ? s.ascUnlocked || 0 : 0;
   // Bestehende Spieler kennen die Grundlagen schon: nur Hinweise zu neuen Systemen zeigen
   if (oldSave) for (const k of ['welcome', 'setup', 'map', 'move', 'orbs', 'levelup', 'rewards', 'build', 'glyph', 'boss', 'shop', 'forge', 'death', 'tree', 'codex', 'altar', 'relics', 'abyss', 'base', 'cards', 'nemesis', 'season', 'atlas', 'pets']) s.hints[k] = true;
   if (s.treeV !== TREE_VERSION) { s.alloc = {}; s.jewelSock = {}; s.mastery = {}; s.loadouts = {}; s.treeV = TREE_VERSION; s.treeReset = true; }

@@ -236,7 +236,8 @@ export const ELITE_AFFIXES = {
 };
 export const ELITE_IDS = Object.keys(ELITE_AFFIXES);
 
-// ---------- Sternenhöhe (unendliche Schwierigkeit) ----------
+// ---------- Sternenhöhe: eigene Leiter je Klasse, 20 Höhen mit je einer neuen Regel, danach endlos stärker ----------
+export const ASC_LADDER = 20;
 export const ASC_MODS = [
   { lvl: 1, text: 'Elite-Gegner haben einen zusätzlichen Affix', key: 'eliteAffix' },
   { lvl: 2, text: 'Gegner sind 10% schneller', key: 'fast' },
@@ -246,8 +247,18 @@ export const ASC_MODS = [
   { lvl: 6, text: '25% mehr Gegner', key: 'density' },
   { lvl: 7, text: 'Gegner explodieren beim Tod', key: 'explode' },
   { lvl: 8, text: 'Elite-Gegner erscheinen häufiger', key: 'elites' },
+  { lvl: 9, text: 'Händler und Schmiede sind 25% teurer', key: 'shops' },
   { lvl: 10, text: 'Gegnerische Geschosse sind 25% schneller', key: 'projSpeed' },
+  { lvl: 11, text: 'Elite-Gegner haben 30% mehr Leben', key: 'eliteHp' },
   { lvl: 12, text: 'Bosse haben 30% mehr Leben', key: 'bossHp' },
+  { lvl: 13, text: 'Gegner (außer Bossen) regenerieren 1% Leben pro Sekunde', key: 'regen' },
+  { lvl: 14, text: 'Beim Stufenaufstieg eine Segen-Wahl weniger', key: 'fewerChoices' },
+  { lvl: 15, text: 'Gegner verursachen 15% mehr Schaden', key: 'enemyDmg' },
+  { lvl: 16, text: 'Nach einem Boss heilst du nur noch um die Hälfte deines Lebens', key: 'bossHeal' },
+  { lvl: 17, text: 'Elite-Gegner haben einen weiteren Affix', key: 'eliteAffix2' },
+  { lvl: 18, text: 'Bosse greifen 20% schneller an', key: 'swiftBoss' },
+  { lvl: 19, text: 'Du beginnst jeden Run mit 15% weniger maximalem Leben', key: 'curse' },
+  { lvl: 20, text: 'Bosse sind rasend: 25% mehr Schaden', key: 'apex' },
 ];
 export const ascHas = (asc, key) => ASC_MODS.some((m) => m.key === key && asc >= m.lvl);
 export const ascHpMult = (asc) => Math.pow(1.12, asc);
@@ -775,6 +786,10 @@ export const ACHIEVEMENTS = [
   { id: 'tree6', name: 'Weltenwanderer', desc: 'Habe 150 Sterne in einer Klasse zugewiesen', reward: { points: 3 }, check: (s) => (s.stats.maxTreeNodes || 0) >= 150 },
   { id: 'pack', name: 'Sammelwut', desc: 'Öffne 25 Kartenpacks', reward: { dust: 500 }, check: (s) => (s.stats.packsOpened || 0) >= 25 },
 ];
+// Sternenhöhe pro Klasse: Meilensteine 5, 10, 15 und 20 für jede Klasse
+for (const [cid, c] of Object.entries(CLASSES)) for (const h of [5, 10, 15, 20]) {
+  ACHIEVEMENTS.push({ id: `ladder_${cid}_${h}`, name: `${c.name}: Sternenhöhe ${h}`, desc: `Gewinne einen Feldzug als ${c.name} auf Sternenhöhe ${h}`, reward: { points: h === 20 ? 2 : 1 }, check: (s) => ((s.ascCls && s.ascCls[cid]) || 0) > h });
+}
 
 // ---------- Aufstiegsklassen ----------
 // Je Klasse zwei Wege mit fünf Stufen. Stufen werden im Kodex mit Sternenstaub freigeschaltet;

@@ -3,6 +3,7 @@
 import { makeRng, pick, rand, randi, weighted, clamp, shuffle } from './util.js';
 import { SKILLS, SUPPORTS, supportFits, MAX_SKILLS, SOCKETS, MAX_SKILL_LVL } from './data/skills.js';
 import { BOONS, PATHS, PATH_IDS, MAX_PATHS, TIER_LVL, boonDef, pathTiers, LEGACY_BOONS, LEGACY_FIXED } from './data/boons.js';
+import { boonLocked } from './data/deeds.js';
 import { ACTS, ABYSS, BIOMES, BOSS_IDS, BOON_RARITY, EVENTS, ALTAR, CLASSES, ASCENDANCIES, MUTATORS, QUEST_TEMPLATES, ENEMIES, ascHas, ascHpMult, ascDmgMult } from './data/content.js';
 import { makeItem, makeRelic, SLOTS, itemMods, UNIQUES, craftReroll, craftAdd, craftUpgrade, canCraft, itemValue, craftLockReroll, craftFuse, craftCorrupt, craftUniqueUp, UQ_MAX } from './data/items.js';
 import { getTree, treeMods } from './data/tree.js';
@@ -46,7 +47,7 @@ function drawCards(run, n) {
   run.cards = run.cards || [];
   for (let i = 0; i < n && deck.length; i++) run.cards.push(deck.splice(Math.floor(Math.random() * deck.length), 1)[0]);
 }
-import { ModSet, computePlayer, computeSkill, flatSum, runeName } from './calc.js';
+import { ModSet, computePlayer, computeSkill, flatSum, runeName, ECHO_SLOTS, echoMaxDepth, echoTreeDepth } from './calc.js';
 import { save, persist, altarLvl, checkAchievements, accountLevel } from './save.js';
 
 export const LAYERS = 8;
@@ -101,6 +102,7 @@ export function newRun({ cls, asc = 0, mode = 'normal', ascend = null, mutators 
   const brng = makeRng(run.seed + 17);
   run.biomes = ACTS.map((a) => brng.pick(a.biomes));
   if (run.mutators.includes('glass')) run.runMods.push({ s: 'life', t: 'more', v: -30 });
+  if (ascHas(run.asc, 'curse')) run.runMods.push({ s: 'life', t: 'more', v: -15 });
   if (run.mutators.includes('poor')) run.runMods.push({ s: 'gold', t: 'more', v: -50 });
   run.skills[0].lvl += altarLvl('runelvl');
   if (atlasHas('aReroll')) run.rerolls += 2;
@@ -180,7 +182,8 @@ export function buildSets(run, opts = {}) {
     for (const c of run.cards || []) if (CARDS[c] && save.cards && save.cards[c]) extra.addAll(cardMods(c, save.cards[c]));
     sets.push(extra);
   }
-  sets.push(lab(new ModSet([...jewelSocketMods(run ? run.cls : opts.cls), ...paragonMods(), ...factionBonus(save.factions)]), 'Juwelen, Sternenmacht & Häuser'));
+  const deedMods = save.unlocks && save.unlocks.echoDepth ? [{ s: 'echoDepth', v: save.unlocks.echoDepth }] : [];
+  sets.push(lab(new ModSet([...jewelSocketMods(run ? run.cls : opts.cls), ...paragonMods(), ...factionBonus(save.factions), ...deedMods]), 'Juwelen, Sternenmacht, Häuser & Taten'));
   return sets;
 }
 
@@ -508,15 +511,16 @@ export function combatCfg(run, node) {
     bossId,
     duration: kind === 'boss' ? 0 : run.mode === 'tower' ? 26 + act * 3 : 34 + act * 4,
     hpMult: ascHpMult(asc) * (mu('titans') ? 1.5 : 1) * (mu('horde') ? 0.75 : 1) * (trial ? 1.25 : 1) * tut,
-    dmgMult: ascDmgMult(asc) * (mu('brutal') ? 1.4 : 1),
+    dmgMult: ascDmgMult(asc) * (mu('brutal') ? 1.4 : 1) * (ascHas(asc, 'enemyDmg') ? 1.15 : 1),
     asc,
     density: (1 + 0.08 * (act - 1)) * (ascHas(asc, 'density') ? 1.25 : 1) * (mu('horde') ? 1.6 : 1) * (tut < 1 ? 0.75 : 1),
-    eliteAffixes: Math.min(5, act + (ascHas(asc, 'eliteAffix') ? 1 : 0) + (mu('elites') ? 1 : 0) + (trial ? 1 : 0)),
+    eliteAffixes: Math.min(6, act + (ascHas(asc, 'eliteAffix') ? 1 : 0) + (ascHas(asc, 'eliteAffix2') ? 1 : 0) + (mu('elites') ? 1 : 0) + (trial ? 1 : 0)),
+    swiftBoss: ascHas(asc, 'swiftBoss'),
     champChance: ascHas(asc, 'elites') ? 0.6 : 0.3,
     extraElite: ascHas(asc, 'elites') || trial,
     allElite: mu('elites'),
     enemySpeed: mu('swift') ? 1.25 : 1,
-    bossRage: mu('bossrage'), bossHpMult: (mu('bossrage') ? 1.5 : 1) * (lair ? lair.hp : 1), bossDmgMult: lair ? lair.dmg : 1,
+    bossRage: mu('bossrage'), bossHpMult: (mu('bossrage') ? 1.5 : 1) * (lair ? lair.hp : 1), bossDmgMult: (lair ? lair.dmg : 1) * (ascHas(asc, 'apex') ? 1.25 : 1),
     volatileCorpses: mu('volatile'), meteors: mu('hazards'), hazard: A.hazard || null, eliteLoot: atlasHas('aElite'),
     xpMult: 1 + (act - 1) * 0.35,
     tint: A.tint, floorColor: A.floor, biome: A.biomeId, clsColor: CLASSES[run.cls].color,
@@ -552,7 +556,7 @@ export const pathFits = (run, pid, tags = skillTags(run)) => !PATHS[pid].tags.le
  */
 export function rollBoons(run) {
   const tags = skillTags(run);
-  const n = 3 + altarLvl('choice') - (run.mutators && run.mutators.includes('blind') ? 1 : 0);
+  const n = Math.max(2, 3 + altarLvl('choice') - (run.mutators && run.mutators.includes('blind') ? 1 : 0) - (ascHas(run.asc, 'fewerChoices') ? 1 : 0));
   const owned = new Set(run.boons.map((b) => b.id));
   const tiers = pathTiers(run);
   const started = Object.keys(tiers);
@@ -560,7 +564,7 @@ export function rollBoons(run) {
   const ok = (d) => !run.banned.includes(d.id);
   const cands = [];
   for (const d of BOONS) {
-    if (!ok(d)) continue;
+    if (!ok(d) || boonLocked(d)) continue;
     if (d.tier) {
       const cur = tiers[d.path] || 0;
       if (d.tier !== cur + 1 || run.lvl < TIER_LVL[d.tier]) continue;
@@ -629,6 +633,40 @@ export function replaceRune(run, idx, c) {
   archiveRune(inst);
 }
 export const replaceLvl = (inst) => Math.max(1, Math.floor(inst.lvl / 2));
+
+// ---------------------------------------------------------------- Runen verschmelzen (Echos)
+/** Kopie einer Rune als Echo – mit Stufe, Glyphen, Merkmalen, Evolution und eigenen Echos. */
+const asEcho = (inst) => ({ id: inst.id, lvl: inst.lvl, sup: [...(inst.sup || [])], traits: [...(inst.traits || [])], evo: inst.evo || null, echo: (inst.echo || []).map(asEcho) });
+export const fuseCost = (run) => Math.round(45 * priceMult(run) * (1 + 0.25 * (run.stats.fused || 0)));
+/** Darf `donor` (Runen-Instanz) in die Rune an Platz `hi` verschmolzen werden? Gibt null oder einen Grund zurück. */
+export function fuseBlock(run, hi, donor) {
+  const host = run.skills[hi];
+  if (!host || !donor || host === donor) return 'Ungültige Auswahl.';
+  if ((host.echo || []).length >= ECHO_SLOTS) return `${runeName(host)} hat schon ${ECHO_SLOTS} Echos.`;
+  const maxD = echoMaxDepth(buildSets(run));
+  if (1 + echoTreeDepth(donor) > maxD) return `Zu tief: Du kannst Echos bis Ebene ${maxD} verschachteln.`;
+  return null;
+}
+/** Verschmelzen: Die Spender-Rune geht als Echo in die Hauptrune über und gibt ihren Platz frei. */
+export function fuseRune(run, hi, di) {
+  const host = run.skills[hi], donor = run.skills[di];
+  if (fuseBlock(run, hi, donor)) return false;
+  host.echo = [...(host.echo || []), asEcho(donor)];
+  run.skills.splice(di, 1);
+  run.stats.fused = (run.stats.fused || 0) + 1;
+  save.stats.fusions = (save.stats.fusions || 0) + 1;
+  return true;
+}
+/** Eine neu angebotene Rune direkt als Echo verschmelzen (statt einen Platz zu belegen). */
+export function fuseNew(run, hi, c) {
+  const donor = { id: c.id, lvl: 1, sup: [null, null, null], traits: c.traits || [], echo: [] };
+  if (fuseBlock(run, hi, donor)) return false;
+  run.skills[hi].echo = [...(run.skills[hi].echo || []), asEcho(donor)];
+  archiveRune(donor);
+  run.stats.fused = (run.stats.fused || 0) + 1;
+  save.stats.fusions = (save.stats.fusions || 0) + 1;
+  return true;
+}
 
 // ---------------------------------------------------------------- Belohnungen
 export function randomGlyph(run) {
@@ -708,7 +746,7 @@ export function addItem(run, item) {
 }
 
 // ---------------------------------------------------------------- Händler & Schmiede
-export const priceMult = (run) => (run.mode === 'abyss' ? 1 + run.floor * 0.12 : 1 + effAct(run) * 0.6) * (1 - 0.08 * altarLvl('discount'));
+export const priceMult = (run) => (run.mode === 'abyss' ? 1 + run.floor * 0.12 : 1 + effAct(run) * 0.6) * (1 - 0.08 * altarLvl('discount')) * (ascHas(run.asc, 'shops') ? 1.25 : 1);
 export function genShop(run) {
   const ilvl = itemLevel(run), pm = priceMult(run), luck = snapshot(run).P.luck;
   const offers = [];
@@ -913,13 +951,18 @@ export function advanceAct(run) {
   drawCards(run, 2);
   if (run.act === ACTS.length && run.atlas && !run.atlasDone) {
     run.map = genMap(run, run.act);
-    run.hp = snapshot(run).P.maxLife;
+    bossHeal(run);
     return false;
   }
   if (run.act >= ACTS.length) return true;
   run.map = genMap(run, run.act);
-  run.hp = snapshot(run).P.maxLife;
+  bossHeal(run);
   return false;
+}
+/** Heilung nach einem Boss: voll – ab Sternenhöhe 16 nur um die Hälfte. */
+export function bossHeal(run) {
+  const max = snapshot(run).P.maxLife;
+  run.hp = ascHas(run.asc, 'bossHeal') ? Math.min(max, run.hp + max * 0.5) : max;
 }
 
 // ---------------------------------------------------------------- Ende
@@ -962,6 +1005,8 @@ export function endRun(run, outcome) {
     st.wins[run.cls] = (st.wins[run.cls] || 0) + 1;
     st.maxAscWin = Math.max(st.maxAscWin, run.asc);
     save.ascUnlocked = Math.max(save.ascUnlocked, run.asc + 1);
+    save.ascCls = save.ascCls || {};
+    save.ascCls[run.cls] = Math.max(save.ascCls[run.cls] || 0, run.asc + 1);
   }
   if (run.mode === 'abyss') st.maxAbyss = Math.max(st.maxAbyss, run.floor - (outcome === 'win' ? 0 : 1));
   if (campaignWin) {

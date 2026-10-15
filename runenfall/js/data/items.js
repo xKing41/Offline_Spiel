@@ -19,6 +19,21 @@ export const RARITY = {
 };
 
 // g = grammatisches Geschlecht (für "Lodernder Zauberstab" / "Lodernde Robe" / "Lodernes Amulett")
+// Waffenkünste: Jede Waffenart verändert, wie Echos (verschmolzene Runen) wirken.
+// Verschmilzt man Waffen verschiedener Art, trägt die Waffe mehrere Künste (bis zu 3).
+export const WEAPON_ARTS = {
+  fokus: { name: 'Echo-Fokus', base: 'wand', mods: [{ s: 'echoFreq', t: 'inc', v: 50 }] },
+  splitter: { name: 'Splitterschuss', base: 'bow', mods: [{ s: 'spec_echoProj', v: 2 }] },
+  wucht: { name: 'Wucht', base: 'axe', mods: [{ s: 'spec_echoArea', v: 40 }] },
+  blut: { name: 'Blutecho', base: 'dagger', mods: [{ s: 'spec_echoKill', v: 1 }] },
+  ahnen: { name: 'Ahnenruf', base: 'totem', mods: [{ s: 'echoDmg', t: 'inc', v: 40 }] },
+  tiefe: { name: 'Tiefe Resonanz', base: 'scepter', mods: [{ s: 'echoDepth', v: 1 }] },
+};
+export const MAX_ARTS = 3;
+const ART_OF = Object.fromEntries(Object.entries(WEAPON_ARTS).map(([k, a]) => [a.base, k]));
+/** Waffenkünste eines Gegenstands (nur Waffen). */
+export const itemArts = (item) => (item && item.slot === 'weapon' ? item.arts || (ART_OF[item.base] ? [ART_OF[item.base]] : []) : []);
+
 export const BASES = {
   wand: { slot: 'weapon', name: 'Zauberstab', g: 'm', imp: [{ s: 'dmg_spell', t: 'inc', v: 20 }] },
   bow: { slot: 'weapon', name: 'Kriegsbogen', g: 'm', imp: [{ s: 'dmg_proj', t: 'inc', v: 18 }] },
@@ -623,7 +638,8 @@ export const uniqueMods = (item) => {
 };
 export function itemMods(item) {
   const base = itemModsRaw(item);
-  return item.cmods && item.cmods.length ? [...base, ...item.cmods] : base;
+  const arts = itemArts(item).flatMap((a) => (WEAPON_ARTS[a] ? WEAPON_ARTS[a].mods : []));
+  return [...base, ...arts, ...(item.cmods || [])];
 }
 function itemModsRaw(item) {
   if (item.rarity === 'unique') return uniqueMods(item);
@@ -771,6 +787,8 @@ export function craftFuse(a, b) {
   }
   a.affixes = out;
   a.ilvl = Math.max(a.ilvl, b.ilvl);
+  // Waffen verschiedener Art vereinen ihre Waffenkünste
+  if (a.slot === 'weapon') { const arts = [...new Set([...itemArts(a), ...itemArts(b)])].slice(0, MAX_ARTS); if (arts.length) a.arts = arts; }
   if (out.length > 2 && a.rarity !== 'rare') { a.rarity = 'rare'; a.title = rareTitle(); }
   else if (out.length && a.rarity === 'normal') a.rarity = 'magic';
   return true;

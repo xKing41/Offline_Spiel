@@ -1,4 +1,5 @@
 // Übersicht: was du jetzt tun kannst, wie weit du überall bist, nächste Ziele und Rekorde.
+import { DEEDS, deedDone } from './data/deeds.js';
 import { app } from './app.js';
 import { on, screen, topbar, bar } from './ui.js';
 import { esc, fmt, clock } from './util.js';
@@ -112,8 +113,12 @@ function goals() {
   out.push(['Kontostufe ' + (acc.level + 1), `${fmt(acc.need - acc.cur)} Erfahrung fehlen`, bar(acc.cur, acc.need, 'xp')]);
   const cls = Object.entries(CLASSES).filter(([k]) => !save.unlockedCls.includes(k)).sort((x, y) => x[1].unlock - y[1].unlock)[0];
   if (cls) out.push([`Klasse ${cls[1].name}`, `✦ ${fmt(save.dust)} / ${fmt(cls[1].unlock)}`, bar(save.dust, cls[1].unlock, '')]);
-  out.push([`Sternenhöhe ${save.ascUnlocked + 1}`, `Gewinne einen Feldzug auf Höhe ${save.ascUnlocked}`, '']);
+  { const c = save.lastCls && CLASSES[save.lastCls] ? save.lastCls : 'pyro', h = (save.ascCls && save.ascCls[c]) || 0;
+    out.push([`${CLASSES[c].name}: Sternenhöhe ${h + 1}`, `Gewinne einen Feldzug als ${CLASSES[c].name} auf Höhe ${h}`, bar(Math.min(h, 20), 20, '')]); }
   for (const id of MODE_IDS) { const l = modeLock(id, save); if (l) out.push([`Modus ${MODE_INFO[id].name}`, l, '']); }
+  // Offene Taten: zuerst Echos, dann Meisterstücke, dann Bünde
+  DEEDS.filter((d) => !deedDone(d.id)).sort((a, b) => ({ echo: 0, cap: 1, bund: 2 }[a.kind] - { echo: 0, cap: 1, bund: 2 }[b.kind])).slice(0, 3)
+    .forEach((d) => out.push([`✦ ${d.reward}`, d.text, '']));
   if (save.stats.runs >= 1) {
     const next = FACTION_IDS.map((id) => { const r = factionState(id).rep, k = repRank(r); return k < REP_RANKS.length - 1 ? { id, k, r, need: REP_RANKS[k + 1].need } : null; }).filter(Boolean).sort((a, b) => (a.need - a.r) - (b.need - b.r))[0];
     if (next) out.push([`${FACTIONS[next.id].short}: ${REP_RANKS[next.k + 1].name}`, `Ruf ${fmt(next.r)} / ${fmt(next.need)}`, bar(next.r - REP_RANKS[next.k].need, next.need - REP_RANKS[next.k].need, 'rep')]);

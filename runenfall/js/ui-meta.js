@@ -1,9 +1,10 @@
 // Meta-Bildschirme außerhalb eines Runs.
+import { DEEDS, deedDone, deedsDoneCount } from './data/deeds.js';
 import { app } from './app.js';
 import { $, on, screen, hideScreen, modal, closeModal, toast, confirmBox, topbar, itemCard, glyphCard, skillInfo, bar, tagChips, helpBtn } from './ui.js';
 import { esc, fmt, fmtV, clock } from './util.js';
 import { save, persist, accountLevel, totalPoints, spentPoints, altarLvl, relicSlots, checkAchievements, exportSave, importSave, resetSave, achievementPoints, xpForLevel } from './save.js';
-import { CLASSES, ALTAR, altarCost, ACHIEVEMENTS, ASC_MODS, BOSSES, ENEMIES, ASCENDANCIES, ASCEND_COST, MUTATORS } from './data/content.js';
+import { CLASSES, ALTAR, altarCost, ACHIEVEMENTS, ASC_MODS, ASC_LADDER, BOSSES, ENEMIES, ASCENDANCIES, ASCEND_COST, MUTATORS } from './data/content.js';
 import { SKILLS, SUPPORTS, catTags } from './data/skills.js';
 import { UNIQUES, BASES, RARITY, relicRefine, relicRefineCost, relicSalvage, RELIC_TIERS } from './data/items.js';
 import { getTree, findPath, removalSet, KEYSTONES } from './data/tree.js';
@@ -123,7 +124,7 @@ let setup = { cls: null, asc: null, mode: 'normal', ascend: null, mutators: [] }
 export function showSetup() {
   if (!setup.cls || !save.unlockedCls.includes(setup.cls)) setup.cls = save.unlockedCls.includes(save.lastCls) ? save.lastCls : save.unlockedCls[0];
   if (setup.asc === null) setup.asc = save.lastAsc || 0; // zuletzt gewählte Sternenhöhe merken
-  setup.asc = Math.min(setup.asc, save.ascUnlocked);
+  setup.asc = Math.min(setup.asc, ascOf(setup.cls));
   if (app.setupMode) { setup.mode = app.setupMode; app.setupMode = null; }
   if (!setup.mode || modeLock(setup.mode, save)) setup.mode = 'normal';
   const cards = Object.entries(CLASSES).map(([id, c]) => {
@@ -131,10 +132,11 @@ export function showSetup() {
     const pts = spentPoints(id);
     return `<button class="ccard ${setup.cls === id ? 'sel' : ''} ${unlocked ? '' : 'locked'}" style="--cc:${c.color}" data-a="${unlocked ? 'pickCls' : 'buyCls'}" data-id="${id}">
       <span class="cg">${c.glyph}</span><b>${c.name}</b>
-      <small>${unlocked ? `${pts} Sternpunkte · Siege: ${save.stats.wins[id] || 0}` : `🔒 ✦ ${fmt(c.unlock)}`}</small></button>`;
+      <small>${unlocked ? `${pts} Sternpunkte · Höhe ${Math.min(ascOf(id), ASC_LADDER)}/${ASC_LADDER}` : `🔒 ✦ ${fmt(c.unlock)}`}</small></button>`;
   }).join('');
   const c = CLASSES[setup.cls];
   const asc = ASC_MODS.filter((m) => m.lvl <= setup.asc).map((m) => `<li>${m.text}</li>`).join('');
+  const top = ascOf(setup.cls), nextRule = ASC_MODS.find((m) => m.lvl === setup.asc + 1);
   screen(`${topbar('Neuer Run')}
     <div class="pad">
       <div class="cgrid">${cards}</div>
@@ -147,11 +149,12 @@ export function showSetup() {
       <div class="panel">
         <h3>Modus</h3>
         ${modeGrid(setup)}
-        <h3>Sternenhöhe ${setup.asc}</h3>
+        <h3>Sternenhöhe ${setup.asc} <small class="muted">· ${esc(c.name)}: ${Math.min(top, ASC_LADDER)}/${ASC_LADDER} erklommen</small></h3>
         <div class="stepper"><button class="icon" data-a="asc" data-d="-1">−</button>
-          <div class="ascbar">${Array.from({ length: Math.max(1, save.ascUnlocked + 1) }, (_, i) => `<i class="${i <= setup.asc ? 'on' : ''}"></i>`).join('')}</div>
+          <div class="ascbar">${Array.from({ length: Math.max(ASC_LADDER, top + 1) }, (_, i) => `<i class="${i <= setup.asc ? 'on' : i < top ? 'won' : i === top ? 'open' : ''}"></i>`).join('')}</div>
           <button class="icon" data-a="asc" data-d="1">+</button></div>
-        <p class="small muted">Gegner +${Math.round((Math.pow(1.12, setup.asc) - 1) * 100)}% Leben, +${Math.round((Math.pow(1.07, setup.asc) - 1) * 100)}% Schaden · Belohnungen +${setup.asc * 25}% Staub. Gewinne, um die nächste Höhe freizuschalten (unendlich).</p>
+        <p class="small muted">Gegner +${Math.round((Math.pow(1.12, setup.asc) - 1) * 100)}% Leben, +${Math.round((Math.pow(1.07, setup.asc) - 1) * 100)}% Schaden · Belohnungen +${setup.asc * 25}% Staub. Jede Klasse hat ihre eigene Leiter: Gewinne mit ${esc(c.name)}, um die nächste Höhe freizuschalten. Bis Höhe ${ASC_LADDER} bringt jede Höhe eine neue Regel, danach wird es endlos stärker.</p>
+        ${nextRule && setup.asc < top ? '' : nextRule ? `<p class="small">Nächste Regel (Höhe ${nextRule.lvl}): ${esc(nextRule.text)}</p>` : ''}
         ${asc ? `<ul class="asclist">${asc}</ul>` : ''}
       </div>
       ${modePanel(setup)}
@@ -213,7 +216,9 @@ on('huntTier', (d) => {
   setup.tier = Math.max(1, Math.min(max, (setup.tier || 1) + Number(d.d)));
   const y = document.getElementById('ui').scrollTop; showSetup(); document.getElementById('ui').scrollTop = y;
 });
-on('asc', (d) => { setup.asc = Math.max(0, Math.min(save.ascUnlocked, setup.asc + Number(d.d))); showSetup(); });
+on('asc', (d) => { setup.asc = Math.max(0, Math.min(ascOf(setup.cls), setup.asc + Number(d.d))); showSetup(); });
+/** Freigeschaltete Sternenhöhe einer Klasse. */
+const ascOf = (cls) => (save.ascCls && save.ascCls[cls]) || 0;
 on('go', () => {
   save.lastCls = setup.cls;
   save.lastAsc = setup.asc;
@@ -614,7 +619,10 @@ export function showAch() {
     const rw = a.reward.points ? `+${a.reward.points} Sternpunkt${a.reward.points > 1 ? 'e' : ''}` : `+✦ ${a.reward.dust}`;
     return `<div class="ach ${done ? 'done' : ''}"><span class="ai">${done ? '♛' : '○'}</span><div><b>${esc(a.name)}</b><small>${esc(a.desc)}</small></div><em>${rw}</em></div>`;
   }).join('');
-  screen(`${topbar('Erfolge', 'hub', `<small>${achievementPoints()} Punkte</small>`)}<div class="pad">${list}</div>`);
+  const deeds = DEEDS.map((d) => { const done = deedDone(d.id); return `<div class="ach deed ${done ? 'done' : ''}"><span class="ai">${done ? '✦' : '🔒'}</span><div><b>${esc(d.reward)}</b><small>${esc(d.text)}</small></div></div>`; }).join('');
+  screen(`${topbar('Erfolge', 'hub', `<small>${achievementPoints()} Punkte</small>`)}<div class="pad">
+    <div class="panel"><h3>✦ Taten <small class="muted">${deedsDoneCount()}/${DEEDS.length}</small></h3><p class="small muted">Taten schalten Neues frei: Meisterstücke der Pfade, Bund-Segen und tiefere Echos.</p>${deeds}</div>
+    <h3>Erfolge</h3>${list}</div>`);
 }
 
 // ===================================================================== Chronik

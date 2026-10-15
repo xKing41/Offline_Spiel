@@ -148,7 +148,20 @@ export function skillLocal(inst, gsets) {
 /** Bedingungen für zusätzlichen Schaden (Schlüssel im Kampf → Wertname). */
 export const COND_KEYS = { burn: 'dmgVsBurn', chill: 'dmgVsChill', shock: 'dmgVsShock', poison: 'dmgVsPoison', bleed: 'dmgVsBleed', moving: 'dmgMoving', full: 'dmgFullLife', low: 'dmgLowLife', barrier: 'dmgBarrier', kill: 'dmgAfterKill', near: 'dmgNear', far: 'dmgFar' };
 
-export function computeSkill(inst, gsets) {
+// ---------------------------------------------------------------------------
+// Echos: In eine Rune verschmolzene Runen. Trifft die Hauptrune, löst jedes Echo (mit eigener
+// Abklingzeit) am Trefferort aus. Echos können selbst Echos tragen – bis zur erlaubten Tiefe.
+/** Wirkung je Echo-Ebene (Ebene 0 = die Rune selbst). */
+export const ECHO_EFF = [1, 0.65, 0.5, 0.38, 0.3];
+export const ECHO_SLOTS = 2;
+/** Erlaubte Echo-Tiefe: 1 + freigeschaltete Ebenen + Waffenkünste. */
+export const echoMaxDepth = (gsets) => Math.min(ECHO_EFF.length - 1, 1 + Math.round(flatSum(gsets, 'echoDepth')));
+/** Tiefe eines Echo-Baums (0 = keine Echos). */
+export const echoTreeDepth = (inst) => (inst.echo && inst.echo.length ? 1 + Math.max(...inst.echo.map(echoTreeDepth)) : 0);
+/** Anzahl aller Runen in einem Echo-Baum (ohne die Wurzel). */
+export const echoCount = (inst) => (inst.echo || []).reduce((s, e) => s + 1 + echoCount(e), 0);
+
+export function computeSkill(inst, gsets, depth = 0) {
   const { def, evo, local, lvl } = skillLocal(inst, gsets);
   const sets = [...gsets, local];
   const skip = def.tags.includes('minion') ? gsets.length : 0;
@@ -283,5 +296,25 @@ export function computeSkill(inst, gsets) {
   if (S.ret) mult *= 1.5;
   if (isDot) S.dps = S.avgHit * (def.beh === 'zone' ? Math.min(S.count, S.dur / S.interval) : 1); // dps-Werte sind bereits pro Sekunde
   else S.dps = S.avgHit * critF * perSec * mult;
+
+  // --- Echos (verschmolzene Runen) ---
+  S.echoes = null;
+  if (inst.echo && inst.echo.length && depth < echoMaxDepth(gsets)) {
+    const eff = ECHO_EFF[depth + 1] * mul(gsets, 'echoDmg');
+    const freq = mul(gsets, 'echoFreq');
+    S.echoes = inst.echo.slice(0, ECHO_SLOTS).map((e) => {
+      const E = computeSkill(e, gsets, depth + 1);
+      for (const t in E.dmg) E.dmg[t] = E.dmg[t].map((v) => v * eff);
+      E.avgHit *= eff; E.dps *= eff;
+      E.echoDepth = depth + 1;
+      E.anKey = 'echo:' + e.id;
+      // Abklingzeit: schnelle Runen hallen öfter nach
+      E.ecd = clamp((E.interval * 0.6) / freq, 0.2, 2.5);
+      E.next = 0;
+      return E;
+    });
+    // grobe Schätzung des Echo-Anteils für die Anzeige
+    for (const E of S.echoes) S.dps += E.dps * 0.5;
+  }
   return S;
 }

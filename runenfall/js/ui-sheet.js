@@ -9,7 +9,8 @@ import { PETS, SETS } from './data/endgame.js';
 import { FACTIONS, REP_RANKS, repRank, facIcon } from './data/factions.js';
 import { towerFloor, lawName, lawDesc } from './data/modes.js';
 import { snapshot, boonMods, ascendMods, actInfo, xpNeed } from './run.js';
-import { PATHS, ROMAN, boonDef, pathTiers, pathIcon } from './data/boons.js';
+import { PATHS, ROMAN, BOONS, boonDef, pathTiers, pathIcon } from './data/boons.js';
+import { capOpen, bundOpen, deedById } from './data/deeds.js';
 import { skillLocal, flatSum, runeName, BASE_LIFE, LIFE_PER_LVL, COND_KEYS } from './calc.js';
 
 const R = () => save.run;
@@ -158,11 +159,15 @@ export function effectsHtml(run) {
       const list = run.boons.map((b) => boonDef(b.id)).filter((d) => d && d.path === pid && d.tier).sort((a, b) => a.tier - b.tier);
       const deep = run.boons.filter((b) => b.id === `${pid}_v`).length;
       return `<div class="pathbox" style="--pc:${PATHS[pid].color}"><b>${pathIcon(pid)} ${esc(PATHS[pid].name)} · Stufe ${ROMAN[t]}${deep ? ` <small>· ${deep}× vertieft</small>` : ''}</b>
-        <ul class="mods">${list.map((d) => `<li><b>${ROMAN[d.tier]} ${esc(d.name)}:</b> ${d.mods.map(modText).map(esc).join(', ')}</li>`).join('')}</ul></div>`;
+        <ul class="mods">${list.map((d) => `<li><b>${ROMAN[d.tier]} ${esc(d.name)}:</b> ${d.mods.map(modText).map(esc).join(', ')}</li>`).join('')}</ul>
+        ${t >= 3 && !capOpen(pid) ? `<p class="small muted">🔒 Stufe IV: ${esc(deedById(`cap_${pid}`).text)}</p>` : ''}</div>`;
     }).join('')}`);
   }
   const bunds = run.boons.map((b) => boonDef(b.id)).filter((d) => d && d.bund);
   if (bunds.length) sec.push(`<h3>Bund-Segen</h3><ul class="mods">${bunds.map((d) => `<li><b>${pathIcon('bund')} ${esc(d.name)}</b> <small class="muted">(${d.bund.map((x) => esc(PATHS[x].name)).join(' + ')})</small>: ${d.mods.map(modText).map(esc).join(', ')}</li>`).join('')}</ul>`);
+  const pids = Object.keys(tiers);
+  const lockedB = BOONS.filter((b) => b.bund && b.bund.every((p) => pids.includes(p)) && !bundOpen(b.id));
+  if (lockedB.length) sec.push(`<h3>Bund-Segen entdecken</h3><ul class="mods">${lockedB.map((b) => `<li>🔒 <b>${esc(b.name)}:</b> ${esc(deedById(b.id).text)}</li>`).join('')}</ul>`);
   const rest = run.boons.filter((b) => { const d = boonDef(b.id); return !d || d.generic || d.deep; });
   if (rest.length) sec.push(`<h3>Weitere Segen (${rest.length})</h3><ul class="mods">${rest.map((b) => { const d = boonDef(b.id); return `<li style="color:${BOON_RARITY[b.r || 0].color}">${d ? `<b>${esc(d.name)}:</b> ` : ''}${boonMods(b).map(modText).map(esc).join(', ')}</li>`; }).join('')}</ul>`);
   if (run.runMods.length) sec.push(`<h3>Aus Ereignissen & Gaben</h3><ul class="mods">${lis(run.runMods)}</ul>`);

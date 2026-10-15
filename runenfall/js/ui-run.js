@@ -16,16 +16,17 @@ import { PETS } from './data/endgame.js';
 import { makeItem } from './data/items.js';
 import { sfx, buzz } from './audio.js';
 import { RUNE_TRAITS } from './data/systems.js';
-import { runeName } from './calc.js';
+import { runeName, ECHO_EFF, ECHO_SLOTS, echoMaxDepth } from './calc.js';
 import { grindPanel, systemsSummary } from './ui-systems.js';
 import { EVOLUTIONS, evolvedDef, evoOf } from './data/evolutions.js';
-import { pendingEvolution, evolveRune, eventById } from './run.js';
+import { pendingEvolution, evolveRune, eventById, fuseRune, fuseNew, fuseBlock, fuseCost, buildSets } from './run.js';
 import { FACTIONS, facIcon } from './data/factions.js';
 import { factionSummary } from './ui-factions.js';
 import { coach } from './coach.js';
 import { analysisHtml, analysisTop } from './analysis.js';
 import { showTowerRun, showRushRun, showHuntRun, modeWhere, resWhere } from './ui-modes.js';
 import { huntTile } from './data/modes.js';
+import { checkDeeds, capOpen } from './data/deeds.js';
 import { sheetHtml, effectsHtml } from './ui-sheet.js';
 
 const R = () => save.run;
@@ -173,6 +174,7 @@ let glyphPick = null;
 export function showBuild(back = 'map') {
   const run = R();
   coach('build');
+  if (run.skills.length >= 2 && buildTab === 'skills') coach('fusion');
   const snap = snapshot(run);
   const tabs = [['skills', 'Runen'], ['gear', 'Ausrüstung'], ['sheet', 'Werte'], ['boons', 'Effekte'], ['an', 'Analyse']]
     .map(([k, n]) => `<button class="${buildTab === k ? 'on' : ''}" data-a="btab" data-t="${k}">${n}</button>`).join('');
@@ -207,17 +209,54 @@ function skillsTab(run, snap) {
     const evo = sk.evo ? evoOf(sk.id, sk.evo) : null;
     const evoLine = evo ? `<p class="small evoline">✦ <b>Evolution:</b> ${esc(evo.desc)}</p>`
       : sk.lvl >= MAX_SKILL_LVL && EVOLUTIONS[sk.id] ? `<button class="btn small primary evobtn" data-a="evoOpen" data-s="${i}">✦ Bereit zur Evolution</button>` : '';
-    return `<div class="panel skill ${evo ? 'evolved' : ''}"><div class="row between"><h3>${esc(runeName(sk))} <small>Stufe ${sk.lvl}${lvlNote}/${MAX_SKILL_LVL}</small></h3>
-      <button class="icon small" data-a="skInfo" data-id="${sk.id}">i</button></div>${evoLine}
+    const fuseBtn = run.skills.length > 1 ? `<button class="icon small fusebtn" data-a="fuseOpen" data-s="${i}" title="Verschmelzen">⟁</button>` : '';
+    return `<div class="panel skill ${evo ? 'evolved' : ''} ${sk.echo && sk.echo.length ? 'hasecho' : ''}"><div class="row between"><h3>${esc(runeName(sk))} <small>Stufe ${sk.lvl}${lvlNote}/${MAX_SKILL_LVL}</small></h3>
+      <div class="row">${fuseBtn}<button class="icon small" data-a="skInfo" data-id="${sk.id}">i</button></div></div>${evoLine}
       <div class="tags">${tagChips(catTags(def))}</div>
       ${trs.length ? `<p class="small trait">${trs.map((t) => `✧ <b>${esc(RUNE_TRAITS[t].name)}:</b> ${RUNE_TRAITS[t].mods.map(modText).map(esc).join(', ')}`).join('<br>')}</p>` : ''}
-      ${skillStatsLine(S)}<div class="socks">${sockets}</div></div>`;
+      ${skillStatsLine(S)}<div class="socks">${sockets}</div>${sk.echo && sk.echo.length ? `<div class="echoes">${echoTree(sk.echo, 1)}</div>` : ''}</div>`;
   }).join('');
   const glyphs = run.glyphs.length ? run.glyphs.map((g, i) => `<button class="glyph ${glyphPick === i ? 'sel' : ''}" data-a="gPick" data-i="${i}"><span class="gem">◆</span>${esc(SUPPORTS[g].name)}</button>`).join('')
     : '<p class="muted small">Keine freien Glyphen. Du findest sie als Belohnung und beim Händler.</p>';
   const sel = glyphPick !== null ? glyphCard(run.glyphs[glyphPick], '<span class="small muted">Tippe einen grün markierten Sockel an.</span>') : '';
   return `${skills}<h3>Glyphen-Beutel</h3><div class="glyphs">${glyphs}</div>${sel}`;
 }
+/** Echo-Baum einer Rune (verschachtelt eingerückt). */
+function echoTree(list, depth) {
+  return list.map((e) => `<div class="echo" style="--d:${depth}"><span>↳ <b>${esc(runeName(e))}</b> <small>Stufe ${e.lvl} · ${Math.round(ECHO_EFF[depth] * 100)}% Wirkung${(e.sup || []).some(Boolean) ? ` · ◆${e.sup.filter(Boolean).length}` : ''}</small></span></div>${echoTree(e.echo || [], depth + 1)}`).join('');
+}
+
+// ===================================================================== Runen verschmelzen
+let fuseHost = null;
+on('fuseOpen', (d) => {
+  if (buildBackTo === 'combat') { toast('Verschmelzen geht nur außerhalb des Kampfes.'); return; }
+  const run = R(), hi = Number(d.s), host = run.skills[hi];
+  fuseHost = hi;
+  const cost = fuseCost(run);
+  const opts = run.skills.map((sk, i) => {
+    if (i === hi) return '';
+    const why = fuseBlock(run, hi, sk);
+    return `<button class="btn ${why ? 'disabled' : ''}" data-a="fusePick" data-s="${i}">${esc(runeName(sk))} <small>Stufe ${sk.lvl}${sk.echo && sk.echo.length ? ` · ${sk.echo.length} Echo(s)` : ''}</small>${why ? `<small class="muted block">${esc(why)}</small>` : ''}</button>`;
+  }).join('');
+  modal(`<h3>⟁ In ${esc(runeName(host))} verschmelzen</h3>
+    <p class="small">Die gewählte Rune geht als <b>Echo</b> in ${esc(runeName(host))} über: Trifft ${esc(runeName(host))}, löst das Echo am Trefferort aus (${Math.round(ECHO_EFF[1] * 100)}% Wirkung). Ihre Stufe, Glyphen und eigenen Echos bleiben erhalten, ihr Platz wird frei.</p>
+    <p class="small muted">Bis zu ${ECHO_SLOTS} Echos pro Rune, verschachtelt bis Ebene ${echoMaxDepth(buildSets(run))}. Kosten: <span class="gold">● ${cost}</span></p>
+    <div class="col">${opts}<button class="btn ghost" data-a="_close">Abbrechen</button></div>`);
+});
+on('fusePick', (d) => {
+  const run = R(), hi = fuseHost, di = Number(d.s), cost = fuseCost(run);
+  const why = fuseBlock(run, hi, run.skills[di]);
+  if (why) { toast(esc(why)); return; }
+  if (run.gold < cost) { sfx.deny(); toast(`Nicht genug Gold (● ${cost}).`); return; }
+  const hn = runeName(run.skills[hi]), dn = runeName(run.skills[di]);
+  run.gold -= cost;
+  fuseRune(run, hi, di);
+  checkDeeds(run, 'fuse').forEach((x, k) => setTimeout(() => toast(`✦ Tat vollbracht! Freigeschaltet: ${x.reward}`), 1800 + k * 1600));
+  persist(); closeModal(); sfx.evolve ? sfx.evolve() : sfx.levelup(); buzz([30, 20, 60]);
+  toast(`⟁ ${esc(dn)} hallt jetzt in ${esc(hn)} nach.`);
+  showBuild(buildBackTo);
+});
+
 // ===================================================================== Runen-Evolution
 let evoShown = false;
 const OV_TXT = { count: 'Anzahl', area: 'Fläche', size: 'Größe', explode: 'Explosion', pierce: 'Durchbohren', chain: 'Sprünge', cd: 'Intervall', steps: 'Explosionen', max: 'Max. Fallen', dur: 'Dauer', delay: 'Vorwarnzeit', speed: 'Geschosstempo' };
@@ -348,7 +387,7 @@ on('lvlBanishMode', () => { if (!R().banish) return; banishMode = !banishMode; t
 /** Deine Pfade in diesem Run (und freie Plätze). */
 export function pathChips(run) {
   const t = pathTiers(run);
-  const chips = Object.entries(t).map(([p, n]) => `<span class="pchip" style="--pc:${PATHS[p].color}">${pathIcon(p)} ${esc(PATHS[p].name)} ${ROMAN[n]}</span>`);
+  const chips = Object.entries(t).map(([p, n]) => `<span class="pchip" style="--pc:${PATHS[p].color}">${pathIcon(p)} ${esc(PATHS[p].name)} ${ROMAN[n]}${n === 3 && !capOpen(p) ? ' 🔒' : ''}</span>`);
   for (let k = chips.length; k < MAX_PATHS; k++) chips.push('<span class="pchip free">freier Pfad</span>');
   return `<div class="pchips">${chips.join('')}</div>`;
 }
@@ -382,7 +421,7 @@ function choiceCard(run, c, i, action) {
     if (sk.lvl + 1 === 3 && SKILLS[sk.id].lvl3) body += `<p class="small up">${SKILLS[sk.id].lvl3.map(modText).join(', ')}</p>`;
     if (sk.lvl + 1 === 5 && SKILLS[sk.id].lvl5) body += `<p class="small up">${SKILLS[sk.id].lvl5.map(modText).join(', ')}</p>`;
   } else if (c.kind === 'newSkill') {
-    col = '#ffd84d'; label = run.skills.length >= MAX_SKILLS ? 'Neue Rune · ersetzt eine' : 'Neue Rune';
+    col = '#ffd84d'; label = run.skills.length >= MAX_SKILLS ? 'Neue Rune · tauschen oder verschmelzen' : 'Neue Rune';
     title = runeName({ id: c.id, traits: c.traits });
     body = `<div class="tags">${tagChips(catTags(SKILLS[c.id]))}</div><p class="small">${esc(SKILLS[c.id].desc)}</p>${traitLines(c.traits)}`;
   } else if (c.kind === 'glyph') {
@@ -484,8 +523,11 @@ function askReplace(c, src) {
   const run = R();
   replState = { c, src };
   const opts = run.skills.map((sk, i) => `<button class="btn" data-a="runeRepl" data-s="${i}">${esc(runeName(sk))} <small>Stufe ${sk.lvl}</small></button>`).join('');
-  modal(`<h3>Rune ersetzen</h3><p class="small">Alle ${MAX_SKILLS} Plätze sind belegt. <b>${esc(runeName({ id: c.id, traits: c.traits }))}</b> ersetzt eine deiner Runen und übernimmt die halbe Stufe; gesockelte Glyphen kommen zurück in den Beutel.</p>
-    <div class="col">${opts}<button class="btn ghost" data-a="runeReplNo">Abbrechen</button></div>`);
+  const nd = { id: c.id, lvl: 1, sup: [], traits: c.traits || [], echo: [] };
+  const fuse = run.skills.map((sk, i) => { const why = fuseBlock(run, i, nd); return `<button class="btn ${why ? 'disabled' : ''}" data-a="runeFuseNew" data-s="${i}">⟁ in ${esc(runeName(sk))}${why ? `<small class="muted block">${esc(why)}</small>` : ''}</button>`; }).join('');
+  modal(`<h3>Alle Plätze belegt</h3><p class="small"><b>${esc(runeName({ id: c.id, traits: c.traits }))}</b> kann eine deiner Runen <b>ersetzen</b> (übernimmt die halbe Stufe, Glyphen kommen zurück in den Beutel) – oder als <b>Echo verschmelzen</b>: Sie löst dann bei Treffern der gewählten Rune aus.</p>
+    <h4>Ersetzen</h4><div class="col">${opts}</div><h4>Als Echo verschmelzen</h4><div class="col">${fuse}</div>
+    <button class="btn ghost" data-a="runeReplNo">Abbrechen</button>`);
 }
 on('runeRepl', (d) => {
   const run = R(), st = replState;
@@ -506,6 +548,30 @@ on('runeRepl', (d) => {
   rewardState = null;
   closeModal();
   if (done) done();
+});
+on('runeFuseNew', (d) => {
+  const run = R(), st = replState;
+  if (!st) return;
+  const idx = Number(d.s);
+  const why = fuseBlock(run, idx, { id: st.c.id, lvl: 1, sup: [], traits: [], echo: [] });
+  if (why) { toast(esc(why)); return; }
+  replState = null;
+  if (st.src === 'shop') {
+    if (run.gold < st.c.price) { closeModal(); return; }
+    run.gold -= st.c.price; st.c.sold = true;
+    fuseNew(run, idx, st.c);
+    checkDeeds(run, 'fuse').forEach((x, k) => setTimeout(() => toast(`✦ Tat vollbracht! Freigeschaltet: ${x.reward}`), 1800 + k * 1600));
+    closeModal(); sfx.gold(); persist(); showShop(false);
+  } else {
+    fuseNew(run, idx, st.c);
+    checkDeeds(run, 'fuse').forEach((x, k) => setTimeout(() => toast(`✦ Tat vollbracht! Freigeschaltet: ${x.reward}`), 1800 + k * 1600));
+    sfx.loot();
+    const done = rewardState && rewardState.onDone;
+    rewardState = null;
+    closeModal();
+    if (done) done();
+  }
+  toast(`⟁ Neues Echo in ${esc(runeName(run.skills[idx]))}.`);
 });
 on('runeReplNo', () => {
   const st = replState;
@@ -534,7 +600,7 @@ export function showForge() {
       if (it.affixes.length) acts.push(b('upgrade', 'Veredelung', 'Ein Affix +1 Stufe'));
       if (it.affixes.length >= 2) acts.push(forgeLock >= 0 && forgeLock < it.affixes.length ? b('lock', 'Sperren & Würfeln', 'Gesperrter Affix bleibt, Rest neu') : '<small class="muted">Tippe einen Affix an, um ihn zu sperren.</small>');
       const partners = all.filter((x) => x !== it && x.slot === it.slot && canCraft(x));
-      if (partners.length) acts.push(b('fuse', 'Verschmelzen', 'Mit einem gleichen Gegenstand'));
+      if (partners.length) acts.push(b('fuse', 'Verschmelzen', it.slot === 'weapon' ? 'Beste Affixe + Waffenkünste vereinen' : 'Mit einem gleichen Gegenstand'));
       acts.push(b('corrupt', 'Korrumpieren', 'Riskant: Erhaben, Implizit, Chaos … oder Zerfall'));
     } else {
       if (it.rarity === 'unique' && (it.uqLvl || 0) < UQ_MAX) acts.push(b('unique', `Aufwerten ${'★'.repeat((it.uqLvl || 0) + 1)}`, '+15 % auf alle Werte des Unikats'));
@@ -556,7 +622,7 @@ on('fDo', (d) => {
   if (!it) return;
   if (d.op === 'fuse') {
     const partners = [...SLOTS.map((s) => run.eq[s]).filter(Boolean), ...run.bag].filter((x) => x !== it && x.slot === it.slot && canCraft(x));
-    modal(`<h3>Verschmelzen mit …</h3><p class="small muted">Der gewählte Gegenstand wird verbraucht. Es bleiben die besten Affixe beider (max. 3 Präfixe und 3 Suffixe).</p>
+    modal(`<h3>Verschmelzen mit …</h3><p class="small muted">Der gewählte Gegenstand wird verbraucht. Es bleiben die besten Affixe beider (max. 3 Präfixe und 3 Suffixe).${it.slot === 'weapon' ? ' Waffen verschiedener Art vereinen ihre <b>Waffenkünste</b> (bis zu 3) – so entstehen Hybridwaffen.' : ''}</p>
       <div class="col">${partners.map((x) => itemCard(x, { small: true, actions: `<button class="btn small primary" data-a="fFuse" data-u="${x.uid}">Verschmelzen</button>` })).join('')}</div>
       <button class="btn" data-a="_close">Abbrechen</button>`);
     return;

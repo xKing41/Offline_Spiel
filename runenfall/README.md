@@ -54,7 +54,7 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 | **Altar** | 21 dauerhafte Verbesserungen (Schaden, Leben, Neuwürfeln, Wiederbeleben, Rabatte …) |
 | **Relikte** | Dauerhafte Ausrüstung über alle Runs, bis zu 5 Affixe, mit Staub auf Stufe 10 veredelbar |
 | **Klassen** | 9 Klassen, 6 davon freischaltbar |
-| **Sternenhöhe** | Unendliche Schwierigkeitsstufen mit besseren Belohnungen |
+| **Sternenhöhe** | Eigene Leiter je Klasse: 20 Höhen mit je einer neuen Regel, danach endlos – mit besseren Belohnungen |
 | **Abgrund** | Endlosmodus nach dem ersten Sieg – wie tief kommst du? |
 | **Prophezeiungen** | 12 frei kombinierbare Erschwernisse für mehr Sternenstaub |
 | **Tägliche Herausforderung** | Jeden Tag ein fester Run mit doppeltem Staub |
@@ -64,6 +64,12 @@ Roguelite für das Handy – Survivor-Kämpfe, Pfadkarte wie in einem Deckbuilde
 
 ## Bosse mit Mechaniken
 Ab der Hälfte ihres Lebens setzt jeder Boss eine eigene Mechanik ein: **Schildkristalle** zerstören (der Schild bricht → Betäubung und Verwundbarkeit), **heilende Seelenanker** ausschalten, bei **Sternenschlägen** in die sicheren Kreise flüchten oder einem **Schachbrett** aus Einschlägen ausweichen.
+
+## Kombinationen ohne Ende
+- **Runen verschmelzen:** Eine Rune geht als **Echo** in eine andere über und löst bei deren Treffern am Trefferort aus – mit ihrer Stufe, ihren Glyphen, Merkmalen und eigenen Echos. Bis zu 2 Echos pro Rune, verschachtelt bis zu 4 Ebenen (Feuerball → Frostnova → Kettenblitz → Meteor). Verschmelzen gibt einen Runenplatz frei.
+- **Waffenkünste:** Jede Waffenart verändert Echos (öfter, mehr Geschosse, größere Flächen, beim Töten, mehr Schaden, eine Ebene tiefer). Waffen verschiedener Art verschmelzen zu **Hybridwaffen** mit bis zu 3 Künsten.
+- **Taten statt Staub:** Meisterstücke der Pfade, Bund-Segen und tiefere Echo-Ebenen werden durch Taten freigeschaltet – etwa einen Boss mit zwei Pfaden auf Stufe II besiegen.
+- **Sternenhöhe pro Klasse:** 9 eigene Leitern mit je 20 Höhen, jede Höhe eine neue Regel, Meilensteine mit Sternpunkten.
 
 ## Build-Tiefe
 - **Segen-Pfade:** Glut, Frost, Sturm, Seuche, Klinge, Geschosse, Erschütterung, Legion, Präzision und Bollwerk – je vier Stufen, ab Stufe II mit neuen Regeln (Brände stapeln sich und explodieren, Geschosse teilen sich und kehren zurück, jeder 4. Flächentreffer wird zum Großbeben, Begleiter markieren Gegner …). Höchstens drei Pfade pro Run, Vertiefungen für begonnene Pfade.

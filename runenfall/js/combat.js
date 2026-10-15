@@ -10,7 +10,7 @@ import { music } from './music.js';
 /** Schadensanalyse eines Kampfes: je Rune, Element, Krit, Schaden über Zeit und erlittener Schaden. */
 const newAn = () => ({ sk: {}, el: {}, crit: [0, 0, 0, 0], dot: {}, other: 0, tk: {}, src: {}, dodged: 0 });
 const anSkill = (A, S) => {
-  const key = S.isPet ? 'pet:' + S.id : S.id;
+  const key = S.anKey || (S.isPet ? 'pet:' + S.id : S.id);
   return A.sk[key] || (A.sk[key] = { d: 0, h: 0, c: 0, dot: 0, k: 0 });
 };
 import {
@@ -150,6 +150,7 @@ export class Combat {
     this.floorPat = null;
     this.ambient = typeof document !== 'undefined' ? makeAmbient(this.bfx.amb) : [];
     this.rebirthUsed = false;
+    this.ascRegen = ascHas(cfg.asc, 'regen');
     this.frenzy = 0;
     this.frenzyT = 0;
     this.hazardT = 3;
@@ -443,7 +444,7 @@ export class Combat {
     const e = this.spawn(id, pos.x, pos.y);
     if (!e) return;
     e.elite = true;
-    e.hp = e.maxHp = e.maxHp * 4.5;
+    e.hp = e.maxHp = e.maxHp * 4.5 * (ascHas(c.asc, 'eliteHp') ? 1.3 : 1);
     e.r *= 1.35;
     e.xp *= 8;
     e.dmg *= 1.25;
@@ -654,6 +655,7 @@ export class Combat {
         if (e.hp <= 0) { this.kill(e, e.lastS); continue; }
       }
       if (e.affixes.includes('regen')) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.03 * dt);
+      if (this.ascRegen && !e.boss) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.01 * dt);
 
       let spd = e.speed * (e.chill > 0 ? 1 - e.chillEff : 1);
       if (e.frozen > 0) spd = 0;
@@ -976,7 +978,7 @@ export class Combat {
     }
     const busy = e.charge || e.spiral || e.barr || e.lasers || e.vortex;
     for (const pt of e.pat) {
-      pt.t -= dt * (e.rage ? 1.45 : 1) * (e.shieldUp ? 0.55 : 1);
+      pt.t -= dt * (e.rage ? 1.45 : 1) * (e.shieldUp ? 0.55 : 1) * (this.cfg.swiftBoss ? 1.2 : 1);
       if (pt.t > 0 || busy) continue;
       pt.t = pt.cd * rand(0.85, 1.15);
       const act = this.cfg.act || 3;
@@ -1303,6 +1305,7 @@ export class Combat {
       const n = this.nearest(e.x, e.y, 220, ex);
       if (n) { this.fx.push({ type: 'bolt', pts: [[e.x, e.y], [n.x, n.y]], t: 0.15, max: 0.15, color: '#ffe066' }); this.hitEnemy(n, S, 1, true); }
     }
+    if (S.echoes) this.triggerEchoes(S, e);
     if (e.hp <= 0) {
       if (P.spec.spec_overkill && e.hp < 0) {
         const over = -e.hp;
@@ -1312,6 +1315,95 @@ export class Combat {
       this.kill(e, S);
     }
     return total;
+  }
+
+  // ---------------------------------------------------------------- Echos (verschmolzene Runen)
+  /** Echos einer Rune am Ort des Treffers auslösen – jedes Echo hat eine eigene Abklingzeit. */
+  triggerEchoes(S, e, onKill = false) {
+    const x = e.x, y = e.y;
+    for (const E of S.echoes) {
+      if (onKill) { if (this.t < (E.nextK || 0)) continue; E.nextK = this.t + 0.15; }
+      else { if (this.t < E.next) continue; E.next = this.t + E.ecd; }
+      this.delayed.push({ t: 0.06, fn: () => this.castEcho(E, x, y, e) });
+    }
+  }
+
+  /** Ein Echo ausführen: das Verhalten der Spender-Rune, ausgehend vom Trefferort. */
+  castEcho(E, x, y, src) {
+    if (this.over) return;
+    const def = E.def, spec = this.P.spec, color = typeColor(E.dmg);
+    const areaK = 1 + (spec.spec_echoArea || 0) / 100;
+    const r0 = (E.area || 55) * 0.8 * areaK;
+    this.ring(x, y, 20, color, 0.25);
+    switch (def.beh) {
+      case 'proj':
+      case 'minion': {
+        const n = (def.beh === 'minion' ? Math.max(2, E.minions || 2) : Math.max(1, Math.ceil(E.count / 2))) + (spec.spec_echoProj || 0);
+        const ex = new Set(src ? [src] : []);
+        for (let i = 0; i < n; i++) {
+          const t = this.nearest(x, y, 380, ex);
+          if (t) ex.add(t);
+          const a = t ? Math.atan2(t.y - y, t.x - x) : Math.random() * TAU;
+          this.fireProj({ ...E, count: 1, def: def.beh === 'minion' ? { ...def, range: 340, size: 5, homing: 3 } : def }, x, y, a, color);
+        }
+        break;
+      }
+      case 'nova':
+      case 'melee':
+        this.blast(E, x, y, r0, color);
+        break;
+      case 'chain': {
+        const hit = new Set(src ? [src] : []);
+        const pts = [[x, y]];
+        let t = this.nearest(x, y, 260, hit), jumps = E.chain;
+        while (t) {
+          hit.add(t); pts.push([t.x, t.y]);
+          this.hitEnemy(t, E);
+          if (jumps-- <= 0) break;
+          t = this.nearest(t.x, t.y, 230, hit);
+        }
+        if (pts.length > 1) this.fx.push({ type: 'bolt', pts, t: 0.2, max: 0.2, color });
+        break;
+      }
+      case 'zone':
+      case 'aura':
+        { const zt = def.beh === 'aura' ? 2 : Math.max(1.5, (E.dur || 3) * 0.6); this.zones.push({ x, y, r: r0, t: zt, max: zt, tick: 0, S: E, color }); }
+        if (this.zones.length > 40) this.zones.splice(0, this.zones.length - 40);
+        break;
+      case 'meteor': {
+        const delay = 0.45;
+        this.fx.push({ type: 'tele', x, y, r: r0, t: delay, max: delay, color });
+        fallFx(this, E, x, y, delay);
+        this.delayed.push({ t: delay, fn: () => { this.blast(E, x, y, r0, color); this.burst(x, y, color, 14, 200); } });
+        break;
+      }
+      case 'strikes': {
+        const near = this.enemies.filter((o) => !o.dead && !o.phased && Math.hypot(o.x - x, o.y - y) < 220);
+        for (let i = 0; i < Math.min(2, near.length); i++) {
+          const tg = near[Math.floor(Math.random() * near.length)];
+          this.delayed.push({ t: i * 0.08, fn: () => {
+            this.blast(E, tg.x, tg.y, r0, color);
+            this.fx.push({ type: 'bolt', pts: [[tg.x + rand(-25, 25), tg.y - 180], [tg.x, tg.y]], t: 0.18, max: 0.18, color });
+          } });
+        }
+        break;
+      }
+      case 'line': {
+        const t = this.nearest(x, y, 380, new Set(src ? [src] : []));
+        const a = t ? Math.atan2(t.y - y, t.x - x) : Math.random() * TAU, step = r0 * 1.2;
+        for (let i = 0; i < 3; i++) {
+          const lx = x + Math.cos(a) * (20 + i * step), ly = y + Math.sin(a) * (20 + i * step);
+          this.delayed.push({ t: i * 0.07, fn: () => this.blast(E, lx, ly, r0, color) });
+        }
+        break;
+      }
+      case 'orbit':
+        for (let i = 0; i < 3; i++) this.delayed.push({ t: i * 0.18, fn: () => { this.areaHit(E, x, y, 55 * areaK); this.ring(x, y, 55 * areaK, color, 0.18); } });
+        break;
+      case 'trap':
+        this.traps.push({ x, y, sx: x, sy: y, fly: 0.01, arm: 0.3, life: 6, S: E, color });
+        break;
+    }
   }
 
   dealDamage(e, amount, crit, S) {
@@ -1402,6 +1494,7 @@ export class Combat {
       k.d += total; k.dot += total;
       for (const t in parts) A.el[t] = (A.el[t] || 0) + parts[t] * m;
       e.dotAcc += total;
+      if (S.echoes) this.triggerEchoes(S, e);
       if (e.hp <= 0) this.kill(e, S);
     });
   }
@@ -1448,6 +1541,7 @@ export class Combat {
     }
     // Besondere Effekte
     if (S && S.killExplode) this.aoeFlat(e.x, e.y, 75, (e.maxHp * S.killExplode) / 100, 'fire');
+    if (S && S.echoes && P.spec.spec_echoKill) this.triggerEchoes(S, e, true);
     if (P.spec.spec_burnExplode && e.burns.length) {
       const ex = e.x, ey = e.y, v = (e.maxHp * P.spec.spec_burnExplode) / 100;
       this.fx.push({ type: 'flash', x: ex, y: ey, r: 95, color: '#ff8a3a', t: 0.18, max: 0.18 });

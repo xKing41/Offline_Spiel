@@ -2,7 +2,7 @@
 import { esc, fmt, fmtV } from './util.js';
 import { SKILLS, SUPPORTS, catTags } from './data/skills.js';
 import { TAG_NAME, ELEM, modText } from './data/stats.js';
-import { BASES, RARITY, SLOT_NAME, UNIQUES, itemName, itemMods, affixLine, uniqueMods } from './data/items.js';
+import { BASES, RARITY, SLOT_NAME, UNIQUES, itemName, itemMods, affixLine, uniqueMods, itemArts, WEAPON_ARTS } from './data/items.js';
 import { SETS, JEWEL_SPECIALS } from './data/endgame.js';
 import { MYTHIC_EFFECTS } from './data/systems.js';
 import { sfx, unlockAudio } from './audio.js';
@@ -112,9 +112,11 @@ export function itemCard(item, { compare = null, actions = '', small = false, af
       for (const m of JEWEL_SPECIALS[item.special]) lines.push(`<li class="u">✦ ${esc(modText(m))}</li>`);
     }
   }
+  const arts = itemArts(item);
+  if (arts.length) { lines.push('<li class="sep"></li>'); for (const a of arts) lines.push(`<li class="art">⚔ <b>${esc(WEAPON_ARTS[a].name)}:</b> ${WEAPON_ARTS[a].mods.map((m) => esc(modText(m))).join(', ')}</li>`); }
   if (item.cmods && item.cmods.length) { lines.push('<li class="sep"></li>'); for (const m of item.cmods) lines.push(`<li class="corr">⛧ ${esc(modText(m))}</li>`); }
   if (item.corrupt) lines.push('<li class="corrtag">Korrumpiert</li>');
-  const sub = item.slot === 'relic' ? `Relikt · Stufe ${item.ilvl}` : item.slot === 'jewel' ? `Juwel · Stufe ${item.ilvl}` : `${SLOT_NAME[base.slot]} · ${base.name}${item.rarity === 'set' ? '' : ` · Gst. ${item.ilvl}`}`;
+  const sub = item.slot === 'relic' ? `Relikt · Stufe ${item.ilvl}` : item.slot === 'jewel' ? `Juwel · Stufe ${item.ilvl}` : `${SLOT_NAME[base.slot]} · ${base.name}${arts.length > 1 ? ' (Hybrid)' : ''}${item.rarity === 'set' ? '' : ` · Gst. ${item.ilvl}`}`;
   const flavor = item.rarity === 'unique' ? `<p class="flavor">${esc(UNIQUES[item.uq].flavor)}</p>` : '';
   let cmp = '';
   if (compare !== null) cmp = compareHtml(item, compare);

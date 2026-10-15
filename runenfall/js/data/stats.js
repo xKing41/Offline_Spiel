@@ -45,7 +45,7 @@ const NOUN = {
   dmgVsBurn: 'Schaden gegen brennende Gegner', dmgVsChill: 'Schaden gegen unterkühlte Gegner', dmgVsShock: 'Schaden gegen geschockte Gegner',
   dmgVsPoison: 'Schaden gegen vergiftete Gegner', dmgVsBleed: 'Schaden gegen blutende Gegner', dmgMoving: 'Schaden, während du dich bewegst',
   dmgFullLife: 'Schaden bei vollem Leben', dmgLowLife: 'Schaden bei weniger als halbem Leben', dmgBarrier: 'Schaden, solange du Barriere hast',
-  dmgAfterKill: 'Schaden für 3 s nach einer Tötung', dmgNear: 'Schaden gegen Gegner in deiner Nähe', dmgFar: 'Schaden gegen entfernte Gegner',
+  dmgAfterKill: 'Schaden für 3 s nach einer Tötung', echoFreq: 'Echo-Häufigkeit', echoDmg: 'Echo-Schaden', dmgNear: 'Schaden gegen Gegner in deiner Nähe', dmgFar: 'Schaden gegen entfernte Gegner',
   dust: 'Sternenstaub-Fund', axp: 'Konto-Erfahrung',
 };
 
@@ -115,6 +115,10 @@ const FLAT = {
   spec_frenzy: 'Jede Tötung gibt 1% mehr Tempo (bis 30%, verfällt nach 3 s)',
   spec_berserk: 'Bis zu 40% mehr Schaden, je weniger Leben du hast',
   spec_stillness: '30% mehr Schaden, solange du stehst',
+  echoDepth: '{sv} Echo-Ebene (Echos tiefer verschachteln)',
+  spec_echoProj: 'Geschoss-Echos feuern {sv} Geschoss(e)',
+  spec_echoArea: 'Flächen-Echos haben {v}% größeren Radius',
+  spec_echoKill: 'Echos lösen auch beim Töten eines Gegners aus',
   spec_bulwark: 'Barriere lädt nach Treffern doppelt so früh wieder auf und füllt sich sofort, wenn du einen Elite-Gegner tötest',
   spec_burnExplode: 'Gegner, die brennend sterben, explodieren ({v}% ihres max. Lebens als Feuerschaden)',
   spec_chillVuln: 'Unterkühlte Gegner erleiden {v}% mehr Schaden',

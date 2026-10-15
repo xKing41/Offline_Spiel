@@ -14,6 +14,7 @@ import { FACTIONS, FACTION_IDS, REP_RANKS, facIcon } from './data/factions.js';
 import { TOWER_LAWS, lawName, lawDesc, HUNT_TILES } from './data/modes.js';
 import { NODE_TYPES } from './run.js';
 import { PATHS, PATH_IDS, BOONS, ROMAN, pathIcon } from './data/boons.js';
+import { capOpen, bundOpen, deedById, DEEDS, deedDone } from './data/deeds.js';
 
 const byId = Object.fromEntries(ARTICLES.map((a) => [a.id, a]));
 /** Absatz formatieren: **fett**, Zeilen bleiben Zeilen. */
@@ -28,9 +29,10 @@ const LISTS = {
     const tiers = BOONS.filter((b) => b.path === pid && b.tier).sort((a, b) => a.tier - b.tier);
     const bunds = BOONS.filter((b) => b.bund && b.bund.includes(pid));
     return `<div class="cmfac"><b style="color:${P.color}">${pathIcon(pid)} ${esc(P.name)}</b><small class="muted">${esc(P.desc)}</small>
-      ${tiers.map((b) => row(`${ROMAN[b.tier]} ${esc(b.name)}`, esc(b.mods.map(modText).join(', ')))).join('')}
+      ${tiers.map((b) => row(`${ROMAN[b.tier]} ${esc(b.name)}${b.tier === 4 && !capOpen(pid) ? ' 🔒' : ''}`, `${esc(b.mods.map(modText).join(', '))}${b.tier === 4 && !capOpen(pid) ? ` <small>Tat: ${esc(deedById(`cap_${pid}`).text)}</small>` : ''}`)).join('')}
       ${bunds.length ? `<small class="muted">Bund-Segen: ${bunds.map((b) => `${esc(b.name)} (+ ${esc(PATHS[b.bund.find((x) => x !== pid)].name)})`).join(', ')}</small>` : ''}</div>`;
-  }).join('') + `<h4>Bund-Segen</h4>${BOONS.filter((b) => b.bund).map((b) => row(`${pathIcon('bund')} ${esc(b.name)}`, `${esc(b.mods.map(modText).join(', '))} <small>${b.bund.map((x) => esc(PATHS[x].name)).join(' + ')}</small>`)).join('')}`,
+  }).join('') + `<h4>Bund-Segen</h4>${BOONS.filter((b) => b.bund).map((b) => row(`${pathIcon('bund')} ${esc(b.name)}${bundOpen(b.id) ? '' : ' 🔒'}`, `${esc(b.mods.map(modText).join(', '))} <small>${b.bund.map((x) => esc(PATHS[x].name)).join(' + ')}${bundOpen(b.id) ? '' : ` · Tat: ${esc(deedById(b.id).text)}`}</small>`)).join('')}`,
+  deeds: () => DEEDS.map((d) => row(`${deedDone(d.id) ? '✦' : '🔒'} ${esc(d.reward)}`, esc(d.text))).join(''),
   rarities: () => [['normal', 'keine Affixe'], ['magic', '1–2 Affixe'], ['rare', '3–5 Affixe, eigener Name'], ['unique', 'feste, besondere Effekte'], ['set', 'Set-Boni ab 2 und 4 Teilen'], ['mythic', 'maximale Affixe + 1–2 Spezialeffekte']]
     .map(([k, t]) => row(esc(RARITY[k].name), t, RARITY[k].color)).join(''),
   keystones: () => Object.values(KEYSTONES).map((k) => row(esc(k.name), `${esc(k.desc)} <small>${k.mods.map(modText).map(esc).join(', ')}</small>`, '#ffd84d')).join(''),
